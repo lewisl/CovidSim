@@ -35,7 +35,6 @@ const popsize =  3
 const unexposed = People("unexposed", false) # active or cumulative
 const exposed = People("exposed", true)  # aging over 18 days; means not_infectious
 const infectious = People("infectious", true) # aging over 18 days
-const isolated = People("isolated", true) # aging over 18 days
 const recovered = People("recovered", false) # active or cumulative
 
 # population outcomes
@@ -43,6 +42,10 @@ const mild = People("mild", true)
 const sick = People("sick", true)
 const severe = People("severe", true)
 const dead = People("dead", false) # active or cumulative
+
+# population actions
+const isolated_exp = People("isolated_exp", true) # needs to be associated with condition
+const isolated_un  = People("isolated_un", true)  # must be recovered or unexposed
 
 # inbound travelers: exogenous, domestic, outbound (assumed domestic) travelers
 const intravel = People("intravel", false) # exogenous travelers in
@@ -110,7 +113,7 @@ end
                     # severe distribute to sick, severe or die remain at lag 18
                     # sick distribute to severe, mild remain at lag 18
                     # mild distribute to sick, recovered (no nil at this point) at lag 18
-                    # nil distribute to recovered 
+                    # exposed distribute to exposed, mild, sick, severe at days 1-6 
             # for earlier lags:
                     # severe distribute to sick, severe or die => advance one lag
                     # sick distribute to sick, severe, mild => advance one lag
@@ -141,6 +144,20 @@ end
 #   functions for simulation events
 ####################################################################################
 
+
+function evolve(locale)
+
+    for agegrp = agegrps
+
+
+end
+
+
+function evolve_one(source, to_conds, locale, agegrp)   # severe to severe, sick, die, mild
+
+    for cond in to_conds  #
+
+end
 
 # 16 microseconds for 5 locales
 """

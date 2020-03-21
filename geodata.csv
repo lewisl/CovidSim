@@ -1,0 +1,6 @@
+num, state, city, sizecat, pop
+1,WA,Tacoma,3,50000
+2,WA, Bellevue,3,60000
+3,WA, Kirkland,3,70000
+4,WA, Everett,3,90000
+5,WA, Seattle,4,100000
