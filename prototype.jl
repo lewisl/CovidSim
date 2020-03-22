@@ -5,52 +5,43 @@ using Distributions
 using StatsBase
 
 
-mutable struct People # indexes to population data
-    a1::Int64  # age group 1: 0 to 19
-    a2::Int64  # age group 1: 20 to 39
-    a3::Int64  # age group 1: 40 to 59
-    a4::Int64  # age group 1: 60 to 79
-    a5::Int64  # age group 1: 80+
-    lag::Bool
-    name::String
-end
-    
-    # alternate creator method to build array of indices
-    People(name, lag::Bool) = People(
-            0, 0, 0, 0, 0, lag, name)
-
 # control constants
-const age_dist = [0.251, 0.272,   0.255,   0.184,   0.039]
-const agegrps = [1,2,3,4,5]
+const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
 const travprobs = [2.0, 3.0, 5.0, 5.0, 0.6] # by age group
-const locales = [1,2,3,4,5]
-const lagrange = 1:19
+const lags = 1:19
 
-# row indices of data matrix won't change
+# geo data columns
 const id = 1
-const size_cat = 2
-const popsize =  3
+const state = 2
+const city = 3
+const size_cat = 4
+const popsize =  5
+const locales = [1,2,3,4,5]  # rows
 
-# population conditions
-const unexposed = People("unexposed", false) # active or cumulative
-const exposed = People("exposed", true)  # aging over 18 days; means not_infectious
-const infectious = People("infectious", true) # aging over 18 days
-const recovered = People("recovered", false) # active or cumulative
+# condition_outcome rows
+const unexposed = 1
+const infectious = 2
+const recovered = 3
+const dead = 4
+const nil = 5
+const mild = 6
+const sick = 7
+const severe = 8
+const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
+const condnames = Dict(1=>"unexposed",2=>"infectious",3=>"recovered", 4=>"dead",
+                       5=>"nil",6=>"mild",7=>"sick",8=>"severe")
 
-# population outcomes
-const mild = People("mild", true)
-const sick = People("sick", true)
-const severe = People("severe", true)
-const dead = People("dead", false) # active or cumulative
-
-# population actions
-const isolated_exp = People("isolated_exp", true) # needs to be associated with condition
-const isolated_un  = People("isolated_un", true)  # must be recovered or unexposed
+# agegrp channels at dimension 3
+const a1 = 1 # 0-19
+const a2 = 2 # 20-39
+const a3 = 3 # 40-59
+const a4 = 4 # 60-79
+const a5 = 5 # 80+
+const agegrps = [1,2,3,4,5]
+const ages = length(agegrps)
+const contact_risk_by_age = [.05, .10, .15, .30, .45]
 
 # inbound travelers: exogenous, domestic, outbound (assumed domestic) travelers
-const intravel = People("intravel", false) # exogenous travelers in
-const crosstravel = People("crosstravel", false)
-const outtravel = People("outtravel", false)
 const travelq = Queue{NamedTuple{(:cnt, :from, :to, :agegrp, :cond),
     Tuple{Int64,Int64,Int64,Int64,String}}}()
 
@@ -64,39 +55,35 @@ end
 # setup and initialization functions
 ######################################################################################
 
-function push_to_unexposed!(dat)
+function init_unexposed!(dat, geodata)
     for locale in locales
         for agegrp in agegrps
-            dat[getfield(unexposed,agegrp), locale] = floor(Int,age_dist[agegrp] * dat[popsize, locale])
+            dat[unexposed, locale, agegrp, 1] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
         end
     end
 end
 
 
-function build_matrix(symdata)
-    list = [unexposed, exposed, infectious, isolated, recovered, mild, sick,
-            severe, dead, intravel, crosstravel, outtravel]
-    m,n = size(symdata)
-    for item in list
-        symdata = cat(symdata,zeros(Int64,5,n), dims=1)
-        len = size(symdata,1)
-        item.a1 = len-4; item.a2 = len-3; item.a3 = len - 2; item.a4 = len -1; item.a5 = len;
-        if item.lag == true
-            beg = item.a1
-            fin = beg + 4
-            symdata[beg:fin,:] .= [zeros(Int64,19)]
-        end
-    end
-    return symdata
+function build_data(numgeo)
+    openmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), size(lags,1))
+    isolatedmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), size(lags,1))
+    openhistmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), 1) # initialize for 1 day
+    isolatedhistmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), 1) # initialize for 1 day
+    return (openmx, isolatedmx, openhistmx, isolatedhistmx)
 end
 
+function readgeodata(filename)
+    geodata = readdlm(filename, ','; header=true)[1]
+end
 
-function setup(symdata_filename)
-    symdata = readdlm(symdata_filename, ',')
-    symdata = convert(Array{Any}, symdata)
-    symdata = build_matrix(symdata)
-    push_to_unexposed!(symdata)
-    return symdata
+function setup(geofilename)
+
+    geodata = readgeodata(geofilename)
+    numgeo = size(geodata,1)
+    openmx, isolatedmx, openhistmx, isolatedhistmx = build_data(numgeo)
+    init_unexposed!(openmx, geodata)
+
+    return (openmx, isolatedmx, openhistmx, isolatedhistmx)
 end
 
 
@@ -124,10 +111,9 @@ end
             # go recovered => remove from previous condition; remove from exposed? remove from infectious        
 
 
-    # contact:  distribution of people(not isolated) contact distribution of residents across age&condition&lags
-
-
-    # of those contacted, a distribution become exposed & nil at lag 0
+    # DONE:  distribution of people(not isolated) contact distribution of residents across age&condition&lags
+            # DONE = spread!  touchers -> num_touched -> split by age/condition
+            # DONE in spread!  of those contacted, a distribution become exposed & nil at lag 0
 
 
     # DONE = travelout! some residents travel out
@@ -147,19 +133,65 @@ end
 
 function evolve(locale)
 
-    for agegrp = agegrps
-
-
-end
-
-
-function evolve_one(source, to_conds, locale, agegrp)   # severe to severe, sick, die, mild
-
-    for cond in to_conds  #
+    for agegrp in agegrps
+    end
 
 end
 
-# 16 microseconds for 5 locales
+# TODO:  use predetermined distribute probs instead of equally likely
+function distribute(from_cond, to_conds, cnt)   # severe to severe, sick, die, mild
+    numcells = length(to_conds)
+    probvec = fill(1.0/float(numcells), numcells)
+    x = catprob(probvec, cnt)
+end
+
+
+"""
+How far do the infectious people spread the virus into previously unexposed people, by agegrp?
+"""
+function spread!(locale)
+    # start with the number of infectious people      
+    # now we ignore what their condition and age are is: TODO fix
+    # should spread less for conditions in order: nil, mild, sick, severe
+    # need to loop by condition
+    spreaders = Int(sum(grab(infectious, 1:5,1:11, locale)))
+    if spreaders == 0
+        return nothing
+    end
+    # how many people are touched 
+    touched = how_many_touched(spreaders)
+
+    # by age group
+    byage = split_by_age(touched)
+    for i in 1:length(byage)
+        byage[i] = ceil.(Int, rand(Binomial(byage[i], contact_risk_by_age[i])))
+    end
+
+    # move the people from unexposed:agegrp to infectious:agegrp
+    # plus!(byage, infectious, agegrps, 1, locale)  crazy--doesn't work
+    openmx[infectious, 1, agegrps, 1] .+= byage
+    return nothing
+end
+
+
+function split_by_age(cnt)::Array{Int64,1}
+    numcells = ages
+    probvec = age_dist
+    x = catprob(probvec, cnt)
+    # nums, _ = histo(x)
+    nums = bucket(x,lim=5, bins=5)
+    return nums
+end
+
+# 5.7 microseconds for 100 touchers
+function how_many_touched(touchers, scale=6)
+    dgamma = Gamma(1.2, scale)  #shape, scale
+    x = rand(dgamma,touchers);
+    nums, bounds = histo(x)
+    return sum(nums .* bounds)
+end
+
+# 10.5 microseconds for 5 locales
 """
 For a locale, randomly choose the number of people from each agegroup with
 condition of {unexposed, exposed, infectious, recovered} who travel to each
@@ -167,25 +199,22 @@ other locale. Add to the travelq.
 """
 function travelout!(locale, rules=[])
     # choose distribution of people traveling by age and condition:
-        # unexposed, exposed, infectious, recovered -> ignore lag for now
-    # ret = []
-    travdests = locales
+        # unexposed, infectious, recovered -> ignore lag for now
+    travdests = copy(locales)
     deleteat!(travdests,findfirst(isequal(locale), travdests))
-    for peeps in [exposed, unexposed, infectious, recovered]
-        for agegrp = agegrps
-            if peeps.lag == true
-                numfolks = sum(grab(peeps, agegrp, lagrange, locale)) # this locale, all lags
-            else
-                numfolks = grab(peeps, agegrp, 1, locale) # this locale, all lags
-            end                
+    bins = lim = length(travdests) + 1
+    for cond in [unexposed, infectious, recovered]
+        name = condnames[cond]
+        for agegrp in agegrps
+            numfolks = sum(grab(cond, agegrp, lags, locale)) # this locale, all lags
             travcnt = floor(Int,prob(travprobs[agegrp]) * numfolks)
             x = rand(travdests, travcnt)
-            bydest = bucket(x, lim=length(travdests), bins=length(travdests))
+            bydest = bucket(x, lim=lim, bins=bins)
             for dest in 1:length(bydest)
                 isempty(bydest) && continue
                 cnt = bydest[dest]
                 iszero(cnt) && continue
-                enqueue!(travelq, travitem(cnt, locale, dest, agegrp, peeps.name))
+                enqueue!(travelq, travitem(cnt, locale, dest, agegrp, name))
             end
         end
     end
@@ -193,6 +222,7 @@ function travelout!(locale, rules=[])
 end
 
 # this could still be faster by memoizing x--don't look again at items already counted.
+# discrete integer histogram
 function bucket(x::Array; lim=5, bins = 5)
     ret = zeros(Int, bins)
     comp = collect(1:lim)
@@ -203,10 +233,29 @@ function bucket(x::Array; lim=5, bins = 5)
     return ret
 end
 
+function histo(x)
+    big = ceil(maximum(x))
+    bins = Int(big)
+    sm = floor(minimum(x))
+    ret = zeros(Int, bins)
+    binbounds = collect(1:bins)
+    for i = 1:bins
+        n = count(x -> i-1 < x <= i,x)
+        ret[i] = n
+    end
+    return ret, binbounds
+end
+
+
 function prob(target)
     @assert 0.0 <= target <= 99.0 "target must be between 0.0 and 99.0"
     dgamma = Gamma(1.2,target)
     pr = rand(dgamma, 1)[1] / 100.0
+end
+
+function catprob(probvec, trials)
+    @assert sum(probvec) == 1.0 "target vector must sum to 1.0"
+    x = rand(Categorical(probvec), trials)
 end
 
 ####################################################################################
@@ -215,23 +264,30 @@ end
 
 # single age, single lag, one locale
 # example: grab(exposed, 1, 1, 1:3)
-function grab(item::People, agegrp::Int, lag::Int, locale::Int; dat=symdata)
-    return dat[getfield(item, agegrp), locale][lag]
+function grab(condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
+    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
+    return dat[condition,locale, agegrp,lag]
 end
 
-# single age, multiple lags, one locale
-# example: grab("exposed", 1, 1:10, 1)  for lag 0 to 9 days
-function grab(item::People, age::Int, lag::UnitRange{Int64}, locale::Int; dat=symdata)
-    return dat[getfield(item, age), locale][lag]
-end 
 
-# 1 values to single age, single lag, one locale
-function input!(val, item::People, age::Int, lag::Int, locale::Int; dat=symdata)
-    dat[getfield(item, age), locale][lag] = val
+# 1 value to single age, single lag, one locale
+function input!(val, condition::Int, agegrp::Int, lag::Int, locale::Int; dat=openmx)
+    dat[condition,locale, agegrp,lag] = val
 end
 
-# TODO--doesn't work right.  assigns to all locales
-# 1 or more values to single age, multiple lags, one locale
-function input!(val, item::People, age::Int, lag::UnitRange{Int64}, locale; dat=symdata)
-    dat[getfield(item, age), locale][lag] .= val
+function input!(val, condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
+    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
+    dat[condition,locale, agegrp,lag] .= val
+end
+
+# maybe this doesn't work
+function plus!(val, condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
+    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
+    dat[condition,locale, agegrp,lag] .+= val
+end
+
+# maybe this doesn't work
+function minus!(val::Union{Real,Array}, condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
+    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
+    dat[condition,locale, agegrp,lag] .-= val
 end
