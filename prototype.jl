@@ -58,17 +58,17 @@ end
 function init_unexposed!(dat, geodata)
     for locale in locales
         for agegrp in agegrps
-            dat[unexposed, locale, agegrp, 1] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
+            dat[1, unexposed, agegrp, locale] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
         end
     end
 end
 
 
 function build_data(numgeo)
-    openmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), size(lags,1))
-    isolatedmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), size(lags,1))
-    openhistmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), 1) # initialize for 1 day
-    isolatedhistmx = zeros(Int, size(conditions,1), numgeo, size(agegrps,1), 1) # initialize for 1 day
+    openmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
+    isolatedmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
+    openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
+    isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
     return (openmx, isolatedmx, openhistmx, isolatedhistmx)
 end
 
@@ -150,6 +150,7 @@ end
 How far do the infectious people spread the virus into previously unexposed people, by agegrp?
 """
 function spread!(locale)
+    # 110 microseconds
     # start with the number of infectious people      
     # now we ignore what their condition and age are is: TODO fix
     # should spread less for conditions in order: nil, mild, sick, severe
@@ -168,8 +169,8 @@ function spread!(locale)
     end
 
     # move the people from unexposed:agegrp to infectious:agegrp
-    # plus!(byage, infectious, agegrps, 1, locale)  crazy--doesn't work
-    openmx[infectious, 1, agegrps, 1] .+= byage
+    plus!.(byage, infectious, agegrps, 1, locale)  
+    
     return nothing
 end
 
@@ -207,8 +208,8 @@ function travelout!(locale, rules=[])
         name = condnames[cond]
         for agegrp in agegrps
             numfolks = sum(grab(cond, agegrp, lags, locale)) # this locale, all lags
-            travcnt = floor(Int,prob(travprobs[agegrp]) * numfolks)
-            x = rand(travdests, travcnt)
+            travcnt = floor(Int,prob(travprobs[agegrp]) * numfolks)  # TODO use probability
+            x = rand(travdests, travcnt)  # randomize across destinations
             bydest = bucket(x, lim=lim, bins=bins)
             for dest in 1:length(bydest)
                 isempty(bydest) && continue
@@ -264,30 +265,21 @@ end
 
 # single age, single lag, one locale
 # example: grab(exposed, 1, 1, 1:3)
-function grab(condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
-    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
-    return dat[condition,locale, agegrp,lag]
+function grab(condition, agegrp, lag, locale; dat=openmx)
+    return dat[lag, condition, agegrp, locale]
 end
 
 
-# 1 value to single age, single lag, one locale
-function input!(val, condition::Int, agegrp::Int, lag::Int, locale::Int; dat=openmx)
-    dat[condition,locale, agegrp,lag] = val
+function input!(val, condition, agegrp, lag, locale; dat=openmx)
+    dat[lag, condition, agegrp, locale] = val
 end
 
-function input!(val, condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
-    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
-    dat[condition,locale, agegrp,lag] .= val
+
+function plus!(val, condition, agegrp, lag, locale; dat=openmx)
+    dat[lag, condition, agegrp,locale] += val
 end
 
-# maybe this doesn't work
-function plus!(val, condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
-    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
-    dat[condition,locale, agegrp,lag] .+= val
-end
 
-# maybe this doesn't work
-function minus!(val::Union{Real,Array}, condition::Union{Int, UnitRange{Int}}, agegrp::Union{Int, UnitRange{Int}}, 
-    lag::Union{Int, UnitRange{Int}}, locale::Union{Int, UnitRange{Int}}; dat=openmx)
-    dat[condition,locale, agegrp,lag] .-= val
+function minus!(val, condition, agegrp, lag, locale; dat=openmx)
+    dat[lag, condition, agegrp, locale] -= val
 end
