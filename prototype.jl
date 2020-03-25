@@ -40,6 +40,7 @@ const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, sev
 const condnames = Dict(1=>"unexposed",2=>"infectious",3=>"recovered", 4=>"dead",
                        5=>"nil",6=>"mild",7=>"sick",8=>"severe")
 const infectious_cases = [nil, mild, sick, severe]
+const evolve_cases = [recovered, nil, mild, sick, severe, dead]
 
 # evolve_prob_rows
 const to_recovered = 1
@@ -175,8 +176,8 @@ function build_evolve_probs()
     nil_ev_pr[:, a1] = [0.2, 0.5, 0.2, 0.1, 0.0, 0.0]
     nil_ev_pr[:, a2] = [0.2, 0.5, 0.2, 0.1, 0.0, 0.0]
     nil_ev_pr[:, a3] = [0.1, 0.4, 0.3, 0.2, 0.0, 0.0]
-    nil_ev_pr[:, a4] = [0.1, 0.3, 0.3, 0.3, 0.0, 0.0]
-    nil_ev_pr[:, a5] = [0.1, 0.3, 0.3, 0.3, 0.0, 0.0]
+    nil_ev_pr[:, a4] = [0.1, 0.35, 0.3, 0.25, 0.0, 0.0]
+    nil_ev_pr[:, a5] = [0.1, 0.35, 0.3, 0.25, 0.0, 0.0]
 
     mild_ev_pr = zeros(6,5)
     mild_ev_pr[:, a1] = [0.1, 0.3, 0.45, 0.15, 0.0, 0.0]
@@ -288,55 +289,35 @@ function evolve_all(locales=locales)
 end
 
 
-# TODO    This depends on what lag day it is!
-function evolve!(ev_pr, locale; conds=[nil, mild, sick, severe], dat=openmx)  # TODO also need to run for isolatedmx
-    infectcases = [nil, mild, sick, severe]
+"""
+    People who have become infectious evolve through cases from
+    nil (asymptomatic) to mild to sick to severe, depending on their
+    agegroup, days of being exposed, and statistics. The final outcomes
+    are recovery or dying.
+"""
+function evolve!(ev_pr, locale; conds=infectious_cases, dat=openmx)  # TODO also need to run for isolatedmx
+
+    lag = 19
     for cond in conds
         for agegrp in agegrps
-                lastlag_distribute!(ev_pr, cond, agegrp, 19, locale; dat=dat)
+                lastlag_distribute!(ev_pr, cond, agegrp, lag, locale; dat=dat)
         end
     end
 
-    for lag = 18:-1:10
+    for lag = 18:-1:9
         for cond in conds  # [nil, mild, sick, severe]
             for agegrp in agegrps
 
-                # get the number of folks to distribute for the 
-                folks = grab(cond,agegrp,lag,locale, dat=dat) # scalar
-                @printf("%12s %5d %5d %5d ",condnames[cond], agegrp,  lag, folks)
-                # get the dist vector of folks to each outcome (6 outcomes)  
-                    # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-                probs = ev_pr[cond][:,agegrp]
-                distvec = bucket(categorical_sample(probs, folks), 6, 6)
-                @printf("%1s  %5d %5d %5d %5d %5d %5d \n", "|", distvec...)
-
-                # distribute to [recovered, nil, mild, sick, severe, dead] states
-                plus!(distvec[2:5], infectcases, agegrp, lag+1,locale, dat=dat) # add to infectious cases for next lag
-                plus!(distvec[1], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-                plus!(distvec[6], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-                minus!(sum(distvec), cond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
+                dist_to_new_conditions!(cond, 1:6, agegrp, lag, locale, dat=dat)
 
             end
         end
     end
-    for lag = 9:-1:5
+    for lag = 8:-1:5
         for cond in conds  # [nil, mild, sick, severe]
             for agegrp in agegrps
 
-                # get the number of folks to distribute for the 
-                folks = grab(cond,agegrp,lag,locale, dat=dat) # scalar
-                @printf("%12s %5d %5d %5d ",condnames[cond], agegrp,  lag, folks)
-                # get the dist vector of folks to each outcome (6 outcomes)  
-                    # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-                probs = snorm([0.0, ev_pr[cond][2,agegrp], ev_pr[cond][3, agegrp], ev_pr[cond][4, agegrp], 0.0, 0.0])
-                distvec = bucket(categorical_sample(probs,folks), 6, 6)
-                @printf("%1s  %5d %5d %5d %5d %5d %5d \n", "|", distvec...)
-
-                # distribute to [recovered, nil, mild, sick, severe, dead] states
-                plus!(distvec[2:5], infectcases, agegrp, lag+1,locale, dat=dat) # add to infectious cases for next lag
-                plus!(distvec[1], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-                plus!(distvec[6], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-                minus!(sum(distvec), cond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
+                dist_to_new_conditions!(cond, 2:4, agegrp, lag, locale, dat=dat)
 
             end
         end
@@ -345,27 +326,37 @@ function evolve!(ev_pr, locale; conds=[nil, mild, sick, severe], dat=openmx)  # 
         for cond in conds  # [nil, mild, sick, severe]
             for agegrp in agegrps
 
-                # get the number of folks to distribute for the 
-                folks = grab(cond,agegrp,lag,locale, dat=dat) # scalar
-                @printf("%12s %5d %5d %5d ",condnames[cond], agegrp,  lag, folks)
-                # get the dist vector of folks to each outcome (6 outcomes)  
-                    # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-                probs = snorm([0.0, ev_pr[cond][2,agegrp], ev_pr[cond][3,agegrp], 0.0, 0.0, 0.0])
-                distvec = bucket(categorical_sample(probs,folks), 6, 6)
-                @assert sum(distvec)  == folks "not distributing everyone"
-                @printf("%1s  %5d %5d %5d %5d %5d %5d \n", "|", distvec...)
-
-                # distribute to [recovered, nil, mild, sick, severe, dead] states
-                plus!(distvec[2:5], infectcases, agegrp, lag+1,locale, dat=dat) # add to infectious cases for next lag
-                plus!(distvec[1], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-                plus!(distvec[6], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-                minus!(sum(distvec), cond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
+                dist_to_new_conditions!(cond, 2:3, agegrp, lag, locale, dat=dat)
 
             end
         end
     end
 
     update_infectious!(locale, dat = dat)
+end
+
+
+function dist_to_new_conditions!(fromcond, tocases, agegrp, lag, locale; dat=openmx)
+
+    # get the number of folks to be distributed 
+    folks = grab(fromcond,agegrp,lag,locale, dat=dat) # scalar
+    # @printf("%12s %5d %5d %5d ",condnames[fromcond], agegrp,  lag, folks)
+
+
+    # select probs for tocases from the raw evolve probs
+    toprobs = zeros(6)
+    toprobs[tocases] = snorm(ev_pr[fromcond][tocases, agegrp])
+
+    # get the dist vector of folks to each outcome (6 outcomes)  
+        # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
+    distvec = bucket(categorical_sample(toprobs,folks), 6, 6)
+    # @printf("%1s  %5d %5d %5d %5d %5d %5d \n", "|", distvec...)
+
+    # distribute to infectious cases,recovered, dead
+    plus!(distvec[2:5], infectious_cases, agegrp, lag+1,locale, dat=dat) # add to infectious cases for next lag
+    plus!(distvec[1], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
+    plus!(distvec[6], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
+    minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
 end
 
 
@@ -386,9 +377,7 @@ function lastlag_distribute!(ev_pr, cond, agegrp, lag, locale; dat=openmx)
     plus!(recoverfolks, recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
 
 
-
     # out_of_infectious(recoverfolks, cond, recovered, agegrp, lag, locale, dat=dat)
-
     deadpr = ev_pr[cond][to_dead, agegrp]
     deadfolks = ceil(Int, deadpr * condfolks)
     plus!(deadfolks, dead, agegrp, 1, locale, dat=dat)  # recovered to lag 1
@@ -397,7 +386,6 @@ function lastlag_distribute!(ev_pr, cond, agegrp, lag, locale; dat=openmx)
 
 
     # out_of_infectious(deadfolks, cond, dead, agegrp, lag, locale, dat=dat)
-
     residual = condfolks - recoverfolks - deadfolks
     if residual > 0
         @warn "Uh-oh, some people infectious for more than 18 days " residual
