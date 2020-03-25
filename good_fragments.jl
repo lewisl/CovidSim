@@ -138,3 +138,12 @@ end
 function input!(val, item::String, age::Int, lag::UnitRange{Int64}, locale; dat=symdata, popidx=pop)
     dat[popidx[item].idx[age][lag[1]]:popidx[item].idx[age][lag[end]], locale] .= val
 end
+
+
+###############################################################################
+function update_infectious!(locale, dat=openmx) # by single locale
+    for agegrp in agegrps
+        tot = total!([nil, mild, sick, severe],agegrp,:,locale) # sum across cases and lags per locale and agegroup
+        input!(tot, infectious, agegrp, 1, locale) # update the infectious total for the locale and agegroup
+    end
+end

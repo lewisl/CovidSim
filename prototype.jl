@@ -136,19 +136,20 @@ function readgeodata(filename)
 end
 
 
-function seed!(cnt, lag, status, cond, agegrp, locale; dat=openmx)
-    if status == infectious
-        input!.(cnt, status, agegrp,lag, locale)
-        minus!.(cnt, unexposed, agegrp, lag, locale)
-        input!.(cnt, cond, agegrp, lag, locale)
-    elseif status == recovered
-        dat[1, status, agegrp, locale] .= cnt
-        # need to figure out what condition and lag get decremented!!
-        dat[1, infectious, agegrp, locale] .-= cnt
-    elseif status == dead 
-        dat[lag, status, agegrp, locale] .= cnt
-        # need to figure out what condition and lag get decremented!!
-        dat[lag, infectious, agegrp, locale] .-= cnt        
+function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
+    @assert length(lag) == 1 "input only one lag value"
+    @warn "Seeding is for testing and may results in case counts out of balance"
+    for loc in locales
+        for cond in conds
+            if cond in [nil, mild, sick, severe]
+                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
+                minus!.(cnt, unexposed, agegrps, lag, loc, dat=dat)
+            elseif cond in [recovered, dead]
+                input!.(cnt, cond, agegrp, lag, loc, dat=dat)
+                # need to figure out what condition and lag get decremented!!
+            end
+        end
+        update_infectious!(loc, dat = dat)
     end
 end
 
@@ -236,6 +237,8 @@ end
     # some people will isolate:  put people into and out of isolation by agegroup, locale, condition, lag
 
     # DONE = evolve! distribute residents across all lags and conditions
+        #    openmx
+        #    isolatedmx
             # start from last lag, by age group:
                     # severe distribute to sick, severe or die remain at lag 18
                     # sick distribute to severe, mild remain at lag 18
@@ -273,71 +276,77 @@ end
 ####################################################################################
 
 
-function evolve_all(locale)
+function evolve_all(locales=locales)
 
-    for agegrp in agegrps
+    # open environment
+    for locale in locales
+    end
+
+    # isolated environment
+    for locale in locales
     end
 
 end
 
 
 # TODO    This depends on what lag day it is!
-function evolve!(ev_pr, conds, locale, lag19error; dat=openmx)  # also need to run for isolatedmx
+function evolve!(ev_pr, locale; conds=[nil, mild, sick, severe], dat=openmx)  # TODO also need to run for isolatedmx
+    infectcases = [nil, mild, sick, severe]
     for cond in conds
         for agegrp in agegrps
-                lastlag_distribute!(ev_pr, cond, agegrp, 19, locale, lag19error; dat=openmx)
+                lastlag_distribute!(ev_pr, cond, agegrp, 19, locale; dat=dat)
         end
     end
 
     for lag = 18:-1:1
-        for cond in conds
+        for cond in conds  # [nil, mild, sick, severe]
             for agegrp in agegrps
 
                 # get the number of folks to distribute for the 
-                folks = grab(cond,agegrp,lag,locale) # scalar
+                folks = grab(cond,agegrp,lag,locale, dat=dat) # scalar
                 # @printf("%12s %5d %5d %5d ",condnames[cond], agegrp,  lag, folks)
                 # get the dist vector of folks to each outcome (6 outcomes)  
                     # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
                 distvec = bucket(categorical_sample(ev_pr[cond][:,agegrp],folks), 6, 6)
                 # @printf("%1s  %5d %5d %5d %5d %5d %5d \n", "|", distvec...)
 
-                # for infectious states 
-                plus!(distvec[2:5], infectious_cases, agegrp, lag+1,locale) # add to infectious cases for next lag
-                minus!(sum(distvec[2:5]), cond, agegrp, lag, locale)  # everyone came from one cond from this lag
+                # distribute to [recovered, nil, mild, sick, severe, dead] states
+                plus!(distvec[2:5], infectcases, agegrp, lag+1,locale, dat=dat) # add to infectious cases for next lag
+                plus!(distvec[1], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
+                plus!(distvec[6], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
+                minus!(sum(distvec), cond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
 
-                # for recovered--add to recovered, substract from infectious and the specific infectious case
-                out_of_infectious(distvec[to_recovered], cond, recovered, agegrp, lag, locale)
-
-                # for dead--add to dead, substract from infectious and the specific infectious case
-                out_of_infectious(distvec[to_dead], cond, dead, agegrp, lag, locale)
             end
         end
     end
-
+    update_infectious!(locale, dat = dat)
 end
 
 
-function out_of_infectious(x, from, to, agegrp, lag, locale; dat=openmx)
-    plus!(x, to, agegrp, 1, locale) # add to the target condition (either recovered or dead)
-    minus!(x, from, agegrp, lag, locale)  # subtract from the infectious case where it came from
-    minus!(x, infectious, agegrp, 1, locale)  # subtract from infectious
+function update_infectious!(locale; dat=openmx) # by single locale
+    for agegrp in agegrps
+        tot = total!([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
+        input!(tot, infectious, agegrp, 1, locale, dat=dat) # update the infectious total for the locale and agegroup
+    end
 end
 
 
-function lastlag_distribute!(ev_pr, cond, agegrp, lag, locale, lag19error; dat=openmx)
+function lastlag_distribute!(ev_pr, cond, agegrp, lag, locale; dat=openmx)
     condfolks = grab(cond, agegrp,19,locale)
 
     # not a distribution:  just 2 outcomes: either recovered or dead--not probabilistic
     recoverpr = ev_pr[cond][to_recovered, agegrp]
     recoverfolks = ceil(Int, recoverpr * condfolks)
-    out_of_infectious(recoverfolks, cond, recovered, agegrp, lag, locale)
+    out_of_infectious(recoverfolks, cond, recovered, agegrp, lag, locale, dat=dat)
 
     deadpr = ev_pr[cond][to_dead, agegrp]
     deadfolks = ceil(Int, deadpr * condfolks)
-    out_of_infectious(deadfolks, cond, dead, agegrp, lag, locale)
+    out_of_infectious(deadfolks, cond, dead, agegrp, lag, locale, dat=dat)
 
     residual = condfolks - recoverfolks - deadfolks
-    @warn residual >= 0 "Uh-oh, some people infectious for more than 18 days" 
+    if residual > 0
+        @warn "Uh-oh, some people infectious for more than 18 days " residual
+    end
     lag19error(residual)  # accumulator
 
 end
@@ -347,7 +356,7 @@ end
     How far do the infectious people spread the virus to 
     previously unexposed people, by agegrp?
 """
-function spread!(locale)
+function spread!(locale, dat=openmx)
     # 180 microseconds
     # start with the number of infectious people      
     # now we ignore what their condition and age are is: TODO fix
@@ -355,7 +364,7 @@ function spread!(locale)
     # need to loop by condition
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    spreaders = Int(sum(grab(infectious, agegrps, 1:19, locale)))
+    spreaders = Int(sum(grab(infectious, agegrps, 1:19, locale, dat=dat)))
     if spreaders == 0
         return nothing
     end
@@ -371,8 +380,8 @@ function spread!(locale)
     end
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
-    plus!.(byage, infectious, agegrps, 1, locale)  
-    plus!.(byage, nil, agegrps, 1, locale)  
+    plus!.(byage, infectious, agegrps, 1, locale, dat=dat)  
+    plus!.(byage, nil, agegrps, 1, locale, dat=dat)  
     
     return nothing
 end
@@ -386,6 +395,7 @@ function split_by_age(cnt)::Array{Int64,1}
     nums = bucket(x,lim=5, bins=5)
     return nums
 end
+
 
 # 5.7 microseconds for 100 touchers
 # TODO use population density as probability amplifier
@@ -438,16 +448,18 @@ end
     Remove groups of travelers by agegrp, lag, and condition
     from where they departed.  Add them to their destination.
 """
-function travelin!()
+function travelin!(dat=openmx)
     while !isempty(travelq)
         g = dequeue!(travelq)
         cond = eval(Symbol(g.cond))
-        minus!(g.cnt, cond, g.agegrp, g.lag, g.from)
-        plus!(g.cnt, cond, g.agegrp, g.lag, g.to)
+        minus!(g.cnt, cond, g.agegrp, g.lag, g.from, dat=dat)
+        plus!(g.cnt, cond, g.agegrp, g.lag, g.to, dat=dat)
     end
 end
 
-
+"""
+    Move people into isolation and out of the open movement environment.
+"""
 function isolate(iso_pr, locales = locales,  rules=[])
     for locale in locales
         iso_pr_locale = get(iso_pr, locale, iso_pr["default"])
@@ -456,6 +468,12 @@ function isolate(iso_pr, locales = locales,  rules=[])
     isolate_in!()
 end
 
+
+"""
+    Process the isolated queue.
+    Remove people from open environment in array openmx.
+    Add people to the insolated environment in array isolatedmx.
+"""
 function isolate_in!()
     while !isempty(isolatedq)
         g = dequeue!(isolatedq)
@@ -464,6 +482,10 @@ function isolate_in!()
     end
 end
 
+
+"""
+    Place people who are isolating into the isolated queue: isolatedq
+"""
 function isolate_out!(iso_pr_locale, locale)
     for (idx, cond) in enumerate([unexposed, recovered, nil, mild, sick, severe])
         for lag in lags
@@ -550,8 +572,20 @@ function minus!(val, condition, agegrp, lag, locale; dat=openmx)
     dat[lag, condition, agegrp, locale] -= val
 end
 
+# avoid overloading base.sum 
+function total!(condition, agegrp, lag, locale; dat=openmx)
+    sum(dat[lag, condition, agegrp, locale])
+end
+
 function showq(qname)
     for item in qname
         println(item)
     end
+end
+
+function printsp(xs...)
+    for x in xs
+       print(x," ")
+    end
+   println()
 end
