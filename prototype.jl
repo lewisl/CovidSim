@@ -1,5 +1,6 @@
 using DelimitedFiles
 using DataStructures
+using DataFrames
 using Random
 using Distributions
 using StatsBase
@@ -8,7 +9,6 @@ using Printf
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
-const travprobs = [2.0, 3.0, 5.0, 5.0, 0.6] # by age group
 const lags = 1:19   # rows
 
 # geo data cubes (4th dim)
@@ -18,6 +18,14 @@ const city = 3
 const size_cat = 4
 const popsize =  5
 # const locales = [1,2,3,4,5]  # rows
+
+# population centers sizecats
+const major = 1
+const large = 2
+const medium = 3
+const small = 4
+const smaller = 5
+const rural = 6
 
 # condition_outcome columns
 const unexposed = 1
@@ -54,14 +62,32 @@ const contact_risk_by_age = [.05, .10, .15, .30, .45]
 # this is too funky and hard to understand
 # const age_amplify = Dict(1=>(1.3,.7), 2=>(1.1,.9), 3=>(1.0, 1.0), 4=>(0.9,1.1), 5=>(.8,1.2))
 
-# inbound travelers: exogenous, domestic, outbound (assumed domestic) travelers
-const travelq = Queue{NamedTuple{(:cnt, :from, :to, :agegrp, :cond),
-    Tuple{Int64,Int64,Int64,Int64,String}}}()
+# traveling constants
+    # inbound travelers: exogenous, domestic, outbound (assumed domestic) travelers
+    const travelq = Queue{NamedTuple{(:cnt, :from, :to, :agegrp, :lag, :cond),
+        Tuple{Int64,Int64,Int64,Int64,Int64,String}}}()
 
-function travitem(cnt, from, to, agegrp, cond)
-    return (cnt=cnt, from=from, to=to, agegrp=agegrp, cond=cond)
-end
+    function travitem(cnt, from, to, agegrp, lag, cond)
+        return (cnt=cnt, from=from, to=to, agegrp=agegrp, lag=lag, cond=cond)
+    end
 
+    const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
+
+
+# isolation
+    const isolatedq = Queue{NamedTuple{(:cnt, :cond, :agegrp, :lag, :locale), 
+         Tuple{Int64,Int64,Int64,Int64,Int64,}}}()
+
+    function iso_item(cnt, cond, agegrp, lag, locale)
+        return (cnt=cnt, cond=cond, agegrp=agegrp, lag=lag, locale=locale)
+    end
+
+
+
+# maintaining historical trends
+dayseries = DataFrame(Travelers=Int[], NewInfected=Int[], NewDied=Int[], 
+                      NewRecovered=Int[], NewIsolated=Int[])
+cumseries = DataFrame(Infected=Int[], Unexposed=Int[], Recovered=Int[], Died=Int[], Isolated=Int[])
 
 ######################################################################################
 # setup and initialization functions
@@ -75,12 +101,15 @@ function setup(geofilename, lim=10)
     if lim <= numgeo
         numgeo = lim
     end
-    dats = build_data(numgeo)
+    datsdict = build_data(numgeo)
+    openmx = datsdict["openmx"]
     init_unexposed!(openmx, geodata, numgeo)
 
     ev_pr = build_evolve_probs()
 
-    return (dats, ev_pr)
+    iso_pr = build_iso_probs()
+
+    return Dict("dat"=>datsdict, "ev_pr"=>ev_pr, "iso_pr"=>iso_pr)
 end
 
 
@@ -98,8 +127,9 @@ function build_data(numgeo)
     isolatedmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
     openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
     isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
-    return (openmx, isolatedmx, openhistmx, isolatedhistmx)
+    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
 end
+
 
 function readgeodata(filename)
     geodata = readdlm(filename, ','; header=true)[1]
@@ -122,6 +152,7 @@ function seed!(cnt, lag, status, cond, agegrp, locale; dat=openmx)
     end
 end
 
+
 function build_evolve_probs()
     # evolve_probs will be of dims (4,6,5) => source conditions, destination conditions, agegrp planes
     # array labels
@@ -134,6 +165,9 @@ function build_evolve_probs()
         # to_severe = 5
         # to_dead = 6
         # agegroups are columns: use a1,a2,a3,a4,a5 above
+
+        # columns  must sum to 1: for a given condition and age, all who evolve go somewhere
+                # people don't all evolve--they stay in place
     # NOTE!!!: the acual arrays are what you see below transposed!
 
     nil_ev_pr = zeros(6,5)
@@ -171,6 +205,19 @@ function build_evolve_probs()
 end
 
 
+function build_iso_probs()
+    # these don't need to sum to one in either direction!  independent events
+    default_iso_pr = zeros(6,5)
+    #                    enexp recover nil mild sick severe   
+    default_iso_pr[:, a1] = [0.3, 0.3, 0.3, 0.4, 0.8, 0.9]  # this is for column a1
+    default_iso_pr[:, a2] = [0.3, 0.3, 0.2, 0.3, 0.8, 0.9]
+    default_iso_pr[:, a3] = [0.3, 0.3, 0.3, 0.4, 0.8, 0.9]
+    default_iso_pr[:, a4] = [0.5, 0.5, 0.4, 0.6, 0.9, 0.9]
+    default_iso_pr[:, a5] = [0.5, 0.5, 0.4, 0.6, 0.9, 0.9]
+
+    iso_pr = Dict("default"=>default_iso_pr)
+
+end
 
 
 #function daystep()  # one day of simulation
@@ -181,10 +228,12 @@ end
         # outbreaks--when we don't have pockets implemented
         # rules--that restrict movement and affect touches and infection contacts
 
-    # travel: some people travel in; distribution of them are infectious
-        # pull item from queue:  add to destination: totalpop, agegrp/condition, agegrp/outcome
-        #                        remove from source: totalpop, agegrp/condition, agegrp/outcome
-        # add to log
+    # DONE = travelin!: some people travel in; distribution of them are infectious
+        # pull item from queue:  add to destination: agegrp/condition, agegrp/outcome
+        #                        remove from source: agegrp/condition, agegrp/outcome
+        # TODO add to log
+
+    # some people will isolate:  put people into and out of isolation by agegroup, locale, condition, lag
 
     # DONE = evolve! distribute residents across all lags and conditions
             # start from last lag, by age group:
@@ -231,12 +280,6 @@ function evolve_all(locale)
 
 end
 
-# TODO:  use predetermined distribute probs instead of equally likely
-# function distribute(from_cond, to_conds, cnt)   # severe to severe, sick, die, mild
-#     numcells = length(to_conds)
-#     probvec = fill(1.0/float(numcells), numcells)
-#     x = catprob(probvec, cnt)
-# end
 
 # TODO    This depends on what lag day it is!
 function evolve!(ev_pr, conds, locale, lag19error; dat=openmx)  # also need to run for isolatedmx
@@ -364,27 +407,79 @@ function travelout!(locale, numgeo, rules=[])
     # choose distribution of people traveling by age and condition:
         # unexposed, infectious, recovered -> ignore lag for now
     # TODO: more frequent travel to and from Major and Large cities
+    # TODO: should the caller do the loop across locales?   YES
     locales =1:numgeo
-    travdests = copy(locales)
+    travdests = collect(locales)
     deleteat!(travdests,findfirst(isequal(locale), travdests))
     bins = lim = length(travdests) + 1
-    for cond in [unexposed, infectious, recovered]
-        name = condnames[cond]
-        for agegrp in agegrps
-            numfolks = sum(grab(cond, agegrp, lags, locale)) # this locale, all lags
-            travcnt = floor(Int,prob(travprobs[agegrp]) * numfolks)  # TODO use probability
-            x = rand(travdests, travcnt)  # randomize across destinations
-            bydest = bucket(x, lim=lim, bins=bins)
-            for dest in 1:length(bydest)
-                isempty(bydest) && continue
-                cnt = bydest[dest]
-                iszero(cnt) && continue
-                enqueue!(travelq, travitem(cnt, locale, dest, agegrp, name))
+    for agegrp in agegrps
+        for cond in [unexposed, infectious, recovered]
+            name = condnames[cond]
+            for lag in lags
+                numfolks = sum(grab(cond, agegrp, lag, locale)) # this locale, all lags
+                travcnt = floor(Int,prob(travprobs[agegrp]) * numfolks)  # TODO make probabilistic
+                x = rand(travdests, travcnt)  # randomize across destinations
+                bydest = bucket(x, lim, bins)
+                for dest in 1:length(bydest)
+                    isempty(bydest) && continue
+                    cnt = bydest[dest]
+                    iszero(cnt) && continue
+                    enqueue!(travelq, travitem(cnt, locale, dest, agegrp, lag, name))
+                end
             end
         end
     end
-
 end
+
+
+"""
+    Assuming a daily cycle, at the beginning of the day 
+    process the queue of travelers from the end of the previous day. 
+    Remove groups of travelers by agegrp, lag, and condition
+    from where they departed.  Add them to their destination.
+"""
+function travelin!()
+    while !isempty(travelq)
+        g = dequeue!(travelq)
+        cond = eval(Symbol(g.cond))
+        minus!(g.cnt, cond, g.agegrp, g.lag, g.from)
+        plus!(g.cnt, cond, g.agegrp, g.lag, g.to)
+    end
+end
+
+
+function isolate(iso_pr, locales = locales,  rules=[])
+    for locale in locales
+        iso_pr_locale = get(iso_pr, locale, iso_pr["default"])
+        isolate_out!(iso_pr_locale, locale)
+    end
+    isolate_in!()
+end
+
+function isolate_in!()
+    while !isempty(isolatedq)
+        g = dequeue!(isolatedq)
+        minus!(g.cnt,g.cond, g.agegrp, g.lag, g.locale, dat=openmx)
+        plus!(g.cnt, g.cond, g.agegrp, g.lag, g.locale, dat=isolatedmx)
+    end
+end
+
+function isolate_out!(iso_pr_locale, locale)
+    for (idx, cond) in enumerate([unexposed, recovered, nil, mild, sick, severe])
+        for lag in lags
+            for agegrp in agegrps
+                cnt = ceil.(Int, rand(Binomial(grab(cond, agegrp, lag, locale), 
+                                        iso_pr_locale[idx, agegrp])))
+                cnt == 0 && continue
+                enqueue!(isolatedq, iso_item(cnt, cond, agegrp, lag, locale))
+            end
+        end
+    end
+end
+
+function unisolate()
+end
+
 
 # this could still be faster by memoizing x--don't look again at items already counted.
 # discrete integer histogram
@@ -447,10 +542,16 @@ end
 
 
 function plus!(val, condition, agegrp, lag, locale; dat=openmx)
-    dat[lag, condition, agegrp,locale] += val
+    dat[lag, condition, agegrp, locale] += val
 end
 
 
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
     dat[lag, condition, agegrp, locale] -= val
+end
+
+function showq(qname)
+    for item in qname
+        println(item)
+    end
 end
