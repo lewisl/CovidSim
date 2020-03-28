@@ -1,0 +1,17 @@
+agegrp,node,fromcond,tocond,pr,next
+4,"(1,1)",nil,mild,0.75,"(2,2)"
+4,"(1,1)",nil,sick,0.25,"(2,3)"
+4,"(2,2)",mild,mild,1.0,"(3,2)"
+4,"(2,3)",sick,sick,0.75,"(3,3)"
+4,"(2,3)",sick,severe,0.25,"(3,4)"
+4,"(3,2)",mild,recovered,1.0,"(0,0)"
+4,"(3,3)",sick,recovered,0.75,"(0,0)"
+4,"(3,3)",sick,severe,0.25,"(4,4)"
+4,"(3,4)",severe,recovered,0.125,"(0,0)"
+4,"(3,4)",severe,severe,0.75,"(4,4)"
+4,"(3,4)",severe,dead,0.125,"(0,0)"
+4,"(4,4)",severe,recovered,0.8,"(0,0)"
+4,"(4,4)",severe,dead,0.2,"(0,0)"
+# Dead probability:  0.0265625
+# Rec probability:   0.9734375
+# agegrp 4
