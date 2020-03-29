@@ -367,88 +367,41 @@ end
 
 
 """
-    People who have become infectious transition through cases from
-    nil (asymptomatic) to mild to sick to severe, depending on their
-    agegroup, days of being exposed, and some probability. The final 
-    outcomes are recovered or dead.
+    transition!(dt, locale; case="open", dat=openmx)
+    
+People who have become infectious transition through cases from
+nil (asymptomatic) to mild to sick to severe, depending on their
+agegroup, days of being exposed, and some probability. The final 
+outcomes are recovered or dead.
 """
 function transition!(dt, locale; case="open", dat=openmx)  # TODO also need to run for isolatedmx
 
+    decision_points = [5,9,14,19]               # in lag days
+    nodes = Dict(19 => [(4,4)],                 # nodes in decision trees for each agegrp 
+                 14 => [(3,2), (3,3), (3,4)],
+                  9 => [(2,2), (2,3)],
+                  5 => [(1,1)]
+                 )
 
-    # for day 19
-    lag = 19 # implement decision point
-        for agegrp in agegrps # get the params from the dec_tree
-            for node in [(4,4)]
-                toprobs = zeros(6)
-                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
-                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
+    for lag = 19:-1:1
+        if lag in decision_points 
+            # decision points determine how people's conditions change 
+            for agegrp in agegrps # get the params from the dec_tree
+                for node in nodes[lag]
+                    toprobs = zeros(6)
+                    for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
+                        toprobs[cond2tran_idx(branch.tocond)] = branch.pr
+                    end
+                    fromcond = dt[agegrp][node][1].fromcond
+                    @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
+                    dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
                 end
-                fromcond = dt[agegrp][node][1].fromcond
-                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
             end
+        else
+            # bump people up a day without changing their conditions
+            input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
+            minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
         end
-
-    for lag = 18:-1:15
-        # bump people up a day without changing their conditions
-        input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
-        minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-    end    
-
-    # for day 14
-    lag = 14  # implement decision points
-        for agegrp in agegrps # get the params from the dec_tree
-            for node in [(3,2), (3,3), (3,4)]
-                toprobs = zeros(6)
-                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
-                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
-                end
-                fromcond = dt[agegrp][node][1].fromcond # this indexes to a branch object, so we can dot to get a field
-                @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
-                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
-            end
-        end
-
-    for lag = 13:-1:10
-        # bump people up a day without changing their conditions
-        input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
-        minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-    end
-
-    # for day 9
-    lag = 9  # implement decision points
-        for agegrp in agegrps # get the params from the dec_tree
-            for node in [(2,2), (2,3)]
-                toprobs = zeros(6)
-                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
-                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
-                end
-                fromcond = dt[agegrp][node][1].fromcond
-                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
-            end
-        end
-
-    for lag = 8:-1:6
-        # bump people up a day without changing their conditions
-        input!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
-        minus!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-    end
-
-    lag = 5  # decision point based on dec_tree
-        for agegrp in agegrps # get the params from the dec_tree
-            for node in [(1,1)]
-                toprobs = zeros(6)
-                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
-                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
-                end
-                fromcond = dt[agegrp][node][1].fromcond
-                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case=case, dat=dat)
-            end
-        end
-        
-    for lag = 4:-1:1  # first 4 days, treat infected people as if asymptomatic
-        # bump people up a day without changing their conditions
-        input!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
-        minus!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag, locale, dat=dat)
     end
 
     # total of all people who are nil, mild, sick, or severe across all lag days
