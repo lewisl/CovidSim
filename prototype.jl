@@ -369,17 +369,18 @@ end
 """
     People who have become infectious transition through cases from
     nil (asymptomatic) to mild to sick to severe, depending on their
-    agegroup, days of being exposed, and statistics. The final outcomes
-    are recovered or dead.
+    agegroup, days of being exposed, and some probability. The final 
+    outcomes are recovered or dead.
 """
-function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx)  # TODO also need to run for isolatedmx
+function transition!(dt, locale; case="open", dat=openmx)  # TODO also need to run for isolatedmx
+
 
     # for day 19
     lag = 19 # implement decision point
         for agegrp in agegrps # get the params from the dec_tree
             for node in [(4,4)]
                 toprobs = zeros(6)
-                for branch in dt[agegrp][(node)]  # agegroup index in array, node key in agegroup dict
+                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
                     toprobs[cond2tran_idx(branch.tocond)] = branch.pr
                 end
                 fromcond = dt[agegrp][node][1].fromcond
@@ -388,12 +389,9 @@ function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx
         end
 
     for lag = 18:-1:15
-        # for cond in conds  # [recovered, nil, mild, sick, severe, dead]
-        #     for agegrp in agegrps
+        # bump people up a day without changing their conditions
         input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
         minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-        #     end
-        # end
     end    
 
     # for day 14
@@ -410,20 +408,15 @@ function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx
             end
         end
 
-    # next 4 days: bump lag for existing conditions
     for lag = 13:-1:10
-        # for cond in conds  # [recovered, nil, mild, sick, severe, dead]
-        #     for agegrp in agegrps
+        # bump people up a day without changing their conditions
         input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
         minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-        #     end
-        # end
     end
 
     # for day 9
     lag = 9  # implement decision points
         for agegrp in agegrps # get the params from the dec_tree
-
             for node in [(2,2), (2,3)]
                 toprobs = zeros(6)
                 for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
@@ -434,17 +427,12 @@ function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx
             end
         end
 
-    # next 4 days to increasing symptoms
     for lag = 8:-1:6
-        # for cond in conds  # [nil, mild, sick]
-        #     for agegrp in agegrps
+        # bump people up a day without changing their conditions
         input!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
         minus!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-        #     end
-        # end
     end
 
-    # for day 5
     lag = 5  # decision point based on dec_tree
         for agegrp in agegrps # get the params from the dec_tree
             for node in [(1,1)]
@@ -457,19 +445,16 @@ function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx
             end
         end
         
-
-    # initial day + 4 days
-    for lag = 4:-1:1
-        # for cond in conds  # [nil, mild, sick]
-        #     for agegrp in agegrps
+    for lag = 4:-1:1  # first 4 days, treat infected people as if asymptomatic
+        # bump people up a day without changing their conditions
         input!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
         minus!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag, locale, dat=dat)
-        #     end
-        # end
     end
 
-    update_infectious!(locale, dat = dat)
+    # total of all people who are nil, mild, sick, or severe across all lag days
+    update_infectious!(locale, dat = dat)  
 end
+
 
 # TODO handle last lag without hardcoding 19
 function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = "open", dat=openmx)

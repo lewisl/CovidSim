@@ -27,26 +27,26 @@ function create_node_dict(arr::Array)
     arrdectrees = []  # array of decision trees (dicts)
     ages = unique!(arr[:,1])
     for agegrp in ages
-        xx = view(arr, arr[:,1].== agegrp, :) # view on one agegrp
+        xx = view(arr, arr[:,1] .== agegrp, :) # view on one agegrp
         dectree = Dict{Tuple, Array}()  # Dict of nodes.  each node is an array of branches 
         nodelist = unique!(xx[:,2])
         for strnode in nodelist
-            node = eval(Meta.parse(strnode)) 
+            node = eval(Meta.parse(strnode))  # convert the string to a tuple
             rr = xx[xx[:,2].==strnode,:]  # rows for the branches of this node
             arrbranches = []   # array of branches
             for br in 1:size(rr,1)  # make a branch
-                fromcond = eval(Symbol(rstrip(rr[br,3])))
+                fromcond = eval(Symbol(rstrip(rr[br,3])))  # convert a string to a variable name, which holds an Int
                 tocond = eval(Symbol(rstrip(rr[br,4])))
-                pr = rr[br,5]
-                next = eval(Meta.parse(rr[br,6]))
-                fromcondname = condnames[fromcond]
+                pr = rr[br,5]    # float
+                next = eval(Meta.parse(rr[br,6]))  # convert a string to a tuple
+                fromcondname = condnames[fromcond]  # lookup text name for the numeric index
                 tocondname = condnames[tocond]    
                 newbr = Branch(fromcond, tocond, pr, next, fromcondname, tocondname)
                 push!(arrbranches, newbr)        
             end
-            dectree[node] = arrbranches
+            dectree[node] = arrbranches  # put all branches for this node in the dict for the agegrp
         end
-        push!(arrdectrees, dectree)
+        push!(arrdectrees, dectree) # done with all of the nodes, put the tree in the array
     end
     return arrdectrees
 end
@@ -69,38 +69,32 @@ function sanity_test(tree; atol=1e-3)
 
     # (1,1).1 * (2,2) * (3,2)                   recovered
     rec = tree[(1,1)][1].pr * tree[(2,2)][1].pr * tree[(3,2)][1].pr
-    println("rec:   ", rec)
     push!(r,rec)
+
     # (1,1).2 * (2,3).1 * (3,3).1               recovered
     rec = tree[(1,1)][2].pr * tree[(2,3)][1].pr * tree[(3,3)][1].pr
-    println("rec:   ", rec)
     push!(r,rec)
-    # (1,1).2 * (2,3).1 * (3,3).2 * (4,4).1     
-    rec1 = tree[(1,1)][2].pr * tree[(2,3)][1].pr * tree[(3,3)][2].pr * tree[(4,4)][1].pr
 
+    # (1,1).2 * (2,3).1 * (3,3).2 * (4,4).1     recovered, total with same endpoint below
+    rec1 = tree[(1,1)][2].pr * tree[(2,3)][1].pr * tree[(3,3)][2].pr * tree[(4,4)][1].pr
 
     # (1,1).2 * (2,3).2  * (3,4).2 * (4,4).1    recovered
     rec2 = tree[(1,1)][2].pr * tree[(2,3)][2].pr * tree[(3,4)][2].pr * tree[(4,4)][1].pr
-    println("rec:   ", rec1 + rec2)
     push!(r,rec1 + rec2)
 
     # (1,1).2 * (2,3).2  * (3,4).1              recovered
     rec = tree[(1,1)][2].pr * tree[(2,3)][2].pr * tree[(3,4)][1].pr
-    println("rec:   ", rec)
     push!(r,rec)
 
-
-    # (1,1).2 * (2,3).2  * (3,4).2 * (4,4).2    
+    # (1,1).2 * (2,3).2  * (3,4).2 * (4,4).2    dead, total with same endpoint belowq
     dead1 = tree[(1,1)][2].pr * tree[(2,3)][1].pr * tree[(3,3)][2].pr * tree[(4,4)][2].pr
 
     # (1,1).2 * (2,3).1 * (3,3).2 * (4,4).2     dead
     dead2 = tree[(1,1)][2].pr * tree[(2,3)][1].pr * tree[(3,3)][2].pr * tree[(4,4)][2].pr
-    println("dead:  ", dead2+dead2)
     push!(d,dead1 + dead2)
 
     # (1,1).2 * (2,3).2  * (3,4).3              dead
     dead = tree[(1,1)][2].pr * tree[(2,3)][2].pr * tree[(3,4)][3].pr
-    println("dead:  ", dead)
     push!(d,dead)
 
     totprob = sum(r) + sum(d)
