@@ -134,22 +134,24 @@ const contact_risk_by_age = [.05, .10, .15, .30, .45]
 ######################################################################################
 
 
-function setup(geofilename, lim=10)
+function setup(geofilename, dectreefilename="dec_tree_all.csv"; geolim=10)
 
     geodata = readgeodata(geofilename)
     numgeo = size(geodata,1)
-    if lim <= numgeo
-        numgeo = lim
+    if geolim <= numgeo
+        numgeo = geolim
     end
     datsdict = build_data(numgeo)
     openmx = datsdict["openmx"]
     init_unexposed!(openmx, geodata, numgeo)
 
-    ev_pr = build_transition_probs()
+    # transition decision trees 
+    arr = read_dectree_file(dectreefilename)
+    dt = create_node_dict(arr)
 
     iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datsdict, "ev_pr"=>ev_pr, "iso_pr"=>iso_pr)
+    return Dict("dat"=>datsdict, "dt"=>dt, "iso_pr"=>iso_pr)
 end
 
 
@@ -236,77 +238,30 @@ function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
     end
 end
 
+"""
+    Map a condition index from rows in the data matrix to 
+    indices for the transition probabilities:
+                   unexposed  infectious  recovered  dead   nil  mild  sick  severe
+    matrix            1          2            3        4     5     6     7     8
+    transition pr    -1         -1            1        6     2     3     4     5
 
-function build_transition_probs()
-    # transition_probs will be of dims (4,6,5) => source conditions, destination conditions, agegrp planes
-    # array labels
-
-        # rows
-        # to_recovered = 1
-        # to_nil = 2
-        # to_mild = 3
-        # to_sick = 4
-        # to_severe = 5
-        # to_dead = 6
-        # agegroups are columns: use a1,a2,a3,a4,a5 above
-
-        # columns  must sum to 1: for a given condition and age, all who transition go somewhere
-                # people don't all transition--they stay in place
-    # NOTE!!!: the acual arrays are what you see below transposed like the one for nil_ev_pr
-
- 
- 
-    #                     a1   a2   a3   a4   a5 
-        nil_ev_pr =     [0.2  0.2  0.1  0.1  0.1; # recover
-                         0.5  0.5  0.4  0.3  0.3; # nil
-                         0.2  0.2  0.3  0.3  0.3; # mild 
-                         0.1  0.1  0.2  0.3  0.3; # sick 
-                         0.0  0.0  0.0  0.0  0.0; # severe 
-                         0.0  0.0  0.0  0.0  0.0] # dead
-
-
-    mild_ev_pr = zeros(6,5)
-    #                 recover nil mild  sick severe dead
-    mild_ev_pr[:, a1] = [0.1, 0.3, 0.45, 0.15, 0.0, 0.0]
-    mild_ev_pr[:, a2] = [0.1, 0.25, 0.45, 0.15, 0.05, 0.0]
-    mild_ev_pr[:, a3] = [0.05, 0.25, 0.4, 0.2, 0.1, 0.0]
-    mild_ev_pr[:, a4] = [0.05, 0.2, 0.4, 0.25, 0.1, 0.0]
-    mild_ev_pr[:, a5] = [0.05, 0.2, 0.3, 0.35, 0.1, 0.0]
-
-    sick_ev_pr = zeros(6,5)
-    sick_ev_pr[:, a1] = [0.0, 0.2, 0.3, 0.4, 0.1, 0.0]
-    sick_ev_pr[:, a2] = [0.0, 0.17, 0.32, 0.4, 0.11, 0.0]
-    sick_ev_pr[:, a3] = [0.0, 0.1, 0.35, 0.35, 0.2, 0.0]
-    sick_ev_pr[:, a4] = [0.0, 0.1, 0.34, 0.35, 0.2, 0.01]
-    sick_ev_pr[:, a5] = [0.0, 0.07, 0.26, 0.35, 0.3, 0.02]
-
-    severe_ev_pr = zeros(6,5)
-    severe_ev_pr[:, a1] = [0.0, 0.0, 0.25, 0.425, 0.32, 0.005]  # very few a1's ever get here
-    severe_ev_pr[:, a2] = [0.0, 0.0, 0.25, 0.38, 0.36, 0.01]
-    severe_ev_pr[:, a3] = [0.0, 0.0, 0.22, 0.35, 0.42, 0.01]
-    severe_ev_pr[:, a4] = [0.0, 0.0, 0.2, 0.285, 0.5, 0.015]
-    severe_ev_pr[:, a5] = [0.0, 0.0, 0.15, 0.265, 0.57, 0.015]
-
-    ev_pr = Dict(nil=>nil_ev_pr, mild=>mild_ev_pr, sick=>sick_ev_pr, severe=>severe_ev_pr)
-
-    return ev_pr
-end
-
+    Tranition pr indices that return -1 are not used and will raise an error.
+"""
 function cond2tran_idx(cond)
-    idx =   if cond == recovered  
+    idx =   if cond == recovered  # value 3
                 1
-            elseif cond == nil  
+            elseif cond == nil    # value 5
                 2
-            elseif cond == mild 
+            elseif cond == mild   # value 6
                 3
-            elseif cond == sick 
+            elseif cond == sick   # value 7
                 4
-            elseif cond == severe 
+            elseif cond == severe # value 8
                 5
-            elseif cond == dead 
+            elseif cond == dead   # value 4
                 6
             else
-                -1
+                -1                # for values 1, 2
             end
 end
 
@@ -418,14 +373,6 @@ end
     are recovered or dead.
 """
 function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx)  # TODO also need to run for isolatedmx
-
-    # special handling because this is the last day back we track outcomes
-    # lag = 19 # [recovered, nil, mild, sick, severe, dead]
-    # for cond in conds
-    #     for agegrp in agegrps
-    #             lastlag_distribute!(ev_pr, cond, agegrp, lag, locale; dat=dat)
-    #     end
-    # end
 
     # for day 19
     lag = 19 # implement decision point
@@ -576,30 +523,6 @@ function update_infectious!(locale; dat=openmx) # by single locale
         tot = total!([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
         input!(tot, infectious, agegrp, 1, locale, dat=dat) # update the infectious total for the locale and agegroup
     end
-end
-
-
-function lastlag_distribute!(ev_pr, cond, agegrp, lag, locale; dat=openmx)
-    condfolks = grab(cond, agegrp,19,locale, dat=dat)
-
-    # not a distribution:   2 final outcomes: either recovered or dead--not probabilistic
-
-
-    recoverpr = ev_pr[cond][to_recovered, agegrp]
-    recoverfolks = ceil(Int, recoverpr * condfolks)
-    plus!(recoverfolks, recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-
-    deadpr = ev_pr[cond][to_dead, agegrp]
-    deadfolks = ceil(Int, deadpr * condfolks)
-    plus!(deadfolks, dead, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-
-    minus!(recoverfolks+deadfolks, cond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
-
-    residual = condfolks - recoverfolks - deadfolks
-    if residual > 0
-        @warn "Uh-oh, some people infectious for more than 18 days " cnt=residual cond=condnames[cond] agegrp
-    end
-    lag19error(residual)  # accumulator
 end
 
 

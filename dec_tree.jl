@@ -6,19 +6,6 @@ decision tree for transition
 
 using DelimitedFiles
 
-# condition_outcome columns
-# const unexposed = 1
-# const infectious = 2
-# const recovered = 3
-# const dead = 4
-# const nil = 5
-# const mild = 6
-# const sick = 7
-# const severe = 8
-
-# const condnames = Dict(1=>"unexposed",2=>"infectious",3=>"recovered", 4=>"dead",
-#                        5=>"nil",6=>"mild",7=>"sick",8=>"severe")
-
 
 struct Branch 
     fromcond::Int 
@@ -27,6 +14,12 @@ struct Branch
     next::Tuple{Int,Int}
     fromcondname::String
     tocondname::String
+end
+
+
+function read_dectree_file(fname)
+    # return the data at index 1, not the header at index 2
+    arr=readdlm(fname, ',', header=true, comments=true, comment_char='#')[1]
 end
 
 
@@ -124,10 +117,6 @@ function sanity_test(tree; atol=1e-3)
     return r, d
 end
 
-function read_dectree_file(fname)
-    # return the data, not the header
-    arr=readdlm(fname, ',', header=true, comments=true, comment_char='#')[1]
-end
 
 
 #=
