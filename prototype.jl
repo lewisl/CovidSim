@@ -14,6 +14,8 @@ using Distributions
 using StatsBase
 using Printf
 
+include("dec_tree.jl")
+
 mutable struct SimEnvironment  # maybe, maybe not...?
     simdday::Int
     opendat::Array
@@ -56,11 +58,11 @@ const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, sev
 const condnames = Dict(1=>"unexposed",2=>"infectious",3=>"recovered", 4=>"dead",
                        5=>"nil",6=>"mild",7=>"sick",8=>"severe")
 const infectious_cases = [nil, mild, sick, severe]
-const evolve_cases = [recovered, nil, mild, sick, severe, dead]
-const series_colnames = Dict(1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead, 5=>:Nil, 6=>:Mild, 7=>:Sick,
+const transition_cases = [recovered, nil, mild, sick, severe, dead]
+const series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead, 5=>:Nil, 6=>:Mild, 7=>:Sick,
         8=>:Severe,  9=>:Travelers, 10=>:Isolated)
 
-# evolve_prob_rows
+# transition_prob_rows
 const to_recovered = 1
 const to_nil = 2
 const to_mild = 3
@@ -110,8 +112,8 @@ const contact_risk_by_age = [.05, .10, .15, .30, .45]
         (cnt=cnt, locale=locale, cond=cond, to=to)
     end
 
-    EvolveStat = typeof((;cnt=0, locale=0, tocond=5))
-    function evolvestat(; cnt=0, locale=0, tocond=5)
+    TransitionStat = typeof((;cnt=0, locale=0, tocond=5))
+    function transitionstat(; cnt=0, locale=0, tocond=5)
         (cnt=cnt, locale=locale, tocond=tocond)
     end
 
@@ -143,7 +145,7 @@ function setup(geofilename, lim=10)
     openmx = datsdict["openmx"]
     init_unexposed!(openmx, geodata, numgeo)
 
-    ev_pr = build_evolve_probs()
+    ev_pr = build_transition_probs()
 
     iso_pr = build_iso_probs()
 
@@ -235,8 +237,8 @@ function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
 end
 
 
-function build_evolve_probs()
-    # evolve_probs will be of dims (4,6,5) => source conditions, destination conditions, agegrp planes
+function build_transition_probs()
+    # transition_probs will be of dims (4,6,5) => source conditions, destination conditions, agegrp planes
     # array labels
 
         # rows
@@ -248,8 +250,8 @@ function build_evolve_probs()
         # to_dead = 6
         # agegroups are columns: use a1,a2,a3,a4,a5 above
 
-        # columns  must sum to 1: for a given condition and age, all who evolve go somewhere
-                # people don't all evolve--they stay in place
+        # columns  must sum to 1: for a given condition and age, all who transition go somewhere
+                # people don't all transition--they stay in place
     # NOTE!!!: the acual arrays are what you see below transposed like the one for nil_ev_pr
 
  
@@ -290,6 +292,25 @@ function build_evolve_probs()
     return ev_pr
 end
 
+function cond2tran_idx(cond)
+    idx =   if cond == recovered  
+                1
+            elseif cond == nil  
+                2
+            elseif cond == mild 
+                3
+            elseif cond == sick 
+                4
+            elseif cond == severe 
+                5
+            elseif cond == dead 
+                6
+            else
+                -1
+            end
+end
+
+
 
 function build_iso_probs()
     # these don't need to sum to one in either direction!  independent events
@@ -324,10 +345,10 @@ end
     # some people will isolate: need to come up with rules for isolation, leaks from isolation 
         #   DONE = isolate_in put people into and out of isolation by agegroup, locale, condition, lag
 
-    # DONE = evolve! distribute residents across all lags and conditions
+    # DONE = transition! distribute residents across all lags and conditions
         # openmx
         # isolatedmx
-        # loop across all locales to evolve all    
+        # loop across all locales to transition all    
             # start from last lag, by age group:
                     # severe distribute to sick, severe or die remain at lag 18
                     # sick distribute to severe, mild remain at lag 18
@@ -375,9 +396,9 @@ end
 ####################################################################################
 #   functions for simulation events
 ####################################################################################
-# things that cause condition changes: travel, spread, evolve, isolate
+# things that cause condition changes: travel, spread, transition, isolate
 
-function evolve_all(locales=locales)
+function transition_all(locales=locales)
 
     # open environment
     for locale in locales
@@ -391,12 +412,12 @@ end
 
 
 """
-    People who have become infectious evolve through cases from
+    People who have become infectious transition through cases from
     nil (asymptomatic) to mild to sick to severe, depending on their
     agegroup, days of being exposed, and statistics. The final outcomes
-    are recovery or dying.
+    are recovered or dead.
 """
-function evolve!(ev_pr, locale; conds=infectious_cases, case="open", dat=openmx)  # TODO also need to run for isolatedmx
+function transition!(dt, locale; conds=infectious_cases, case="open", dat=openmx)  # TODO also need to run for isolatedmx
 
     # special handling because this is the last day back we track outcomes
     # lag = 19 # [recovered, nil, mild, sick, severe, dead]
@@ -407,75 +428,118 @@ function evolve!(ev_pr, locale; conds=infectious_cases, case="open", dat=openmx)
     # end
 
     # for day 19
-    #     implement decision point
-
-    for lag = 18:-1:14
-        for cond in conds  # [recovered, nil, mild, sick, severe, dead]
-            for agegrp in agegrps
-
-                dist_to_new_conditions!(cond, to_recovered:to_dead, agegrp, lag, locale, case=case, dat=dat)
-
+    lag = 19 # implement decision point
+        for agegrp in agegrps # get the params from the dec_tree
+            for node in [(4,4)]
+                toprobs = zeros(6)
+                for branch in dt[agegrp][(node)]  # agegroup index in array, node key in agegroup dict
+                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
+                end
+                fromcond = dt[agegrp][node][1].fromcond
+                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
             end
         end
+
+    for lag = 18:-1:15
+        # for cond in conds  # [recovered, nil, mild, sick, severe, dead]
+        #     for agegrp in agegrps
+        input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
+        minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
+        #     end
+        # end
     end    
 
     # for day 14
-        # implement decision point
-
-    # next 10 days to outcomes
-    for lag = 13:-1:9
-        for cond in conds  # [recovered, nil, mild, sick, severe, dead]
-            for agegrp in agegrps
-
-                dist_to_new_conditions!(cond, to_recovered:to_dead, agegrp, lag, locale, case=case, dat=dat)
-
+    lag = 14  # implement decision points
+        for agegrp in agegrps # get the params from the dec_tree
+            for node in [(3,2), (3,3), (3,4)]
+                toprobs = zeros(6)
+                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
+                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
+                end
+                fromcond = dt[agegrp][node][1].fromcond # this indexes to a branch object, so we can dot to get a field
+                @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
+                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
             end
         end
+
+    # next 4 days: bump lag for existing conditions
+    for lag = 13:-1:10
+        # for cond in conds  # [recovered, nil, mild, sick, severe, dead]
+        #     for agegrp in agegrps
+        input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
+        minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
+        #     end
+        # end
     end
+
     # for day 9
-        # implement decision point
+    lag = 9  # implement decision points
+        for agegrp in agegrps # get the params from the dec_tree
+
+            for node in [(2,2), (2,3)]
+                toprobs = zeros(6)
+                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
+                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
+                end
+                fromcond = dt[agegrp][node][1].fromcond
+                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
+            end
+        end
 
     # next 4 days to increasing symptoms
-    for lag = 8:-1:5
-        for cond in conds  # [nil, mild, sick]
-            for agegrp in agegrps
+    for lag = 8:-1:6
+        # for cond in conds  # [nil, mild, sick]
+        #     for agegrp in agegrps
+        input!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
+        minus!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag, locale, dat=dat)
+        #     end
+        # end
+    end
 
-                dist_to_new_conditions!(cond, to_nil:to_sick, agegrp, lag, locale, case=case, dat=dat)
-
+    # for day 5
+    lag = 5  # decision point based on dec_tree
+        for agegrp in agegrps # get the params from the dec_tree
+            for node in [(1,1)]
+                toprobs = zeros(6)
+                for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
+                    toprobs[cond2tran_idx(branch.tocond)] = branch.pr
+                end
+                fromcond = dt[agegrp][node][1].fromcond
+                dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case=case, dat=dat)
             end
         end
-    end
-    # for day 5
-        # implement decision point
+        
+
     # initial day + 4 days
     for lag = 4:-1:1
-        for cond in conds  # [nil, mild, sick]
-            for agegrp in agegrps
-
-                dist_to_new_conditions!(cond, to_nil:to_mild, agegrp, lag, locale, case=case, dat=dat)
-                # input!(grab(nil:severe,1:5,lag,1),nil:severe,1:5,lag+1,1, dat=dat)
-                # minus!(grab(nil:severe,1:5,lag,1),nil:severe,1:5,lag,1, dat=dat)
-            end
-        end
+        # for cond in conds  # [nil, mild, sick]
+        #     for agegrp in agegrps
+        input!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
+        minus!(grab(nil:severe,1:5,lag,locale,dat=dat),nil:severe,1:5,lag, locale, dat=dat)
+        #     end
+        # end
     end
 
     update_infectious!(locale, dat = dat)
 end
 
-
-function dist_to_new_conditions!(fromcond, tocases, agegrp, lag, locale; case = "open", dat=openmx)
+# TODO handle last lag without hardcoding 19
+function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = "open", dat=openmx)
 
     # get the number of folks to be distributed 
-    folks = grab(fromcond,agegrp,lag,locale, dat=dat) # scalar
-    # @debug @sprintf("%12s %5d %5d %5d ",condnames[fromcond], agegrp,  lag, folks)
+    # folks = grab(fromcond,agegrp,lag,locale, dat=dat) # scalar
+    folks = dat[lag, fromcond, agegrp, locale]
+    @debug "folks $folks lag $lag age $agegrp cond $fromcond"
 
 
-    # select probs for tocases from the raw evolve probs
-    toprobs = zeros(6)
-    toprobs[tocases] = snorm(ev_pr[fromcond][tocases, agegrp])
+    # select probs for tocases from the raw transition probs
+    # toprobs = zeros(6)
+    # toprobs[tocases] = snorm(ev_pr[fromcond][tocases, agegrp])
 
     # get the dist vector of folks to each outcome (6 outcomes)  
         # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
+    @assert isapprox(sum(toprobs), 1.0, atol=1e-3) "target vector must sum to 1.0; submitted $toprobs"
     distvec = bucket(categorical_sample(toprobs,folks), 6, 6)
     @debug begin
         cond = condnames[fromcond];recovered=distvec[1]; nil=distvec[2]; mild=distvec[3]; sick=distvec[4]; severe=distvec[5]; dead=distvec[6];
@@ -484,17 +548,18 @@ function dist_to_new_conditions!(fromcond, tocases, agegrp, lag, locale; case = 
 
     # distribute to infectious cases,recovered, dead
     moveout = sum(distvec)
-    plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1,locale, dat=dat) # add to infectious cases for next lag
+    lag != 19 && (plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1,locale, dat=dat)) # add to infectious cases for next lag
     plus!(distvec[to_recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[to_dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
     minus!(moveout, fromcond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
 
-    queuestats(distvec, [recovered, nil,mild,sick,severe, dead], locale, evolvestat)
-    queuestats(-moveout, fromcond, locale, evolvestat)
+    queuestats(distvec, [recovered, nil,mild,sick,severe, dead], locale, transitionstat)
+    queuestats(-moveout, fromcond, locale, transitionstat)
 end
 
 
-function queuestats(vals, conds, locale, func::typeof(evolvestat); case="open")
+# TODO this has to work for case = "isolated"
+function queuestats(vals, conds, locale, func::typeof(transitionstat); case="open")
     @assert length(vals) == length(conds) "lengths of vals and indices don't match"
     worldday = simday(0)
     for i in eachindex(vals)
@@ -747,7 +812,6 @@ function snorm(arr)
 end
 
 function categorical_sample(probvec, trials)
-    @assert isapprox(sum(probvec), 1.0) "target vector must sum to 1.0"
     x = rand(Categorical(probvec), trials)
 end
 
