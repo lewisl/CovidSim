@@ -14,8 +14,13 @@ using Random
 using Distributions
 using StatsBase
 using Printf
+using PyPlot
+import Seaborn
 
 include("dec_tree.jl")
+include("setup.jl")
+
+
 
 mutable struct SimEnvironment  # maybe, maybe not...?
     simdday::Int
@@ -132,102 +137,9 @@ const contact_risk_by_age = [.05, .1, .15, .20, .25]
     empty!(df::DataFrame) = select!(df, Int[])  # select only a null column in place effectively empties
 
 
-######################################################################################
-# setup and initialization functions
-######################################################################################
-
-
-function setup(geofilename, dectreefilename="dec_tree_all.csv"; geolim=10)
-
-    geodata = readgeodata(geofilename)
-    numgeo = size(geodata,1)
-    if geolim <= numgeo
-        numgeo = geolim
-    end
-    datsdict = build_data(numgeo)
-    openmx = datsdict["openmx"]
-    init_unexposed!(openmx, geodata, numgeo)
-
-    # transition decision trees 
-    arr = read_dectree_file(dectreefilename)
-    dt = create_node_dict(arr)
-
-    iso_pr = build_iso_probs()
-
-    return Dict("dat"=>datsdict, "dt"=>dt, "iso_pr"=>iso_pr)
-end
-
-
-function init_unexposed!(dat, geodata, numgeo)
-    for locale in 1:numgeo
-        for agegrp in agegrps
-            dat[1, unexposed, agegrp, locale] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
-        end
-    end
-end
-
-
-function build_data(numgeo)
-    openmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
-    isolatedmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
-    openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
-    isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
-    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
-end
-
-"""
-    Build container for data series of simulation outcomes by day.
-    Top index is an integer that is the ID of a locale or 0 for total across locales.
-    2nd index is either :new or :cum.
-    Values at the leaf of :new is a DataFrame of new additions to a series.
-    Values at the leaf of :cum is a DataFrame of the cumulative values of a series.
-    Current series columns are:
-        Travelers
-        Infected
-        Nil
-        Mild
-        Sick
-        Severe
-        Dead
-        Recovered
-        Isolated
-    Rows are days of the simulation.
-"""
-function build_series(numgeo)
-#=
-columnnames = ["x", "y", "z"]
-columns = [Symbol(col) => Float64[] for col in columnnames]
-df1 = DataFrame(columns...)
-df2 = DataFrame(columns...)
-series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead, 5=>:Nil, 6=>:Mild, 7=>:Sick,
-        8=>:Severe,  9=>:Travelers, 10=>:Isolated)
-
-=#
-
-    dseries = Dict{Int,Dict}()
-    columns = [series_colnames[i] => Int[] for i in 1:length(series_colnames)]
-    new = DataFrame(columns...)
-    cum = DataFrame(columns...)
-    # new = DataFrame(Travelers=Int[], Unexposed=Int[], Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
-    #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[])
-    # cum = DataFrame(Travelers=Int[], Unexposed=Int[],Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
-    #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[]) # do by agegrp, total, by gender?
-    for i in 0:numgeo
-        dseries[i]=Dict{Symbol,DataFrame}()
-        dseries[i][:new] = new
-        dseries[i][:cum] = cum
-    end
-    return dseries
-end
-
-function readgeodata(filename)
-    geodata = readdlm(filename, ','; header=true)[1]
-end
-
-
 function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
     @assert length(lag) == 1 "input only one lag value"    
-    @warn "Seeding is for testing and may results in case counts out of balance"
+    # @warn "Seeding is for testing and may result in case counts out of balance"
     for loc in locales
         for cond in conds
             if cond in [nil, mild, sick, severe]
@@ -241,6 +153,7 @@ function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
         update_infectious!(loc, dat = dat)
     end
 end
+
 
 """
 Map a condition index from rows in the data matrix to 
@@ -273,20 +186,6 @@ function cond2tran_idx(cond)
 end
 
 
-
-function build_iso_probs()
-    # these don't need to sum to one in either direction!  independent events
-    default_iso_pr = zeros(6,5)
-    #                    enexp recover nil mild sick severe   
-    default_iso_pr[:, a1] = [0.3, 0.3, 0.3, 0.4, 0.8, 0.9]  # this is for column a1
-    default_iso_pr[:, a2] = [0.3, 0.3, 0.2, 0.3, 0.8, 0.9]
-    default_iso_pr[:, a3] = [0.3, 0.3, 0.3, 0.4, 0.8, 0.9]
-    default_iso_pr[:, a4] = [0.5, 0.5, 0.4, 0.6, 0.9, 0.9]
-    default_iso_pr[:, a5] = [0.5, 0.5, 0.4, 0.6, 0.9, 0.9]
-
-    iso_pr = Dict("default"=>default_iso_pr)
-
-end
 
 
 #function daystep()  # one day of simulation
@@ -378,13 +277,13 @@ function run_a_sim(geofilename, n_days, locales = [1]; silent=true)
 
     # start the counter at zero
     reset!(ctr, :day)  # remove key :day leftover from prior runs
-    ctr[:day] = 0
+    ctr[:day] = 0  # create the key for the :day counter and set to zero
 
     starting_unexposed = grab(unexposed, 1:5, 1, locales, dat=openmx)
 
     for i = 1:n_days
         for locale in locales
-            inc!(ctr, :day)  # set the relative calendar
+            inc!(ctr, :day)  # update the simulation day counter
             silent || println("simulation day: ", ctr[:day])
             # seed some people arriving as carriers
             if ctr[:day] == 1
@@ -398,10 +297,10 @@ function run_a_sim(geofilename, n_days, locales = [1]; silent=true)
             end
             spread!(locale, dat=openmx)
             transition!(dt, locale, dat=openmx)
-            queue_to_series(newstatq, new_series, 1)
+            queue_to_series!(newstatq, new_series, 1)
         end
     end
-    println("Simulation completed.")
+    println("Simulation completed for $(ctr[:day]) days.")
     new_to_cum(dseries, 1, starting_unexposed)
     return openmx, dseries, starting_unexposed
 end
@@ -412,17 +311,6 @@ end
 ####################################################################################
 # things that cause condition changes: travel, spread, transition, isolate
 
-function transition_all(locales=locales)
-
-    # open environment
-    for locale in locales
-    end
-
-    # isolated environment
-    for locale in locales
-    end
-
-end
 
 
 """
@@ -468,8 +356,7 @@ function transition!(dt, locale; case="open", dat=openmx)  # TODO also need to r
 end
 
 
-# TODO handle last lag without hardcoding 19
-function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = "open", dat=openmx)
+function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = "open", dat=openmx, lastlag=19)
 
     transition_cases = [recovered, nil,mild,sick,severe, dead]
 
@@ -490,7 +377,7 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
 
 
     # distribute to infectious cases,recovered, dead
-    lag != 19 && (plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1,locale, dat=dat)) # add to infectious cases for next lag
+    lag != lastlag && (plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1,locale, dat=dat)) # add to infectious cases for next lag
     plus!(distvec[to_recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[to_dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
 
@@ -520,6 +407,7 @@ function queuestats(vals, conds, locale, func::typeof(transitionstat); case="ope
     end
 end
 
+
 # for spread
 function queuestats(vals, locale, func::typeof(spreadstat); case="open")
     @assert length(vals) >= 0 "lengths of vals must be greater than 0"
@@ -536,6 +424,7 @@ function queuestats(vals, locale, func::typeof(spreadstat); case="open")
     end
 end
 
+
 function update_infectious!(locale; dat=openmx) # by single locale
     for agegrp in agegrps
         tot = total!([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
@@ -549,11 +438,6 @@ How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?
 """
 function spread!(locale; dat=openmx)
-    # 180 microseconds
-    # start with the number of infectious people      
-    # now we ignore what their condition and age are is: TODO fix
-    # should spread less for conditions in order: nil, mild, sick, severe
-    # need to loop by condition
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
     spreaders = sum(grab(infectious_cases, agegrps, 1:19, locale, dat=dat), dims = 1) # 1 x 4 x 5
@@ -593,13 +477,12 @@ end
 
                         # nil mild sick severe
 const spread_factors = [   2   2    1     .5;      # agegrp 1
-                           4   4    2     1.0;      # agegrp 2
-                           4   4    2     1.0;      # agegrp 3
-                           3   3    1     0.5;        # agegrp 4
-                           3   3    1     0.2;        # agegrp 5
+                           4   4    2     1.0;     # agegrp 2
+                           4   4    2     1.0;     # agegrp 3
+                           3   3    1     0.5;     # agegrp 4
+                           3   3    1     0.2;     # agegrp 5
                         ]
-# TODO calculate density_factor
-# calculate density factors   MOVE TO setup
+# TODO calculate density_factor in setup, per locale
 density = rand((500:30000),20)  # use US Census data
 function minmax(x) 
     x_max = maximum(x, dims=1)
@@ -611,8 +494,6 @@ logistic(x) = 1.0 ./ (1.0 .+ exp.(-x))
 logistic_scale(x, sc) = sc .* logistic(x)
 density_factors = clamp!(logistic_scale(shift(minmax(density),3.0,1.5), 2.0), 0.5, 1.5)
 
-
-# 5.7 microseconds for 100 touchers
 
 function how_many_touched(touchers, spread_factors, tot_unexposed, density_factor=1.1; scale=6)
     numtouched = 0.0
@@ -636,9 +517,8 @@ function how_many_touched(touchers, spread_factors, tot_unexposed, density_facto
 end
 
 
-# we also need to split by condition
 function split_by_age_cond(cnt; dat=openmx)::Array{Int64,1}
-    # who is accessible
+    # who is accessible: start with all to capture effect of "herd immunity", when it arises
         accessible = permutedims(sum(grab([unexposed,infectious,recovered],1:5,1:19,1, dat=dat),
                                      dims=1),
                                 [2,3,1])[:,:,1]   #   3 x 5 conds by agegrps
@@ -648,8 +528,10 @@ function split_by_age_cond(cnt; dat=openmx)::Array{Int64,1}
         # pct_accessible = sparsify!(pct_accessible)
         @assert isapprox(sum(pct_accessible), 1.0, atol=1e-8) "target vector must sum to 1.0; submitted $pct_accessible"
 
-        # should we have another factor of how accessible someone is?  another made up set of number?
-    x = categorical_sample(pct_accessible,cnt)  # split jointly by age and cond
+        # TODO should we have another factor of how accessible someone is?  another made up set of number?
+
+    x = categorical_sample(pct_accessible,cnt)  # joint distibution of age and cond
+
     # select the unexposed by age
     nums = reshape(bucket(x,lim=15, bins=15),3,5)[1,:]  # 5 elements: unexposed by agegrp
     return nums
@@ -722,9 +604,9 @@ end
 """
 Process the isolated queue.
 Remove people from open environment in array openmx.
-Add people to the insolated environment in array isolatedmx.
+Add people to the isolated environment in array isolatedmx.
 """
-function isolate_in!()
+function isolate_move!()
     while !isempty(isolatedq)
         g = dequeue!(isolatedq)
         minus!(g.cnt,g.cond, g.agegrp, g.lag, g.locale, dat=openmx)
@@ -736,7 +618,7 @@ end
 """
 Place people who are isolating into the isolated queue: isolatedq
 """
-function isolate_out!(iso_pr_locale, locale)
+function isolate_queue!(iso_pr_locale, locale)
     for (idx, cond) in enumerate([unexposed, recovered, nil, mild, sick, severe])
         for lag in lags
             for agegrp in agegrps
@@ -805,7 +687,7 @@ function binomial_one_sample(cnt, pr)::Int
     return rand(Binomial(cnt, pr))
 end
 
-
+# unsafe
 function snorm(arr)
     return arr ./ (sum(arr))
 end
@@ -814,25 +696,20 @@ function categorical_sample(probvec, trials)
     x = rand(Categorical(probvec), trials)
 end
 
-#=
-should the applicable method:
-[143] rand(d::DiscreteNonParametric) in 
-Distributions at /Users/lewis/.julia/packages/Distributions/ZJ0hQ/src/univariate/discrete/discretenonparametric.jl:85
- 
-=#
 
 #########################################################################################
 # tracking
 #########################################################################################
 
-const ctr = counter(Symbol)
-    # use incr!(ctr, :day) for day of the simulation:  creates and adds 1
-    # use reset!(ctr, :day) to remove :day and return its current value
-    # use ctr[:day] to return current value of day
+"""
+- use incr!(ctr, :day) for day of the simulation:  creates and adds 1
+- use reset!(ctr, :day) to remove :day and return its current value
+- use ctr[:day] to return current value of day
+"""
+const ctr = counter(Symbol) # from package DataStructures
 
 
-
-function queue_to_series(qdf, seriesdf, numgeo)
+function queue_to_series!(qdf, seriesdf, numgeo)
     size(qdf,1) == 0 && return   # empty queue
 
     rowinit = Dict(:Unexposed => 0,  :Infectious => 0, :Recovered=> 0, :Dead=> 0, :Nil=> 0, 
@@ -881,6 +758,21 @@ function new_to_cum(dseries, locale, starting)
     end
 end
 
+
+function simpleplot(dseries, locale; sb=false)
+    sb && Seaborn.set()
+
+    cumseries = dseries[locale][:cum]
+    pldat = Matrix(cumseries[!,[:Unexposed,:Infectious,:Recovered, :Dead]]);
+    labels = ["Unexposed", "Infectious","Recovered", "Dead"];
+    n = size(cumseries,1)
+    people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
+
+    plot(1:n,pldat)
+    legend(labels)
+    title("Covid for $people people over $n days")
+end
+
 ####################################################################################
 #   convenience functions for reading and inputting population statistics
 ####################################################################################
@@ -910,11 +802,13 @@ function total!(condition, agegrp, lag, locale; dat=openmx)
     sum(dat[lag, condition, agegrp, locale])
 end
 
+
 function showq(qname)
     for item in qname
         println(item)
     end
 end
+
 
 function printsp(xs...)
     for x in xs
