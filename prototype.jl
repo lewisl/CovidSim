@@ -445,7 +445,7 @@ previously unexposed people, by agegrp?
 function spread!(locale; dat=openmx)
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    spreaders = sum(grab(infectious_cases, agegrps, 1:19, locale, dat=dat), dims = 1) # 1 x 4 x 5
+    spreaders = sum(grab(infectious_cases, agegrps, lags, locale, dat=dat), dims = 1) # 1 x 4 x 5
     spreaders = reshape(permutedims(spreaders,[3,2,1]),(5,4)) # 5 x 4: agegrp x cond
     if sum(spreaders) == (0,0)
         return nothing
@@ -457,10 +457,12 @@ function spread!(locale; dat=openmx)
 
     # transmissibility by agegrp of recipient
     # TODO also include cond of spreader--except by now we don't have that...
-    byage = split_by_age_cond(touched, dat=dat)   # for the unexposed
+    byage = split_by_age_cond(touched, locale, dat=dat)   # for the unexposed
     for i in 1:length(byage) # this probabilisticly determines if contact resulted in contracting the virus
         byage[i] = binomial_one_sample(byage[i], contact_risk_by_age[i])
     end
+
+    @assert sum(byage) <= tot_unexposed
 
     starters = sum(spreaders)
     newlyinfected = sum(byage)
@@ -515,16 +517,16 @@ function how_many_touched(touchers, spread_factors, tot_unexposed, density_facto
         end
     end
 
-    numtouched = clamp(floor(Int,density_factor * numtouched), 1, floor(Int, .8 * tot_unexposed))
+    numtouched = clamp(floor(Int,density_factor * numtouched), 0, floor(Int, .8 * tot_unexposed))
 
-    @assert numtouched < tot_unexposed "number touched $numtouched exceeds total unexposed $tot_unexposed"
+    @assert numtouched < tot_unexposed "Assertion Error: number touched $numtouched exceeds total unexposed $tot_unexposed"
     return numtouched
 end
 
 
-function split_by_age_cond(cnt; dat=openmx)::Array{Int64,1}
+function split_by_age_cond(cnt, locale; dat=openmx)::Array{Int64,1}
     # who is accessible: start with all to capture effect of "herd immunity", when it arises
-        accessible = permutedims(sum(grab([unexposed,infectious,recovered],1:5,1:19,1, dat=dat),
+        accessible = permutedims(sum(grab([unexposed,infectious,recovered],1:5,lags,locale, dat=dat),
                                      dims=1),
                                 [2,3,1])[:,:,1]   #   3 x 5 conds by agegrps
 
