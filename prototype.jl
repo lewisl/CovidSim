@@ -299,7 +299,6 @@ function run_a_sim(geofilename, n_days, locales = [1]; silent=true)
             spread!(locale, dat=openmx)
             transition!(dt, locale, dat=openmx)
         end
-        inc!(ctr, :calls)
         queue_to_newseries!(newstatq, dseries, locales)
     end
     println("Simulation completed for $(ctr[:day]) days.")
@@ -440,34 +439,36 @@ end
 
 """
 How far do the infectious people spread the virus to 
-previously unexposed people, by agegrp?
+previously unexposed people, by agegrp?  For a single locale...
 """
 function spread!(locale; dat=openmx)
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    spreaders = sum(grab(infectious_cases, agegrps, lags, locale, dat=dat), dims = 1) # 1 x 4 x 5 => sum across lags
-    spreaders = reshape(permutedims(spreaders,[3,2,1]),(5,4)) # 5 x 4: agegrp x cond
-    if sum(spreaders) == (0,0)
-        return nothing
+    spreaders = grab(infectious_cases, agegrps, 1:19, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
+    # spreaders = permutedims(spreaders,[1,3,2]) # 19 x 5 x 4: lag x agegrp x cond  Not sure we need this
+    if sum(spreaders) == 0
+        return
     end
 
+   accessible = grab([unexposed,recovered, nil, mild, sick, severe],1:5,1:19,1, dat=dat)  #   3 x 5 conds by agegrps
+
+    tot_unexposed = grab(unexposed, 1:5, 1, locale, dat=dat)  # x 5  agegrp
+
     # how many people are touched   
-    tot_unexposed = sum(grab(unexposed, 1:5, 1, locale, dat=dat))
     touched = how_many_touched(spreaders, spread_factors, tot_unexposed)
 
     # transmissibility by agegrp of recipient
     # TODO also include cond of spreader--except by now we don't have that...
-    byage = split_by_age_cond(touched, locale, dat=dat)   # for the unexposed
+    byage = split_by_age_cond(touched,locale, dat=dat)   # for the unexposed
     for i in 1:length(byage) # this probabilisticly determines if contact resulted in contracting the virus
         byage[i] = binomial_one_sample(byage[i], contact_risk_by_age[i])
     end
 
-    @assert sum(byage) <= tot_unexposed
-
-    starters = sum(spreaders)
-    newlyinfected = sum(byage)
-    onestep_r0 = newlyinfected / starters
-    @debug "Spreaders $starters to newly infected: $newlyinfected for r0: $onestep_r0"
+    # a not ok way to estimate R0:  need each subsequent day of infected for the originating group
+    # starters = sum(spreaders)
+    # newlyinfected = sum(byage)
+    # onestep_r0 = newlyinfected / starters
+    # @debug "Spreaders $starters to newly infected: $newlyinfected for r0: $onestep_r0"
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
     lag = 1
