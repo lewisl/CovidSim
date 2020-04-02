@@ -445,7 +445,7 @@ previously unexposed people, by agegrp?
 function spread!(locale; dat=openmx)
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    spreaders = sum(grab(infectious_cases, agegrps, lags, locale, dat=dat), dims = 1) # 1 x 4 x 5
+    spreaders = sum(grab(infectious_cases, agegrps, lags, locale, dat=dat), dims = 1) # 1 x 4 x 5 => sum across lags
     spreaders = reshape(permutedims(spreaders,[3,2,1]),(5,4)) # 5 x 4: agegrp x cond
     if sum(spreaders) == (0,0)
         return nothing
@@ -482,6 +482,8 @@ function spread!(locale; dat=openmx)
     return nothing
 end
 
+# spread factors for the spreaders
+
                         # nil mild sick severe
 const spread_factors = [   2   2    1     .5;      # agegrp 1
                            4   4    2     1.0;     # agegrp 2
@@ -502,13 +504,15 @@ logistic_scale(x, sc) = sc .* logistic(x)
 density_factors = clamp!(logistic_scale(shift(minmax(density),3.0,1.5), 2.0), 0.5, 1.5)
 
 
-function how_many_touched(touchers, spread_factors, tot_unexposed, density_factor=1.1; scale=6)
+function how_many_touched(spreaders, spread_factors, tot_unexposed, density_factor=1.1; scale=6)
+    # this originally ignores the conditions of the touched--assumes they are all equally likely to be touched
+    # split_by_age_cond partially corrects this--only partially
     numtouched = 0.0
     for agegrp in agegrps
         for cond in 1:length(infectious_cases)
             scale = spread_factors[agegrp, cond]
             dgamma = Gamma(1.2, scale)  #shape, scale
-            x = rand(dgamma,touchers[agegrp, cond]);
+            x = rand(dgamma,spreaders[agegrp, cond]);
             if isempty(x)
             else
                 nums, bounds = histo(x)
