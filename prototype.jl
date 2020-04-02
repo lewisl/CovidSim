@@ -44,8 +44,8 @@ const popsize =  5
 # const locales = [1,2,3,4,5]  # rows
 
 # population centers sizecats
-const major = 1
-const large = 2
+const major = 1  # 20
+const large = 2  # 50
 const medium = 3
 const small = 4
 const smaller = 5
@@ -267,41 +267,46 @@ end
 
 function run_a_sim(geofilename, n_days, locales = [1]; silent=true)
 
+    locales = locales   # force local scope to the loop
     simdict = setup(geofilename)
     dt = simdict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = simdict["dat"]["openmx"]
     # get isolatedmx here  
-    dseries = build_series(1)   # should use numgeo here
-    new_series = dseries[1][:new]
+    dseries = build_series(locales)   # should use numgeo here
 
     # start the counter at zero
     reset!(ctr, :day)  # remove key :day leftover from prior runs
-    ctr[:day] = 0  # create the key for the :day counter and set to zero
 
-    starting_unexposed = grab(unexposed, 1:5, 1, locales, dat=openmx)
+
+    starting_unexposed = reduce(hcat, [grab(unexposed, 1:5, 1, i, dat=openmx) for i in locales])
+    starting_unexposed = vcat(locales', starting_unexposed)
 
     for i = 1:n_days
+        inc!(ctr, :day)  # update the simulation day counter
+        silent || println("simulation day: ", ctr[:day])
         for locale in locales
-            inc!(ctr, :day)  # update the simulation day counter
-            silent || println("simulation day: ", ctr[:day])
             # seed some people arriving as carriers
             if ctr[:day] == 1
-                println("first seed....")
-                seed!([0,3,3,0,0],1,nil,1:5,1, dat=openmx)
+                println("first seed locale $locale....")
+                seed!([0,3,3,0,0],1,nil,1:5, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             elseif ctr[:day] == 10
-                println("second seed...")
-                seed!([0,3,3,0,0],1,nil,1:5,1, dat=openmx)
+                println("second seed locale $locale...")
+                seed!([0,3,3,0,0],1,nil,1:5, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
             spread!(locale, dat=openmx)
             transition!(dt, locale, dat=openmx)
-            queue_to_series!(newstatq, new_series, 1)
         end
+        inc!(ctr, :calls)
+        queue_to_newseries!(newstatq, dseries, locales)
     end
     println("Simulation completed for $(ctr[:day]) days.")
-    new_to_cum(dseries, 1, starting_unexposed)
+
+    for locale in locales
+        new_to_cum!(dseries, locale, starting_unexposed)
+    end
     return openmx, dseries, starting_unexposed
 end
 
@@ -357,7 +362,7 @@ end
 
 
 function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = "open", dat=openmx, lastlag=19)
-
+    @assert length(locale) == 1  "Assertion failed: length locale was not 1"
     transition_cases = [recovered, nil,mild,sick,severe, dead]
 
     # get the number of folks to be distributed 
@@ -703,42 +708,51 @@ end
 
 """
 - use incr!(ctr, :day) for day of the simulation:  creates and adds 1
-- use reset!(ctr, :day) to remove :day and return its current value
+- use reset!(ctr, :day) to remove :day and return its current value, set it to 0
 - use ctr[:day] to return current value of day
 """
 const ctr = counter(Symbol) # from package DataStructures
 
+# all locales
+function queue_to_newseries!(newstatq, dseries, locales)
 
-function queue_to_series!(qdf, seriesdf, numgeo)
-    size(qdf,1) == 0 && return   # empty queue
+    size(newstatq,1) == 0 && return   # empty queue
 
-    rowinit = Dict(:Unexposed => 0,  :Infectious => 0, :Recovered=> 0, :Dead=> 0, :Nil=> 0, 
-        :Mild=> 0, :Sick=> 0, :Severe=> 0,  :Travelers=> 0, :Isolated=> 0)
+    thisday = newstatq[1, :day]
+    @assert all(newstatq[!, :day] .== thisday)  "Assertion failure: queue doesn't contain all the same days"
 
-    thisday = qdf[1, :day]
-    @assert all(qdf[!, :day] .== thisday)  "queue doesn't contain all the same days"
-    agg = by(qdf, [:locale, :tocond], cnt = :cnt => sum)
-    for l in 1:numgeo
+    @debug "Size of queue: $(size(newstatq,1))"
+
+    # rowinit = Dict(:Unexposed => 0,  :Infectious => 0, :Recovered=> 0, :Dead=> 0, :Nil=> 0, 
+        # :Mild=> 0, :Sick=> 0, :Severe=> 0,  :Travelers=> 0, :Isolated=> 0)
+
+    agg = by(newstatq, [:locale, :tocond], cnt = :cnt => sum)
+    for l in locales
         filt = agg[agg.locale .== l, :]
-        rowfill = copy(rowinit)
+        # rowfill = copy(rowinit)
+        rowinit = zeros(10)
         for r in eachrow(filt)
-            rowfill[Symbol(series_colnames[r.tocond])] = r.cnt 
-            rowfill[:Infectious] = rowfill[:Nil] + rowfill[:Mild] + rowfill[:Sick] + rowfill[:Severe]
+            # rowfill[series_colnames[r.tocond]] = r.cnt 
+            rowinit[r.tocond] = r.cnt
         end
-        push!(seriesdf, rowfill)
+        # rowfill[:Infectious] = rowfill[:Nil] + rowfill[:Mild] + rowfill[:Sick] + rowfill[:Severe]
+        rowinit[infectious] = sum(rowinit[nil:severe])
+        # push!(dseries[l][:new], rowfill)
+
+        push!(dseries[l][:new], rowinit)
     end
     # purge the queue
-    deleterows!(qdf,1:size(qdf,1))
+    deleterows!(newstatq,1:size(newstatq,1))
 end
 
-
-function new_to_cum(dseries, locale, starting)
+# one locale at a time
+function new_to_cum!(dseries, locale, starting_unexposed)
      # add starting unexposed
 
-     println("Updating cumulative statistics.")
+     println("Updating cumulative statistics for locale $locale.")
 
-     startunexp = sum(starting)
-
+     locale_idx = findall(isequal(locale),starting_unexposed[1,:])
+     startunexp = sum(starting_unexposed[2:6, locale_idx])
      newseries = dseries[locale][:new]
      cumseries = dseries[locale][:cum]
 
@@ -753,54 +767,86 @@ function new_to_cum(dseries, locale, starting)
     for r_idx in 2:size(newseries,1)
         r1 = collect(newseries[r_idx,:])
         r0 = collect(cumseries[r_idx-1,:])
-        r1 .= r0 .+ r1
-        push!(cumseries, r1)
+        push!(cumseries, r0 .+ r1)
     end
 end
 
 
-function simpleplot(dseries, locale; sb=false)
+function cumplot(dseries, locale; sb=false)
     sb && Seaborn.set()
 
-    cumseries = dseries[locale][:cum]
-    pldat = Matrix(cumseries[!,[:Unexposed,:Infectious,:Recovered, :Dead]]);
-    labels = ["Unexposed", "Infectious","Recovered", "Dead"];
-    n = size(cumseries,1)
-    people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
+        cumseries = dseries[locale][:cum]
+        pldat = Matrix(cumseries[!,[:Unexposed,:Infectious,:Recovered, :Dead]]);
+        labels = ["Unexposed", "Infectious","Recovered", "Dead"];
+        n = size(cumseries,1)
+        people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
 
-    plot(1:n,pldat)
-    legend(labels)
-    title("Covid for $people people over $n days")
+        figure()
+        plot(1:n,pldat)
+        legend(labels)
+        title("Covid for $people people over $n days")
+  
 end
+
+function newplot(dseries, locale, item; sb=false)
+    sb && Seaborn.set()
+
+    if !(item in([:Unexposed,:Infectious,:Recovered, :Dead, :Nil, :Mild, :Sick, :Severe]))
+        error("item must be one of :Unexposed,:Infectious,:Recovered, :Dead, :Nil, :Mild, :Sick, :Severe")
+    end
+    newseries = dseries[locale][:new]
+    figure()
+    pldat = Vector(newseries[!,item])
+    labels = [string(item)]
+    n = size(newseries,1)
+    # people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
+
+    bar(1:n,pldat)
+    legend(labels)
+    title("Covid new cases of $item over $n days")
+
+end
+
 
 ####################################################################################
 #   convenience functions for reading and inputting population statistics
+#       these all work with one locale at a time EXCEPT grab
 ####################################################################################
 
 
 function grab(condition, agegrp, lag, locale; dat=openmx)
-    return dat[lag, condition, agegrp, locale]
+    @assert length(locale) == 1 "Assertion Error: locale must be a scalar"
+    return dat[locale][lag, condition, agegrp]
 end
 
 
 function input!(val, condition, agegrp, lag, locale; dat=openmx)
-    dat[lag, condition, agegrp, locale] = val
+    @assert length(locale) == 1 "Assertion Error: locale must be a scalar"
+    dat[locale][lag, condition, agegrp] = val
 end
 
 
 function plus!(val, condition, agegrp, lag, locale; dat=openmx)
-    dat[lag, condition, agegrp, locale] += val
+    @assert length(locale) == 1 "Assertion Error: locale must be a scalar"
+    dat[locale][lag, condition, agegrp] += val
 end
 
 
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
-    dat[lag, condition, agegrp, locale] -= val
+    @assert length(locale) == 1 "Assertion Error: locale must be a scalar"
+    dat[locale][lag, condition, agegrp] -= val
 end
 
 # avoid overloading base.sum 
 function total!(condition, agegrp, lag, locale; dat=openmx)
-    sum(dat[lag, condition, agegrp, locale])
+    @assert length(locale) == 1 "Assertion Error: locale must be a scalar"
+    sum(dat[locale][lag, condition, agegrp])
 end
+
+
+#############################################################
+#  other convenience functions
+#############################################################
 
 
 function showq(qname)

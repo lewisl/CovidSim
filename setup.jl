@@ -27,18 +27,31 @@ end
 function init_unexposed!(dat, geodata, numgeo)
     for locale in 1:numgeo
         for agegrp in agegrps
-            dat[1, unexposed, agegrp, locale] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
+            dat[locale][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
         end
     end
 end
 
 
 function build_data(numgeo)
-    openmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
-    isolatedmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
-    openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
-    isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
-    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
+    # openmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
+    openmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
+    isolatedmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
+
+    # isolatedmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
+    # openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
+    # isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
+    # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
+    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx)
+end
+
+# one environment at a time
+function data_dict(numgeo; lags=19, conds=10, agegrps=5)
+    dat = Dict()
+    for i = 1:numgeo
+        dat[i] = zeros(Int, lags, conds, agegrps)
+    end
+    return dat       
 end
 
 """
@@ -59,7 +72,7 @@ end
         Isolated
     Rows are days of the simulation.
 """
-function build_series(numgeo)
+function build_series(locales)
 #=
 columnnames = ["x", "y", "z"]
 columns = [Symbol(col) => Float64[] for col in columnnames]
@@ -70,26 +83,28 @@ series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead,
 
 =#
 
+
     dseries = Dict{Int,Dict}()
-    columns = [series_colnames[i] => Int[] for i in 1:length(series_colnames)]
-    new = DataFrame(columns...)
-    cum = DataFrame(columns...)
+    # columns = [series_colnames[i] => Int[] for i in 1:length(series_colnames)]
+
+    template = DataFrame([series_colnames[i] => Int[] for i in 1:length(series_colnames)]...)
+
     # new = DataFrame(Travelers=Int[], Unexposed=Int[], Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
     #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[])
     # cum = DataFrame(Travelers=Int[], Unexposed=Int[],Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
     #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[]) # do by agegrp, total, by gender?
-    for i in 0:numgeo
+    for i in [0, locales...]
         dseries[i]=Dict{Symbol,DataFrame}()
-        dseries[i][:new] = new
-        dseries[i][:cum] = cum
+        dseries[i][:new] = deepcopy(template)
+        dseries[i][:cum] = deepcopy(template)
     end
     return dseries
 end
 
+
 function readgeodata(filename)
     geodata = readdlm(filename, ','; header=true)[1]
 end
-
 
 
 function build_iso_probs()
