@@ -82,7 +82,7 @@ const a2 = 2 # 20-39
 const a3 = 3 # 40-59
 const a4 = 4 # 60-79
 const a5 = 5 # 80+
-const agegrps = [1,2,3,4,5]  
+const agegrps = 1:5  
 const ages = length(agegrps)
 const contact_risk_by_age = [.05, .1, .15, .20, .25]
 
@@ -184,7 +184,11 @@ function cond2tran_idx(cond)
                 -1                # for values 1, 2
             end
 end
-
+# better way to represent mapping for this example
+    # cmap = (recovered=1, nil=2, mild=3, sick=4, severe=5, dead=6)
+    # use as cmap.recovered
+    # same speed:  named tuple easier to create as needed
+    # can name them for specific purposes but that could be more confusing
 
 
 
@@ -279,7 +283,7 @@ function run_a_sim(geofilename, n_days, locales = [1]; silent=true)
     reset!(ctr, :day)  # remove key :day leftover from prior runs
 
 
-    starting_unexposed = reduce(hcat, [grab(unexposed, 1:5, 1, i, dat=openmx) for i in locales])
+    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
     starting_unexposed = vcat(locales', starting_unexposed)
 
     for i = 1:n_days
@@ -289,11 +293,11 @@ function run_a_sim(geofilename, n_days, locales = [1]; silent=true)
             # seed some people arriving as carriers
             if ctr[:day] == 1
                 println("first seed locale $locale....")
-                seed!([0,3,3,0,0],1,nil,1:5, locale, dat=openmx)
+                seed!([0,3,3,0,0],1,nil, agegrps, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             elseif ctr[:day] == 10
                 println("second seed locale $locale...")
-                seed!([0,3,3,0,0],1,nil,1:5, locale, dat=openmx)
+                seed!([0,3,3,0,0],1,nil, agegrps, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
             spread!(locale, dat=openmx)
@@ -350,8 +354,8 @@ function transition!(dt, locale; case="open", dat=openmx)  # TODO also need to r
             end
         else
             # bump people up a day without changing their conditions
-            input!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag+1, locale, dat=dat)
-            minus!(grab(nil:severe,1:5,lag,locale, dat=dat),nil:severe,1:5,lag, locale, dat=dat)
+            input!(grab(nil:severe, agegrps,lag,locale, dat=dat),nil:severe, agegrps,lag+1, locale, dat=dat)
+            minus!(grab(nil:severe, agegrps,lag,locale, dat=dat),nil:severe, agegrps,lag, locale, dat=dat)
         end
     end
 
@@ -444,27 +448,36 @@ previously unexposed people, by agegrp?  For a single locale...
 function spread!(locale; dat=openmx)
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    spreaders = grab(infectious_cases, agegrps, 1:19, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
+    spreaders = grab(infectious_cases, agegrps, lags, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
+
+    println(" all the spreaders ", sum(spreaders))
+
     # spreaders = permutedims(spreaders,[1,3,2]) # 19 x 5 x 4: lag x agegrp x cond  Not sure we need this
     if sum(spreaders) == 0
         return
     end
 
-   accessible = grab([unexposed,recovered, nil, mild, sick, severe],1:5,1:19,1, dat=dat)  #   3 x 5 conds by agegrps
+    all_accessible = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)  #   19 x 6 x 5  lag x cond by agegrp
+    all_unexposed = grab(unexposed, agegrps, 1, locale, dat=dat)  # 5,  agegrp for lag 1
 
-    tot_unexposed = grab(unexposed, 1:5, 1, locale, dat=dat)  # x 5  agegrp
+    # how many people are contacted based on characteristics of spreader   
+    numcontacted = how_many_contacted(spreaders, contact_factors)
 
-    # how many people are touched   
-    touched = how_many_touched(spreaders, spread_factors, tot_unexposed)
+    println("  all the contacted ", sum(numcontacted))
 
-    # transmissibility by agegrp of recipient
-    # TODO also include cond of spreader--except by now we don't have that...
-    byage = split_by_age_cond(touched,locale, dat=dat)   # for the unexposed
-    for i in 1:length(byage) # this probabilisticly determines if contact resulted in contracting the virus
-        byage[i] = binomial_one_sample(byage[i], contact_risk_by_age[i])
-    end
+    # how many people are touched based on characteristics of recipient and potential contacts?
+    numtouched = how_many_touched(numcontacted, all_accessible, all_unexposed)   # cond x agegrp
 
-    # a not ok way to estimate R0:  need each subsequent day of infected for the originating group
+    println("  all the touched ", sum(numtouched))
+
+
+    newinfected = how_many_infected(numtouched)    # x agegrp (only condition is nil, assumed lag = 1)
+
+    println("  all the newly infected ", sum(newinfected))
+
+
+
+    # a not ok way to estimate R0:  need each subsequent day of infected for the originating group; this is only 1 day
     # starters = sum(spreaders)
     # newlyinfected = sum(byage)
     # onestep_r0 = newlyinfected / starters
@@ -472,81 +485,163 @@ function spread!(locale; dat=openmx)
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
     lag = 1
-    plus!.(byage, infectious, agegrps, lag, locale, dat=dat)  
-    plus!.(byage, nil, agegrps, lag, locale, dat=dat)  
-    # subtract the people from unexposed
-    minus!.(byage, unexposed, agegrps, lag, locale, dat=dat)
+    plus!.(newinfected, infectious, agegrps, lag, locale, dat=dat)  
+    plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)  
+    minus!.(newinfected, unexposed, agegrps, lag, locale, dat=dat)
 
     # add to stats queue for today
-    queuestats(sum(byage), locale, spreadstat) # sum(5 agegroups), nil is the default, single locale
+    queuestats(sum(newinfected), locale, spreadstat) # sum(5 agegroups), nil is the default, single locale
     
-    return nothing
+    return 
 end
 
-# spread factors for the spreaders
+# contact factors for the spreaders
 
-                        # nil mild sick severe
-const spread_factors = [   2   2    1     .5;      # agegrp 1
-                           4   4    2     1.0;     # agegrp 2
-                           4   4    2     1.0;     # agegrp 3
-                           3   3    1     0.5;     # agegrp 4
-                           3   3    1     0.2;     # agegrp 5
+#                         # nil mild sick severe
+# const contact_factors = [  2   2    1     .5;      # agegrp 1
+#                            4   4    2     1.0;     # agegrp 2
+#                            4   4    2     1.0;     # agegrp 3
+#                            3   3    1     0.5;     # agegrp 4
+#                            2   2    1     0.2;     # agegrp 5
+#                         ]
+
+            # agegrp     1   2  3   4    5
+const contact_factors = [2   4  4   3    2;  # nil
+                         2   4  4   3    2;  # mild
+                         1   2  2   1    1;  # sick
+                         0.5 1  1  0.5  0.2  # severe
                         ]
 # TODO calculate density_factor in setup, per locale
-density = rand((500:30000),20)  # use US Census data
+# TODO fix logistic shift and scale
+test_density = rand((5000:3_000_000),20)  # use US Census data
 function minmax(x) 
     x_max = maximum(x, dims=1)
     x_min = minimum(x, dims=1)
     minmax_density = (x .- x_min) ./ (x_max .- x_min .+ 1e-08)
 end
-shift(x, sc, sh) = sc .* x .- sh
-logistic(x) = 1.0 ./ (1.0 .+ exp.(-x))
-logistic_scale(x, sc) = sc .* logistic(x)
-density_factors = clamp!(logistic_scale(shift(minmax(density),3.0,1.5), 2.0), 0.5, 1.5)
+scale_minmax(x, newmin, newmax) = x .* (newmax - newmin) .+ newmin 
 
+"""
+Based only on the characteristics of the spreaders, how many of the accessible
+are potentially contacted?
+"""
+function how_many_contacted(spreaders, contact_factors, density_factor=1.1; scale=6)
+    #=  This originally ignores the conditions of the touched--assumes they are all equally likely to be touched
+        how_many_touched corrects this.
+        We assume spreaders is small compared to all_accessible. At some point this might not be true:
+        how_many_touched also handles this.
+    =#
+    sp_lags, sp_conds, sp_ages = size(spreaders)
+    numcontacted = zeros(Int, sp_lags, sp_conds, sp_ages)  # 19 x 4 x 5 lag x cond x agegrp
 
-function how_many_touched(spreaders, spread_factors, tot_unexposed, density_factor=1.1; scale=6)
-    # this originally ignores the conditions of the touched--assumes they are all equally likely to be touched
-    # split_by_age_cond partially corrects this--only partially
-    numtouched = 0.0
-    for agegrp in agegrps
-        for cond in 1:length(infectious_cases)
-            scale = spread_factors[agegrp, cond]
-            dgamma = Gamma(1.2, scale)  #shape, scale
-            x = rand(dgamma,spreaders[agegrp, cond]);
-            if isempty(x)
-            else
-                nums, bounds = histo(x)
-                numtouched += sum(nums .* bounds)
+    # SPREADERS: how many people are contacted by each spreader?
+        # numcontacted is the potential number of people contacted by a spreader in each 
+        # cell by lag (19), infectious cond (4), and agegrp(5)
+    for agegrp in sp_ages
+        for cond in sp_conds
+            for lag in sp_lags
+                scale = contact_factors[cond, agegrp]
+                dgamma = Gamma(1.2, density_factor * scale)  #shape, scale
+                println("dgamma ", dgamma)
+                x = rand(dgamma,spreaders[lag, cond, agegrp]);
+                println("x ", x)
+                if isempty(x)
+                else
+                    nums, bounds = histo(x)
+                    numcontacted[lag, cond, agegrp] = sum(nums .* bounds)  # Float64
+                end
             end
         end
     end
 
-    numtouched = clamp(floor(Int,density_factor * numtouched), 0, floor(Int, .8 * tot_unexposed))
+    # numcontacted = clamp(floor(Int,numtouched), 0, floor(Int, .8 * tot_unexposed))
 
-    @assert numtouched < tot_unexposed "Assertion Error: number touched $numtouched exceeds total unexposed $tot_unexposed"
-    return numtouched
+    # @assert numcontacted < tot_unexposed "Assertion Error: number touched $numtouched exceeds total unexposed $tot_unexposed"
+    return numcontacted
 end
 
 
-function split_by_age_cond(cnt, locale; dat=openmx)::Array{Int64,1}
-    # who is accessible: start with all to capture effect of "herd immunity", when it arises
-        accessible = permutedims(sum(grab([unexposed,infectious,recovered],1:5,lags,locale, dat=dat),
-                                     dims=1),
-                                [2,3,1])[:,:,1]   #   3 x 5 conds by agegrps
+"""
+For all the spreaders and given how many accessible are potentially contacted, 
+how many of the accessible and susceptible actually are "touched" by a spreader? 
+"""
+function how_many_touched(numcontacted, all_accessible, all_unexposed)  
+#= 
+    - who is accessible: start with all to capture effect of "herd immunity", when it arises
+    - all_accessible 19 x 6 x 5  lag x cond x agegrp, includes unexposed, recovered, nil, mild, sick, severe
+    - numcontacted 19 x 4 x 5  lag x cond x agegrp, includes nil, mild, sick, severe = the infectious
+
+    There is a lot of setup before we get to business here.
+=#
+
+    # parameters for accessibility of the accessible--not who gets sick, just who is touched!
+    mapx = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, nil= 3, mild=  4, sick= 5, severe= 6)
+    low, low2, low3 = .6, .5, .3
+    lowest, lowest2, lowest3, vlowest = .28, .24, .18, .15
+    highest, high, high2 = .9, .8, .7
+
+    access_table = zeros(count(x->x>0, mapx),length(agegrps))  #     6 x 5    cond x agegrp
+    access_table[mapx.unexposed, :] .= [low, highest, high, low, lowest]
+    access_table[mapx.recovered, :] .= [low, highest, high, low, lowest]
 
 
-        pct_accessible = reshape(accessible ./ sum(accessible), 15)
-        # pct_accessible = sparsify!(pct_accessible)
-        @assert isapprox(sum(pct_accessible), 1.0, atol=1e-8) "target vector must sum to 1.0; submitted $pct_accessible"
+    # not varying access pct for lag of infectious states because we are ignoring viral load by repeat exposures for now
+    access_table[mapx.nil, :] .= [low, highest, high, low, lowest]
+    access_table[mapx.mild, :] .= [low, highest, high2, low2, lowest2]
+    access_table[mapx.sick, :] .= [lowest2, lowest, lowest2, lowest3, lowest3]
+    access_table[mapx.severe,:] .= vlowest
 
-        # TODO should we have another factor of how accessible someone is?  another made up set of number?
+    compress_numcontacted = sum(numcontacted,dims=1)[1,:,:] # sum by lag result: 4 x 5  => conds are nil, mild, sick, severe
+    totcontacted = sum(compress_numcontacted)
+    totaccessible = sum(all_accessible)
 
-    x = categorical_sample(pct_accessible,cnt)  # joint distibution of age and cond
+    # simplify accessible to unexposed, infectious, recovered by agegrps
+    simple_accessible = sum(all_accessible, dims=1)[1,:,:]
+    simple_accessible = vcat(simple_accessible[1:2, :], sum(simple_accessible[3:6,:],dims=1)) # 3 x 5
+    s_a_pop_pct = reshape(simple_accessible ./ totaccessible, 15)
 
-    # select the unexposed by age
-    nums = reshape(bucket(x,lim=15, bins=15),3,5)[1,:]  # 5 elements: unexposed by agegrp
-    return nums
+
+    # who gets touched in unexposed by agegrp?   
+        # we'll normalize down and contact 80% this day
+    #=
+        - folks in  each cell of numcontacted touch a sample of the accessible reduced by the accessibility factor
+        - we can draw a categorical sample for each cell to distribute them across the contact categories
+        - we consider the folks who get contacted in infectious and recovered, because that happens--reduce 
+           the number of unexposed who are touched
+        - we throw out the folks in infectious and recovered and keep those in unexposed
+        - use the accessibility factor in a binomial sample:  was the contact successful?
+        - we should care about not touching more than the number of accessible but we really only care about unexposed
+        - we'll test to be sure we don't exceed the unexposed and reduce touches to 80% of unexposed by agegrp
+    =#
+
+    mapi = (unexposed= -1, infectious=-1, recovered= -1, dead=-1, nil= 1, mild=  2, sick= 3, severe= 4)
+                    # map to infectious conditions as 1,2,3,4
+    dcat = Categorical(s_a_pop_pct)
+    touched = zeros(length(agegrps))
+    # loop over compress_numcontacted
+    for agegrp in agegrps
+        for cond in [nil, mild, sick, severe]
+            # draw sample across 3 conds and 5 agegrps and only keep the unexposed for 5 age groups
+            peeps = reshape(bucket(rand(dcat, compress_numcontacted[mapi[cond], agegrp]), lim=15, bins=15), 3,5)[1,:]
+            for a in agegrps
+                cnt = binomial_one_sample(peeps[a], access_table[mapx.unexposed, a])
+                cnt = cnt < all_unexposed[a] ? cnt : .8 * all_unexposed[a]
+                touched[a] += cnt
+            end
+        end
+    end
+    
+    return touched
+end
+    
+
+function how_many_infected(numtouched)
+    # transmissibility by agegrp of recipient
+    newinfected = zeros(size(numtouched,1))  # agegrps
+    for i in eachindex(numtouched) # this probabilisticly determines if contact resulted in contracting the virus
+        newinfected[i] = binomial_one_sample(numtouched[i], contact_risk_by_age[i])
+    end
+    return newinfected
 end
 
 
