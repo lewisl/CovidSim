@@ -147,3 +147,10 @@ function update_infectious!(locale, dat=openmx) # by single locale
         input!(tot, infectious, agegrp, 1, locale) # update the infectious total for the locale and agegroup
     end
 end
+
+
+    # a not ok way to estimate R0:  need each subsequent day of infected for the originating group; this is only 1 day
+    # starters = sum(spreaders)
+    # newlyinfected = sum(byage)
+    # onestep_r0 = newlyinfected / starters
+    # @debug "Spreaders $starters to newly infected: $newlyinfected for r0: $onestep_r0"
