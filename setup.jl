@@ -3,7 +3,7 @@
 ######################################################################################
 
 
-function setup(geofilename, dectreefilename="dec_tree_all.csv"; geolim=10)
+function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_filename="nodestarts.csv", geolim=10)
 
     geodata = readgeodata(geofilename)
     numgeo = size(geodata,1)
@@ -15,8 +15,7 @@ function setup(geofilename, dectreefilename="dec_tree_all.csv"; geolim=10)
     init_unexposed!(openmx, geodata, numgeo)
 
     # transition decision trees 
-    arr = read_dectree_file(dectreefilename)
-    dt = create_node_dict(arr)
+    dt = setup_dt(dectreefilename; node_starts_filename=node_starts_filename)
 
     iso_pr = build_iso_probs()
 

@@ -1,13 +1,17 @@
 # TODO
-    # make sure contacted is less than accessible
+    # pre-allocate heavily used arrays
+    # sanity check on decision trees
+    # transition loop should auto-recognize where the branches should run
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
         # UW virology, expansion of deaths by state on log chart
     # probably need to raise effective death rate for people in 60-80 and 80+  per Vox article
-    # need to reduce effective infection rates
     # look for speed improvement: preallocation
 
+# Done
+    # make sure touched is less than accessible
+    # don't hard code decision points for running transition nodes
 
 module CovidSim
 
@@ -28,6 +32,13 @@ export                  # functions
     total!,
     reviewbugs,
     showq
+
+export                  # functions for decision trees
+    read_dectree_file,
+    create_node_dict,
+    display_tree,
+    sanity_test,
+    build_nodestarts
 
 export                  # control constants
     bugq,

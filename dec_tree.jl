@@ -17,13 +17,20 @@ struct Branch
 end
 
 
+function setup_dt(dtfname; node_starts_filename = "nodestarts.csv")
+    arr = read_dectree_file(dtfname)
+    dectrees = create_node_dict(arr)
+    nodestarts = build_nodestarts(node_starts_filename)
+    return (dt=dectrees, starts=nodestarts)
+end
+
 function read_dectree_file(fname)
     # return the data at index 1, not the header at index 2
     arr=readdlm(fname, ',', header=true, comments=true, comment_char='#')[1]
 end
 
 
-function create_node_dict(arr::Array)
+function create_node_dict(arr::Array) # this wants to be recursive--another time...
     arrdectrees = []  # array of decision trees (dicts)
     ages = unique!(arr[:,1])
     for agegrp in ages
@@ -35,12 +42,14 @@ function create_node_dict(arr::Array)
             rr = xx[xx[:,2].==strnode,:]  # rows for the branches of this node
             arrbranches = []   # array of branches
             for br in 1:size(rr,1)  # make a branch
+                # field values
                 fromcond = eval(Symbol(rstrip(rr[br,3])))  # convert a string to a variable name, which holds an Int
                 tocond = eval(Symbol(rstrip(rr[br,4])))
                 pr = rr[br,5]    # float
                 next = eval(Meta.parse(rr[br,6]))  # convert a string to a tuple
                 fromcondname = condnames[fromcond]  # lookup text name for the numeric index
                 tocondname = condnames[tocond]    
+
                 newbr = Branch(fromcond, tocond, pr, next, fromcondname, tocondname)
                 push!(arrbranches, newbr)        
             end
@@ -49,6 +58,24 @@ function create_node_dict(arr::Array)
         push!(arrdectrees, dectree) # done with all of the nodes, put the tree in the array
     end
     return arrdectrees
+end
+
+
+function build_nodestarts(fname)
+    arr = readdlm(fname, ',', header=true, comments=true, comment_char='#')[1]
+    ns = Dict{Int, Array{Tuple{Int,Int},1}}()
+    for r in eachrow(arr)
+        day = r[1]
+        tpl = eval(Meta.parse(r[2]))
+        @assert day in (1:19) "day must be in 1:19"
+        @assert typeof(tpl) <: Tuple{Int, Int} "Tuple input as text must convert to a tuple of 2 ints"
+        if haskey(ns, day)
+            push!(ns[day], tpl)    
+        else
+            ns[day] = [tpl]
+        end
+    end
+    return ns
 end
 
 
@@ -116,7 +143,7 @@ end
 #=
 what the result looks like:
 Dict key 
-    and value::Array of Branch
+    value::Array of Branch
 
 (2, 3)
     Any[Branch(7, 7, 0.7, (3, 3), "sick"), Branch(7, 8, 0.7, (3, 4), "sick", severe")]
