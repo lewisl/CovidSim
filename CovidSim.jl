@@ -1,6 +1,6 @@
 # TODO
     # pre-allocate heavily used arrays
-    # sanity check on decision trees
+    # sanity check for spread mean outcomes
     # transition loop should auto-recognize where the branches should run
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
@@ -10,8 +10,7 @@
     # look for speed improvement: preallocation
 
 # Done
-    # make sure touched is less than accessible
-    # don't hard code decision points for running transition nodes
+   
 
 module CovidSim
 
@@ -34,11 +33,12 @@ export                  # functions
     showq
 
 export                  # functions for decision trees
+    setup_dt,
     read_dectree_file,
     create_node_dict,
     display_tree,
     sanity_test,
-    build_nodestarts
+    get_the_probs
 
 export                  # control constants
     bugq,

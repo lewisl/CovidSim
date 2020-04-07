@@ -236,7 +236,7 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
 
     locales = locales   # force local scope to the loop
     alldict = setup(geofilename; 
-                dectreefilename="dec_tree_all.csv", node_starts_filename="nodestarts.csv", geolim=10)
+                dectreefilename="dec_tree_all.csv", node_starts_filename="dec_tree_starts.csv", geolim=10)
     dt_set = alldict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = alldict["dat"]["openmx"]
@@ -879,19 +879,25 @@ function new_to_cum!(dseries, locale, starting_unexposed)
 end
 
 
-function cumplot(dseries, locale; sb=false)
+function cumplot(dseries, locale; plseries=[:Unexposed,:Infectious,:Recovered, :Dead], sb=false)
     sb && Seaborn.set()
 
+    !(typeof(plseries) <: Array) && (plseries = [plseries])
+
+    # the data
     cumseries = dseries[locale][:cum]
-    pldat = Matrix(cumseries[!,[:Unexposed,:Infectious,:Recovered, :Dead]]);
-    labels = ["Unexposed", "Infectious","Recovered", "Dead"];
+    pldat = Matrix(cumseries[!,plseries])
+    labels = string.(plseries)
     n = size(cumseries,1)
     people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
 
+    # the plot
     figure()
     plot(1:n,pldat)
     legend(labels)
     title("Covid for $people people over $n days")
+    xlabel("Simulation Days")
+    ylabel("People")
 end
 
 function newplot(dseries, locale, item; sb=false)

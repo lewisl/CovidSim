@@ -3,7 +3,7 @@
 ######################################################################################
 
 
-function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_filename="nodestarts.csv", geolim=10)
+function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_filename="dec_tree_starts.csv", geolim=10)
 
     geodata = readgeodata(geofilename)
     numgeo = size(geodata,1)
