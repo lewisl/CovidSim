@@ -1,11 +1,23 @@
-mutable struct SimEnvironment  # use something like this for pre-allocated arrays
-    simdday::Int
-    opendat::Array
-    isodat::Array
-    newstats::DataFrame
-    cumstats::DataFrame
-end
 
+# to pre-allocate large arrays, accessed and modified frequently
+mutable struct Env 
+    spreaders::Array{Int64,3} # 19,4,5
+    all_accessible::Array{Int64,3} # 19,6,5
+    numcontacts::Array{Int64,3} # 19,4,5
+    simple_accessible::Array{Int64,2} # 6,5
+    lag_contacts::Array{Int,1} # 19,
+    riskmx::Array{Float64,2} # 19,5
+
+    Env() = new(
+                zeros(Int64,19,4,5),  # spreaders
+                zeros(Int64,19,6,5),  # all_accessible
+                zeros(Int64,19,4,5),  # numcontacts
+                zeros(Int64,6,5),     # simple_accessible
+                zeros(Int64,19),      # lag_contacts
+                zeros(Int64,19,5)    # riskmx
+                )
+
+end
 
 
 # for debugging whole simulations
@@ -243,6 +255,9 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
     # get isolatedmx here  
     dseries = build_series(locales)   # should use numgeo here
 
+    # pre-allocate arrays
+    env = Env()
+
     # start the counter at zero
     reset!(ctr, :day)  # remove key :day leftover from prior runs
 
@@ -267,8 +282,8 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
                 seed!([0,3,3,0,0],5,nil, agegrps, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
-            spread!(locale, dat=openmx)
-            transition!(dt_set, locale, dat=openmx)
+            spread!(locale, dat=openmx, env=env)
+            transition!(dt_set, locale, dat=openmx, env=env)
         end
         queue_to_newseries!(newstatq, dseries, locales)
     end
@@ -297,7 +312,7 @@ nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. The final 
 outcomes are recovered or dead.
 """
-function transition!(dt_set, locale; case="open", dat=openmx)  # TODO also need to run for isolatedmx
+function transition!(dt_set, locale; case="open", dat=openmx, env=env)  # TODO also need to run for isolatedmx
     
     # nodes in decision trees for each agegrp 
     # nodestarts = Dict(   19 => [(4,4)],                 
@@ -415,28 +430,29 @@ end
 How far do the infectious people spread the virus to 
 previously unexposed people, by agegrp?  For a single locale...
 """
-function spread!(locale; dat=openmx)
+function spread!(locale; dat=openmx, env=env)
+   
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    spreaders = grab(infectious_cases, agegrps, lags, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
-    @debug "  all the spreaders $(sum(spreaders))"
+    env.spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
+    @debug "  all the spreaders $(sum(env.spreaders))"
 
-    if sum(spreaders) == 0
+    if sum(env.spreaders) == 0
         return
     end
 
-    all_accessible = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)  #   19 x 6 x 5  lag x cond by agegrp
+    env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)  #   19 x 6 x 5  lag x cond by agegrp
     all_unexposed = grab(unexposed, agegrps, 1, locale, dat=dat)  # (5, ) agegrp for lag 1
 
     # how many people are contacted based on characteristics of spreader   
-    numcontacts = how_many_contacts(spreaders, contact_factors)
-    @debug "  all the contacts $(sum(numcontacts))"
+    env.numcontacts[:] = how_many_contacts(env.spreaders, contact_factors, env=env)
+    @debug "  all the contacts $(sum(env.numcontacts))"
 
     # how many people are touched based on characteristics of recipient and potential contacts?
-    numtouched = how_many_touched(numcontacts, all_accessible)   # cond x agegrp
+    numtouched = how_many_touched(env.numcontacts, env.all_accessible, env=env)   # cond x agegrp
     @debug "  all the touched $(sum(numtouched))"
 
-    newinfected = how_many_infected(numtouched, all_unexposed)    # x agegrp (only condition is nil, assumed lag = 1)
+    newinfected = how_many_infected(numtouched, all_unexposed, env=env)    # x agegrp (only condition is nil, assumed lag = 1)
     @debug "  all the newly infected $(sum(newinfected))"
 
     lag = 1
@@ -452,7 +468,7 @@ function spread!(locale; dat=openmx)
     plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)  
     minus!.(newinfected, unexposed, agegrps, lag, locale, dat=dat)
 
-    push!(bugq, (day=ctr[:day], locale=locale, spreaders = sum(spreaders), contacts = sum(numcontacts), 
+    push!(bugq, (day=ctr[:day], locale=locale, spreaders = sum(env.spreaders), contacts = sum(env.numcontacts), 
                     touched = sum(numtouched), 
                     unexposed=sum(grab(unexposed, agegrps, lag, locale, dat=dat)), 
                     infected=sum(newinfected)))
@@ -487,14 +503,14 @@ const contact_factors = [1     2.5    2.5     1.5   1;  # nil
 How many contacts do spreaders attempt to make?  This is based on the characteristics of the
 spreaders.
 """
-function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale=6)
+function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale=6, env=env)
     #=  This originally ignores the conditions of the touched--assumes they are all equally likely to be touched
         how_many_touched corrects this.
         We assume spreaders is small compared to all_accessible. At some point this might not be true:
         how_many_touched also handles this.
     =#
     sp_lags, sp_conds, sp_ages = size(spreaders)
-    numcontacts = zeros(Int, sp_lags, sp_conds, sp_ages)  # 19 x 4 x 5 lag x cond x agegrp
+    # numcontacts = zeros(Int, sp_lags, sp_conds, sp_ages)  # 19 x 4 x 5 lag x cond x agegrp
 
     # how many people are contacted by each spreader?  Think of this as reaching out...
         # numcontacts is the potential number of people contacted by a spreader in each 
@@ -510,13 +526,13 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale
 
                 if isempty(x)
                 else
-                    numcontacts[lag, cond, agegrp] = sum(x)  
+                    env.numcontacts[lag, cond, agegrp] = sum(x)  
                 end
             end
         end
     end
 
-    return numcontacts
+    return env.numcontacts
 end
 
 
@@ -525,7 +541,7 @@ For potential contacts by spreaders reaching out, how many of the accessible (su
 are actuallly "touched" by a spreader? This is loosely based on the characteristics of the 
 receiver.
 """
-function how_many_touched(numcontacts, all_accessible)  
+function how_many_touched(numcontacts, all_accessible; env=env)  
 #= 
     - who is accessible: start with all to capture effect of "herd immunity", when it arises
     - all_accessible 19 x 6 x 5  lag x cond x agegrp, includes unexposed, recovered, nil, mild, sick, severe
@@ -549,21 +565,21 @@ function how_many_touched(numcontacts, all_accessible)
     access_table[map2access.severe,:] .= vlowest
     # not varying access pct for lag of infectious states because we ignore increased viral load from repeat exposures
 
-    lag_contacts = sum(numcontacts,dims=(2,3))[:,:,1] # (19, ) contacts by lag after sum by cond, agegrp
-    # totcontacts = sum(lag_contacts)
+    env.lag_contacts[:] = sum(numcontacts,dims=(2,3))[:,:,1] # (19, ) contacts by lag after sum by cond, agegrp
+    # totcontacts = sum(env.lag_contacts)
     totaccessible = sum(all_accessible)
 
 
     # simplify accessible to unexposed, recovered, infectious by agegrps
-    simple_accessible = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
+    env.simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
     # next: unexposed, recovered, sum of(nil, mild, sick, severe) = infectious
-    simple_accessible = [simple_accessible[1:2,:]; sum(simple_accessible[3:6,:],dims=1)];  # (3, 5) 
+    env.simple_accessible[:] = [env.simple_accessible[1:2,:]; sum(env.simple_accessible[3:6,:],dims=1); zeros(Int,3,5)];  # (6, 5) 
 
     sptime = @elapsed begin
         s_a_split_by_lag = zeros(Int, 19,5)
 
         pct = zeros(19)
-        pct[:] = lag_contacts ./ (sum(lag_contacts) + 1e-8)
+        pct[:] = env.lag_contacts ./ (sum(env.lag_contacts) + 1e-8)
 
         if sum(pct) == 0.0    
             pct[:] = fill(1.0/19.0, 19)
@@ -572,11 +588,11 @@ function how_many_touched(numcontacts, all_accessible)
 
         @assert isapprox(sum(pct), 1.0, atol=1e-4) "pct must sum to 1.0 $(sum(pct))"
         for i in agegrps, j in lags
-              s_a_split_by_lag[j,i] = round(Int,simple_accessible[map2access.unexposed, i] * pct[j])
+              s_a_split_by_lag[j,i] = round(Int,env.simple_accessible[map2access.unexposed, i] * pct[j])
         end
 
 
-        s_a_pct = round.(reshape(simple_accessible ./ totaccessible, 15), digits=3) # % for each cell
+        s_a_pct = round.(reshape(env.simple_accessible[1:3,:] ./ totaccessible, 15), digits=3) # % for each cell
         if !isapprox(sum(s_a_pct), 1.0, atol=1e-8)  
             s_a_pct = s_a_pct ./ sum(s_a_pct) # normalize so sums to 1.0
         end
@@ -599,7 +615,7 @@ function how_many_touched(numcontacts, all_accessible)
     touched_by_age_cond = zeros(Int, 19, length(agegrps)) # (19,5)
     # loop over numcontacts lag vector
     for lag in lags
-        lc = lag_contacts[lag]
+        lc = env.lag_contacts[lag]
         x = rand(dcat, lc) # probabistically distribute contacts for 1 lag across accessible by cond, agegrp
 
         peeps = reshape([count(x .== i) for i in 1:15], 3,5)[1,:]  # (5,) after distributing across accessible, 
@@ -615,7 +631,7 @@ function how_many_touched(numcontacts, all_accessible)
 end
     
 
-function how_many_infected(touched_by_age_cond, all_unexposed)
+function how_many_infected(touched_by_age_cond, all_unexposed; env=env)
     # transmissibility by agegrp of recipient
     #=    
         - multiply the transmissibility of the spreader times the transmissibility of the contacts
@@ -627,12 +643,12 @@ function how_many_infected(touched_by_age_cond, all_unexposed)
     # touched_by_age_cond (19,5)     all_unexposed (5,)
 
     # setup risk table
-    riskmx = send_risk_by_recv_risk(send_risk_by_lag, recv_risk_by_age)  # (19,5)
+    env.riskmx[:] = send_risk_by_recv_risk(send_risk_by_lag, recv_risk_by_age)  # (19,5)
 
     newinfected = zeros(Int, length(agegrps))  # (5,)
     for age in agegrps
         for lag in lags
-            newsick = binomial_one_sample(touched_by_age_cond[lag, age], riskmx[lag, age])
+            newsick = binomial_one_sample(touched_by_age_cond[lag, age], env.riskmx[lag, age])
             newsick = clamp(newsick, 0, floor(Int,.8 * all_unexposed[age]))
             newinfected[age] += newsick
         end
