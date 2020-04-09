@@ -215,7 +215,7 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
     dt_set = alldict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = alldict["dat"]["openmx"]
-    # get isolatedmx here
+    isolatedmx = alldict["dat"]["isolatedmx"]
     dseries = build_series(locales)   # should use numgeo here
 
     # pre-allocate arrays
@@ -245,8 +245,17 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
                 seed!([0,3,3,0,0],5,nil, agegrps, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
+            # isolate some folks
+            if ctr[:day] == 15
+                isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=openmx, isodat=isolatedmx)
+                isolate!(.70,[mild,sick],agegrps,1:19,locale; opendat=openmx, isodat=isolatedmx)
+            elseif ctr[:day] == 23
+                isolate!(.50,[unexposed,nil],agegrps,1,locale; opendat=openmx, isodat=isolatedmx)
+                isolate!(.70,[mild,sick],agegrps,1:19,locale; opendat=openmx, isodat=isolatedmx)
+            end
             spread!(locale, dat=openmx, env=env)
-            transition!(dt_set, locale, dat=openmx, env=env)
+            transition!(dt_set, locale, dat=openmx)
+            transition!(dt_set, locale, dat=isolatedmx)
         end
         queue_to_newseries!(newstatq, dseries, locales)
     end
@@ -275,7 +284,7 @@ nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. The final
 outcomes are recovered or dead.
 """
-function transition!(dt_set, locale; case="open", dat=openmx, env=env)  # TODO also need to run for isolatedmx
+function transition!(dt_set, locale; case="open", dat=openmx)  # TODO also need to run for isolatedmx
 
     nodestarts = dt_set.starts # day that a node takes effect
     dt = dt_set.dt             # decision trees
@@ -473,43 +482,49 @@ function send_risk_by_recv_risk(send_risk, recv_risk)
 end
 
 
-function cumplot(dseries, locale; plseries=[:Unexposed,:Infectious,:Recovered, :Dead], sb=false)
-    sb && Seaborn.set()
+function cumplot(dseries, locale; plseries=[:Unexposed,:Infectious,:Recovered, :Dead])
 
     !(typeof(plseries) <: Array) && (plseries = [plseries])
 
     # the data
-    cumseries = dseries[locale][:cum]
-    pldat = Matrix(cumseries[!,plseries])
+    n = size(dseries[locale][:cum],1)
+    cumseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:cum][!,plseries]])
     labels = string.(plseries)
-    n = size(cumseries,1)
-    people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
+    labels = reshape([labels...], 1, length(labels))
+
+    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
 
     # the plot
-    figure()
-    plot(1:n,pldat)
-    legend(labels)
-    title("Covid for $people people over $n days")
-    xlabel("Simulation Days")
-    ylabel("People")
+    plot(   cumseries[:,1], cumseries[:,2:end], 
+            label = labels, 
+            lw=3,
+            title = "Covid for $people people over $n days",
+            xlabel = "Simulation Days",
+            yaxis = ("People")
+        )
 end
 
-function newplot(dseries, locale, item; sb=false)
-    sb && Seaborn.set()
+function newplot(dseries, locale; plseries=[:Infectious])
+    
+    !(typeof(plseries) <: Array) && (plseries = [plseries])
 
-    if !(item in([:Unexposed,:Infectious,:Recovered, :Dead, :Nil, :Mild, :Sick, :Severe]))
-        error("item must be one of :Unexposed,:Infectious,:Recovered, :Dead, :Nil, :Mild, :Sick, :Severe")
-    end
-    newseries = dseries[locale][:new]
-    figure()
-    pldat = Vector(newseries[!,item])
-    labels = [string(item)]
-    n = size(newseries,1)
-    # people = cumseries[1,:Unexposed] + cumseries[1,:Infectious]
+    # the data
+    n = size(dseries[locale][:new],1)
+    newseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:new][!,plseries]])
+    labels = string.(plseries)
+    labels = reshape([labels...], 1, length(labels))
 
-    bar(1:n,pldat)
-    legend(labels)
-    title("Covid new cases of $item over $n days")
+    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
+
+    # the plot
+    bar(    newseries[:,1], newseries[:,2:end], 
+            label = labels, 
+            lw=1,
+            title = "Covid Daily Change for $people people over $n days",
+            xlabel = "Simulation Days",
+            yaxis = ("People")
+        )
+
 end
 
 
