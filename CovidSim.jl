@@ -10,16 +10,16 @@
     # look for speed improvement: preallocation
 
 # Done
-   
+   # leave dist_to_new_conditions if folks == 0; slight perf gain
 
 module CovidSim
 
-export                  # functions
+export                  # functions for simulation
     run_a_sim,
     seed!,
     transition!,
     spread!,
-    how_many_contacted,
+    how_many_contacts,
     how_many_touched,
     how_many_infected,
     cumplot,
@@ -30,7 +30,12 @@ export                  # functions
     minus!,
     total!,
     reviewbugs,
-    showq
+    showq,
+    isolate_queue!
+
+export                  # functions for setup
+    build_data,
+    setup
 
 export                  # functions for decision trees
     setup_dt,
@@ -89,10 +94,10 @@ export              # constants for indices to data tables
     recv_risk_by_age
 
 export            # queues for tracking
-    travelq,   
+    travelq,
     isolatedq,
     newstatq
-    
+
 
 
 using DelimitedFiles

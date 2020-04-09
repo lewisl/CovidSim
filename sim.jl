@@ -1,6 +1,6 @@
 
 # to pre-allocate large arrays, accessed and modified frequently
-mutable struct Env 
+mutable struct Env
     spreaders::Array{Int64,3} # 19,4,5
     all_accessible::Array{Int64,3} # 19,6,5
     numcontacts::Array{Int64,3} # 19,4,5
@@ -75,12 +75,12 @@ const a2 = 2 # 20-39
 const a3 = 3 # 40-59
 const a4 = 4 # 60-79
 const a5 = 5 # 80+
-const agegrps = 1:5  
+const agegrps = 1:5
 const ages = length(agegrps)
 const recv_risk_by_age = [.1, .3, .3, .4, .5]
-                          
-const send_risk_by_lag = [.1,.3,.4,.6,.7,.8,.9,1.0,.9,.7,.5,.4,.2,.1,0,0,0,0,0]  # for nil, mild if infectious 
-# const send_risk_by_lag2 = [0.1,0.3,,,,,,,,,,,,,,,    ]  # for sick, severe if infectious 
+
+const send_risk_by_lag = [.1,.3,.4,.6,.7,.8,.9,1.0,.9,.7,.5,.4,.2,.1,0,0,0,0,0]  # for nil, mild if infectious
+# const send_risk_by_lag2 = [0.1,0.3,,,,,,,,,,,,,,,    ]  # for sick, severe if infectious
 
 
 # traveling constants
@@ -96,7 +96,7 @@ const send_risk_by_lag = [.1,.3,.4,.6,.7,.8,.9,1.0,.9,.7,.5,.4,.2,.1,0,0,0,0,0] 
 
 
 # isolation
-    const isolatedq = Queue{NamedTuple{(:cnt, :cond, :agegrp, :lag, :locale), 
+    const isolatedq = Queue{NamedTuple{(:cnt, :cond, :agegrp, :lag, :locale),
          Tuple{Int64,Int64,Int64,Int64,Int64,}}}()
 
     function iso_item(cnt, cond, agegrp, lag, locale)
@@ -129,15 +129,15 @@ const send_risk_by_lag = [.1,.3,.4,.6,.7,.8,.9,1.0,.9,.7,.5,.4,.2,.1,0,0,0,0,0] 
 
 
 function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
-    @assert length(lag) == 1 "input only one lag value"    
+    @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
     for loc in locales
         for cond in conds
             if cond in [nil, mild, sick, severe]
                 input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                minus!.(cnt, unexposed, agegrps, lag, loc, dat=dat)
+                minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
             elseif cond in [recovered, dead]
-                input!.(cnt, cond, agegrp, lag, loc, dat=dat)
+                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
                 # need to figure out what condition and lag get decremented!!
             end
         end
@@ -147,7 +147,7 @@ end
 
 
 """
-Map a condition index from rows in the data matrix to 
+Map a condition index from rows in the data matrix to
 indices for the transition probabilities:
 
 ```
@@ -179,9 +179,9 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
         #                        remove from source: agegrp/condition, agegrp/outcome
         # TODO add to log
 
-    # some people will isolate: need to come up with rules for isolation, leaks from isolation 
+    # some people will isolate: need to come up with rules for isolation, leaks from isolation
         #   DONE = isolate_in put people into isolation by agegroup, locale, condition, lag
-                    # and isolate_out=>remove from open   
+                    # and isolate_out=>remove from open
         #  transition people in isolation across conditions
         # add isolation people to queue
         # MUST have unisolate:  remove people from isolatedmx and put them back into openmx
@@ -189,12 +189,12 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
     # DONE = transition! distribute residents across all lags and conditions
         # openmx
         # isolatedmx
-        # loop across all locales to transition all    
+        # loop across all locales to transition all
             # start from last lag, by age group:
                     # severe distribute to sick, severe or die remain at lag 18
                     # sick distribute to severe, mild remain at lag 18
                     # mild distribute to sick, recovered (no nil at this point) at lag 18
-                    # nil distribute to nil, mild, sick, severe at lags 2-6 
+                    # nil distribute to nil, mild, sick, severe at lags 2-6
             # for earlier lags:
                     # severe distribute to sick, severe or die => advance one lag
                     # sick distribute to sick, severe, mild => advance one lag
@@ -202,13 +202,13 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
                     # nil distribute to nil, mild, recovered => advance one lag
 
             # go dead => remove from previous condition; remove from resident, remove from totalpop:  make sure we can count # dead today (or more than yesterday)
-            # go recovered => remove from previous condition; remove from exposed? remove from infectious   
+            # go recovered => remove from previous condition; remove from exposed? remove from infectious
 
-            # TODO log new dead, new recovered  to change state 
+            # TODO log new dead, new recovered  to change state
 
-    
 
-    # DONE:  spread from infectious people to unexposed|recovered people(not isolated) 
+
+    # DONE:  spread from infectious people to unexposed|recovered people(not isolated)
             #contact distribution of residents across age&condition&lags
             # DONE: handle partial immunity of recovered
             # DONE = spread!  touchers -> num_touched -> split by age/condition
@@ -219,7 +219,7 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 
     # DONE = travelout! some residents travel out
         # choose distribution of people traveling by age and condition
-        # add to queue    
+        # add to queue
 
     # TODO summarize current state values for unexposed, infectious, dead, recovered
         # add to series using change_state, summarize function
@@ -228,11 +228,11 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 
 # TODO Build locale data in a dataframe
 #   cols: id, state, locale, pop, density, travelprobs, gender split, age dist (maybe)
-# 
-# 
-# 
-# 
-# 
+#
+#
+#
+#
+#
 
 
 
@@ -241,18 +241,18 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 ####################################################################################
 
 
-function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv", 
+function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv",
                    nsfilename="nodstarts.csv", silent=true)
 
-    !isempty(bugq) && (deleteat!(bugq, 1:length(bugq)))   # empty it 
+    !isempty(bugq) && (deleteat!(bugq, 1:length(bugq)))   # empty it
 
     locales = locales   # force local scope to the loop
-    alldict = setup(geofilename; 
-                dectreefilename="dec_tree_all.csv", node_starts_filename="dec_tree_starts.csv", geolim=10)
+    alldict = setup(geofilename; dectreefilename="dec_tree_all.csv",
+                    node_starts_filename="dec_tree_starts.csv", geolim=10)
     dt_set = alldict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = alldict["dat"]["openmx"]
-    # get isolatedmx here  
+    # get isolatedmx here
     dseries = build_series(locales)   # should use numgeo here
 
     # pre-allocate arrays
@@ -309,29 +309,29 @@ end
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
-agegroup, days of being exposed, and some probability. The final 
+agegroup, days of being exposed, and some probability. The final
 outcomes are recovered or dead.
 """
 function transition!(dt_set, locale; case="open", dat=openmx, env=env)  # TODO also need to run for isolatedmx
-    
-    # nodes in decision trees for each agegrp 
-    # nodestarts = Dict(   19 => [(4,4)],                 
+
+    # nodes in decision trees for each agegrp
+    # nodestarts = Dict(   19 => [(4,4)],
     #                      14 => [(3,2), (3,3), (3,4)],
     #                       9 => [(2,2), (2,3)],
     #                       5 => [(1,1)]
     #                      )
 
-    nodestarts = dt_set.starts 
+    nodestarts = dt_set.starts
     dt = dt_set.dt
 
     for lag = 19:-1:1
         if lag in keys(nodestarts)
-            # decision points determine how people's conditions change 
+            # decision points determine how people's conditions change
             for agegrp in agegrps # get the params from the dec_tree
                 for node in nodestarts[lag]
                     toprobs = zeros(6)
                     for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
-                        toprobs[mapcond2tran[branch.tocond]] = branch.pr 
+                        toprobs[mapcond2tran[branch.tocond]] = branch.pr
                     end
                     fromcond = dt[agegrp][node][1].fromcond
                     @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
@@ -346,7 +346,7 @@ function transition!(dt_set, locale; case="open", dat=openmx, env=env)  # TODO a
     end
 
     # total of all people who are nil, mild, sick, or severe across all lag days
-    update_infectious!(locale, dat = dat)  
+    update_infectious!(locale, dat = dat)
 end
 
 
@@ -354,18 +354,21 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
     @assert length(locale) == 1  "Assertion failed: length locale was not 1"
     transition_cases = [recovered, nil,mild,sick,severe, dead]
 
-    # get the number of folks to be distributed 
+    # get the number of folks to be distributed
     folks = grab(fromcond,agegrp,lag,locale, dat=dat) # scalar
+    if folks == 0
+        return
+    end
     @debug "folks $folks lag $lag age $agegrp cond $fromcond"
 
 
-    # get the dist vector of folks to each outcome (6 outcomes)  
+    # get the dist vector of folks to each outcome (6 outcomes)
         # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
     @assert isapprox(sum(toprobs), 1.0, atol=1e-3) "target vector must sum to 1.0; submitted $toprobs"
     distvec = bucket(categorical_sample(toprobs,folks), lim=6, bins=6)
     @debug begin
         cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
-        "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead" 
+        "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
         end
 
 
@@ -374,8 +377,8 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
     plus!(distvec[to_recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[to_dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
 
-    leaveout = mapcond2tran[fromcond] 
-    deleteat!(distvec, leaveout) # exclude the source condition 
+    leaveout = mapcond2tran[fromcond]
+    deleteat!(distvec, leaveout) # exclude the source condition
     deleteat!(transition_cases, leaveout)
 
     moveout = sum(distvec)
@@ -427,11 +430,11 @@ end
 
 
 """
-How far do the infectious people spread the virus to 
+How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
 function spread!(locale; dat=openmx, env=env)
-   
+
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
     env.spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
@@ -444,7 +447,7 @@ function spread!(locale; dat=openmx, env=env)
     env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)  #   19 x 6 x 5  lag x cond by agegrp
     all_unexposed = grab(unexposed, agegrps, 1, locale, dat=dat)  # (5, ) agegrp for lag 1
 
-    # how many people are contacted based on characteristics of spreader   
+    # how many people are contacted based on characteristics of spreader
     env.numcontacts[:] = how_many_contacts(env.spreaders, contact_factors, env=env)
     @debug "  all the contacts $(sum(env.numcontacts))"
 
@@ -464,30 +467,30 @@ function spread!(locale; dat=openmx, env=env)
     end
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
-    plus!.(newinfected, infectious, agegrps, lag, locale, dat=dat)  
-    plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)  
+    plus!.(newinfected, infectious, agegrps, lag, locale, dat=dat)
+    plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)
     minus!.(newinfected, unexposed, agegrps, lag, locale, dat=dat)
 
-    push!(bugq, (day=ctr[:day], locale=locale, spreaders = sum(env.spreaders), contacts = sum(env.numcontacts), 
-                    touched = sum(numtouched), 
-                    unexposed=sum(grab(unexposed, agegrps, lag, locale, dat=dat)), 
+    push!(bugq, (day=ctr[:day], locale=locale, spreaders = sum(env.spreaders), contacts = sum(env.numcontacts),
+                    touched = sum(numtouched),
+                    unexposed=sum(grab(unexposed, agegrps, lag, locale, dat=dat)),
                     infected=sum(newinfected)))
     # add to stats queue for today
     queuestats(sum(newinfected), locale, spreadstat) # sum(5 agegroups), nil is the default, single locale
-    
-    return 
+
+    return
 end
 
 
 # TODO calculate density_factor in setup, per locale
 # TODO fix logistic shift and scale
 test_density = rand((5000:3_000_000),20)  # use US Census data
-function minmax(x) 
+function minmax(x)
     x_max = maximum(x, dims=1)
     x_min = minimum(x, dims=1)
     minmax_density = (x .- x_min) ./ (x_max .- x_min .+ 1e-08)
 end
-scale_minmax(x, newmin, newmax) = x .* (newmax - newmin) .+ newmin 
+scale_minmax(x, newmin, newmax) = x .* (newmax - newmin) .+ newmin
 
 
 # contact factors for the spreaders
@@ -513,7 +516,7 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale
     # numcontacts = zeros(Int, sp_lags, sp_conds, sp_ages)  # 19 x 4 x 5 lag x cond x agegrp
 
     # how many people are contacted by each spreader?  Think of this as reaching out...
-        # numcontacts is the potential number of people contacted by a spreader in each 
+        # numcontacts is the potential number of people contacted by a spreader in each
         # cell by lag (19), infectious cond (4), and agegrp(5)
     for agegrp in 1:sp_ages
         for cond in 1:sp_conds
@@ -526,7 +529,7 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale
 
                 if isempty(x)
                 else
-                    env.numcontacts[lag, cond, agegrp] = sum(x)  
+                    env.numcontacts[lag, cond, agegrp] = sum(x)
                 end
             end
         end
@@ -538,11 +541,11 @@ end
 
 """
 For potential contacts by spreaders reaching out, how many of the accessible (susceptible and NOT)
-are actuallly "touched" by a spreader? This is loosely based on the characteristics of the 
+are actuallly "touched" by a spreader? This is loosely based on the characteristics of the
 receiver.
 """
-function how_many_touched(numcontacts, all_accessible; env=env)  
-#= 
+function how_many_touched(numcontacts, all_accessible; env=env)
+#=
     - who is accessible: start with all to capture effect of "herd immunity", when it arises
     - all_accessible 19 x 6 x 5  lag x cond x agegrp, includes unexposed, recovered, nil, mild, sick, severe
     - numcontacts 19 x 4 x 5  lag x cond x agegrp, includes nil, mild, sick, severe = the infectious
@@ -573,7 +576,7 @@ function how_many_touched(numcontacts, all_accessible; env=env)
     # simplify accessible to unexposed, recovered, infectious by agegrps
     env.simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
     # next: unexposed, recovered, sum of(nil, mild, sick, severe) = infectious
-    env.simple_accessible[:] = [env.simple_accessible[1:2,:]; sum(env.simple_accessible[3:6,:],dims=1); zeros(Int,3,5)];  # (6, 5) 
+    env.simple_accessible[:] = [env.simple_accessible[1:2,:]; sum(env.simple_accessible[3:6,:],dims=1); zeros(Int,3,5)];  # (6, 5)
 
     sptime = @elapsed begin
         s_a_split_by_lag = zeros(Int, 19,5)
@@ -581,7 +584,7 @@ function how_many_touched(numcontacts, all_accessible; env=env)
         pct = zeros(19)
         pct[:] = env.lag_contacts ./ (sum(env.lag_contacts) + 1e-8)
 
-        if sum(pct) == 0.0    
+        if sum(pct) == 0.0
             pct[:] = fill(1.0/19.0, 19)
         end
 
@@ -593,17 +596,17 @@ function how_many_touched(numcontacts, all_accessible; env=env)
 
 
         s_a_pct = round.(reshape(env.simple_accessible[1:3,:] ./ totaccessible, 15), digits=3) # % for each cell
-        if !isapprox(sum(s_a_pct), 1.0, atol=1e-8)  
+        if !isapprox(sum(s_a_pct), 1.0, atol=1e-8)
             s_a_pct = s_a_pct ./ sum(s_a_pct) # normalize so sums to 1.0
         end
     end
 
-    # now to business: who gets touched in unexposed by agegrp?   
-        
+    # now to business: who gets touched in unexposed by agegrp?
+
     #=
         - folks in each cell of numcontacts touch a sample of the accessible reduced by the accessibility factor
         - draw a categorical sample for each cell to distribute them across the contact categories
-        - we consider the folks who get contacts in infectious and recovered, because that happens--reduces 
+        - we consider the folks who get contacts in infectious and recovered, because that happens--reduces
            the number of unexposed who are touched
         - we throw out the folks in infectious and recovered and keep those in unexposed
         - we should care about not touching more than the number of accessible
@@ -618,7 +621,7 @@ function how_many_touched(numcontacts, all_accessible; env=env)
         lc = env.lag_contacts[lag]
         x = rand(dcat, lc) # probabistically distribute contacts for 1 lag across accessible by cond, agegrp
 
-        peeps = reshape([count(x .== i) for i in 1:15], 3,5)[1,:]  # (5,) after distributing across accessible, 
+        peeps = reshape([count(x .== i) for i in 1:15], 3,5)[1,:]  # (5,) after distributing across accessible,
                 # use only the first row for unexposed by agegrp
 
         for a in agegrps # probabilistically see who of the accessible is "willing" to be touched
@@ -629,11 +632,11 @@ function how_many_touched(numcontacts, all_accessible; env=env)
 
     return touched_by_age_cond  # (19,5)
 end
-    
+
 
 function how_many_infected(touched_by_age_cond, all_unexposed; env=env)
     # transmissibility by agegrp of recipient
-    #=    
+    #=
         - multiply the transmissibility of the spreader times the transmissibility of the contacts
                 by lag for spreaders and by agegrp for the contacts
         - use the infection factor in a binomial sample:  was the contact "successful" in causing infection?
@@ -696,8 +699,8 @@ end
 
 
 """
-Assuming a daily cycle, at the beginning of the day 
-process the queue of travelers from the end of the previous day. 
+Assuming a daily cycle, at the beginning of the day
+process the queue of travelers from the end of the previous day.
 Remove groups of travelers by agegrp, lag, and condition
 from where they departed.  Add them to their destination.
 """
@@ -712,54 +715,77 @@ end
 
 
 """
-Move people into isolation and out of the open movement environment.
+For each simulation day entry in queue isolatedq:
+- Remove people from open environment in array openmx.
+- Add people to the isolated environment in array isolatedmx.
 """
-function isolate(iso_pr, locales = locales,  rules=[])
-    for locale in locales
-        iso_pr_locale = get(iso_pr, locale, iso_pr["default"])
-        isolate_out!(iso_pr_locale, locale)
-    end
-    isolate_in!()
-end
-
-
-"""
-Process the isolated queue.
-Remove people from open environment in array openmx.
-Add people to the isolated environment in array isolatedmx.
-"""
-function isolate_move!()
+function isolate_move!(;opendat=openmx, isodat=isolatedmx) # use only keyword args
     while !isempty(isolatedq)
         g = dequeue!(isolatedq)
-        minus!(g.cnt,g.cond, g.agegrp, g.lag, g.locale, dat=openmx)
-        plus!(g.cnt, g.cond, g.agegrp, g.lag, g.locale, dat=isolatedmx)
+        cnt = clamp(g.cnt, 0, grab(g.cond, g.agegrp, g.lag, g.locale, dat=opendat))
+        cnt < g.cnt && (@warn "You tried to isolate more people than were in the category: proceeding with existing people.")
+        minus!(cnt,g.cond, g.agegrp, g.lag, g.locale, dat=opendat)
+        plus!(cnt, g.cond, g.agegrp, g.lag, g.locale, dat=isodat)
     end
-end
+end  # this works
 
+
+function unisolate_move!(;opendat=openmx, isodat=isolatedmx)
+    while !isempty(isolatedq)
+        g = dequeue!(isolatedq)
+        @assert g.cnt <= 0 "Unisolate assumes that cnt is negative: found positive"
+        cnt = -g.cnt  # switch it to positve so the operations make sense
+        cnt = clamp(cnt, 0, grab(g.cond, g.agegrp, g.lag, g.locale, dat=isodat))
+        cnt < -g.cnt && (@warn "You tried to unisolate more people than were in the category: proceeding with existing people.")
+        minus!(cnt,g.cond, g.agegrp, g.lag, g.locale, dat=isodat)
+        plus!(cnt, g.cond, g.agegrp, g.lag, g.locale, dat=opendat)
+    end
+end  # this works
 
 """
 Place people who are isolating into the isolated queue: isolatedq
+
+You can enter a percentage (as a fraction in [0.0, 1.0]), an array
+of percentages, a number, or an array of numbers.
+
+Use a dot after the function name to apply the same pct or number
+input to several conditions, agegrps, lags, or locales.
+
+Use a dot after the function name to apply an array: one or more
+of agegrp, cond, or locale must have the same number of elements as the input.
 """
-function isolate_queue!(iso_pr_locale, locale)
-    for (idx, cond) in enumerate([unexposed, recovered, nil, mild, sick, severe])
-        for lag in lags
-            for agegrp in agegrps
-                cnt = binomial_one_sample(grab(cond, agegrp, lag, locale), 
-                                        iso_pr_locale[idx, agegrp])
-                cnt == 0 && continue
-                enqueue!(isolatedq, iso_item(cnt, cond, agegrp, lag, locale))
-            end
-        end
-    end
+function isolate_queue!(pct::Float64,cond,agegrp,lag,locale; dat=openmx)
+    @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
+    cnt = binomial_one_sample(grab(cond, agegrp, lag, locale, dat=dat), pct)
+    cnt !== 0 && enqueue!(isolatedq, iso_item(cnt, cond, agegrp, lag, locale))
+    return nothing  # this one works!
 end
 
 
-function unisolate(locale, rules=[])  # rules want to be functions
+function isolate_queue!(num::Int64, cond,agegrp,lag,locale; dat=openmx)
+    @assert num > 0 "num must be greater than zero"
+    num !== 0 && enqueue!(isolatedq, iso_item(num, cond, agegrp, lag, locale))
+    return nothing
+end  # this one works
+
+
+function unisolate_queue!(pct::Float64,cond,agegrp,lag,locale; dat=isolatedmx)
+    @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
+    cnt = binomial_one_sample(grab(cond, agegrp, lag, locale, dat=dat), pct)
+    cnt !== 0 && enqueue!(isolatedq, iso_item(-cnt, cond, agegrp, lag, locale)) # queue a negative value
+    return nothing  # this one works!
 end
+
+
+function unisolate_queue!(num::Int64, cond,agegrp,lag,locale; dat=isolatedmx)
+    @assert num > 0 "num must be greater than zero"
+    num !== 0 && enqueue!(isolatedq, iso_item(-num, cond, agegrp, lag, locale))  # queue a negative value
+    return nothing
+end  # this one works
 
 
 function make_crossrisk(byage, bylag)
-    repeat(by_age',inner=19) .* bylag'
+    repeat(byage',inner=19) .* bylag'
 end
 
 #######################################################################################
@@ -796,9 +822,9 @@ end
 
 """
 Returns continuous value that represents gamma outcome for a given
-approximate center point (scale value of gamma).  We can interpret this 
+approximate center point (scale value of gamma).  We can interpret this
 as a funny sort of probability or as a number outcome from a gamma
-distributed sample. 
+distributed sample.
 1.2 provides a good shape with long tail right and big clump left
 """
 function gamma_prob(target; shape=1.2)
@@ -809,11 +835,11 @@ end
 
 
 """
-Returns a single number of successes for a 
+Returns a single number of successes for a
 sampled outcome of cnt tries with the input pr of success.
 """
 function binomial_one_sample(cnt, pr)::Int
-    return rand(Binomial(cnt, pr))
+    return rand.(Binomial.(cnt, pr))
 end
 
 
@@ -846,7 +872,7 @@ function queue_to_newseries!(newstatq, dseries, locales)
 
     @debug "Size of queue: $(size(newstatq,1))"
 
-    # rowinit = Dict(:Unexposed => 0,  :Infectious => 0, :Recovered=> 0, :Dead=> 0, :Nil=> 0, 
+    # rowinit = Dict(:Unexposed => 0,  :Infectious => 0, :Recovered=> 0, :Dead=> 0, :Nil=> 0,
         # :Mild=> 0, :Sick=> 0, :Severe=> 0,  :Travelers=> 0, :Isolated=> 0)
 
     agg = by(newstatq, [:locale, :tocond], cnt = :cnt => sum)
@@ -855,7 +881,7 @@ function queue_to_newseries!(newstatq, dseries, locales)
         # rowfill = copy(rowinit)
         rowinit = zeros(10)
         for r in eachrow(filt)
-            # rowfill[series_colnames[r.tocond]] = r.cnt 
+            # rowfill[series_colnames[r.tocond]] = r.cnt
             rowinit[r.tocond] = r.cnt
         end
         # rowfill[:Infectious] = rowfill[:Nil] + rowfill[:Mild] + rowfill[:Sick] + rowfill[:Severe]
@@ -995,7 +1021,7 @@ sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
 function reviewbugs(q=bugq)
     for it in q
         println(it)
-        print("\nPress enter to continue, q enter to quit.> "); 
+        print("\nPress enter to continue, q enter to quit.> ");
         ans = chomp(readline())
         close()
         if ans == "q"
