@@ -14,6 +14,24 @@
 
 module CovidSim
 
+using DelimitedFiles
+using DataStructures
+using DataFrames
+using Random
+using Distributions
+using StatsBase
+using Printf
+using PyPlot
+import Seaborn
+
+include("dec_tree.jl")
+include("setup.jl")
+include("sim.jl")
+include("tracking.jl")
+include("isolation.jl")
+include("spread.jl")
+
+
 export                  # functions for simulation
     run_a_sim,
     seed!,
@@ -28,14 +46,21 @@ export                  # functions for simulation
     input!,
     plus!,
     minus!,
-    total!,
-    reviewbugs,
-    showq,
-    isolate_queue!
+    total!
+
 
 export                  # functions for setup
     build_data,
     setup
+
+export                  # functions for tracking
+    reviewbugs,
+    showq,
+    isolate!,
+    _isolate!,
+    unisolate!,
+    _unisolate!
+
 
 export                  # functions for decision trees
     setup_dt,
@@ -97,23 +122,6 @@ export            # queues for tracking
     travelq,
     isolatedq,
     newstatq
-
-
-
-using DelimitedFiles
-using DataStructures
-using DataFrames
-using Random
-using Distributions
-using StatsBase
-using Printf
-using PyPlot
-import Seaborn
-
-include("dec_tree.jl")
-include("setup.jl")
-include("sim.jl")
-
 
 
 end # module CovidSim

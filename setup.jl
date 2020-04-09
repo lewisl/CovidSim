@@ -10,8 +10,9 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_file
     if geolim <= numgeo
         numgeo = geolim
     end
-    datsdict = build_data(numgeo)
-    openmx = datsdict["openmx"]
+    datadict = build_data(numgeo)
+    openmx = datadict["openmx"]
+    isolatedmx = datadict["isolatedmx"]
     init_unexposed!(openmx, geodata, numgeo)
 
     # transition decision trees 
@@ -19,7 +20,7 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_file
 
     iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datsdict, "dt"=>dt, "iso_pr"=>iso_pr)
+    return Dict("dat"=>datadict, "dt"=>dt, "iso_pr"=>iso_pr)
 end
 
 
@@ -60,14 +61,15 @@ end
     Values at the leaf of :new is a DataFrame of new additions to a series.
     Values at the leaf of :cum is a DataFrame of the cumulative values of a series.
     Current series columns are:
-        Travelers
-        Infected
+        Unexposed
+        Infectious
+        Recovered
+        Dead
         Nil
         Mild
         Sick
         Severe
-        Dead
-        Recovered
+        Travelers
         Isolated
     Rows are days of the simulation.
 """
