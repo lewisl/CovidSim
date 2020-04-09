@@ -10,7 +10,7 @@
     # look for speed improvement: preallocation
 
 # Done
-   # leave dist_to_new_conditions if folks == 0; slight perf gain
+   # took env out of arguments to transition!
 
 module CovidSim
 
@@ -21,8 +21,8 @@ using Random
 using Distributions
 using StatsBase
 using Printf
-using PyPlot
-import Seaborn
+using Plots
+
 
 include("dec_tree.jl")
 include("setup.jl")
