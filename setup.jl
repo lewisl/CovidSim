@@ -2,14 +2,21 @@
 # setup and initialization functions
 ######################################################################################
 
+const mean_density = 3316  # see Excel for backup
+
 
 function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_filename="dec_tree_starts.csv", geolim=10)
 
+    # geodata
     geodata = readgeodata(geofilename)
     numgeo = size(geodata,1)
     if geolim <= numgeo
         numgeo = geolim
     end
+    df = calc_density_factor(geodata[:, density])
+    geodata = [geodata df]
+
+    # simulation data matrix
     datadict = build_data(numgeo)
     openmx = datadict["openmx"]
     isolatedmx = datadict["isolatedmx"]
@@ -18,9 +25,10 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_file
     # transition decision trees 
     dt = setup_dt(dectreefilename; node_starts_filename=node_starts_filename)
 
-    iso_pr = build_iso_probs()
+    # # isolation probabilities: not sure we need this
+    # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt"=>dt, "iso_pr"=>iso_pr)
+    return Dict("dat"=>datadict, "dt"=>dt, "geo"=>geodata)  # , "iso_pr"=>iso_pr
 end
 
 
@@ -105,6 +113,24 @@ end
 
 function readgeodata(filename)
     geodata = readdlm(filename, ','; header=true)[1]
+end
+
+
+# calculate density_factor in setup, per locale
+test_density = rand((5000:3_000_000),20)  # for real, use US Census data
+
+function minmax_norm(x)
+    x_max = maximum(x, dims=1)
+    x_min = minimum(x, dims=1)
+    minmax = (x .- x_min) ./ (x_max .- x_min .+ 1e-08)
+end
+
+function scale_minmax(x, newmin, newmax) 
+    round.(x .* (newmax - newmin) .+ newmin, sigdigits=2)
+end
+
+function calc_density_factor(x, newmin=0.9, newmax=1.5)
+    scale_minmax(minmax_norm(x), newmin, newmax)
 end
 
 

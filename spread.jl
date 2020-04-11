@@ -2,12 +2,18 @@
 # spread.jl
 #############
 
+# transmissibility factors
+const recv_risk_by_age = [.1, .3, .3, .4, .5]
+
+const send_risk_by_lag = [.1,.3,.4,.6,.7,.8,.9,1.0,.9,.7,.5,.4,.2,.1,0,0,0,0,0]  # for nil, mild if infectious
+# const send_risk_by_lag2 = [0.1,0.3,,,,,,,,,,,,,,,    ]  # for sick, severe if infectious
+
 
 """
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
-function spread!(locale; dat=openmx, env=env)
+function spread!(locale; geodata=geodata, dat=openmx, env=env)
 
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
@@ -22,7 +28,8 @@ function spread!(locale; dat=openmx, env=env)
     all_unexposed = grab(unexposed, agegrps, 1, locale, dat=dat)  # (5, ) agegrp for lag 1
 
     # how many people are contacted based on characteristics of spreader
-    env.numcontacts[:] = how_many_contacts(env.spreaders, contact_factors, env=env)
+    density_factor = geodata[locale,density_fac]  # TODO probably need a failsafe for this
+    env.numcontacts[:] = how_many_contacts(env.spreaders, contact_factors, density_factor, env=env)
     @debug "  all the contacts $(sum(env.numcontacts))"
 
     # how many people are touched based on characteristics of recipient and potential contacts?
@@ -45,8 +52,8 @@ function spread!(locale; dat=openmx, env=env)
     plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)
     minus!.(newinfected, unexposed, agegrps, lag, locale, dat=dat)
 
-    push!(bugq, (day=ctr[:day], locale=locale, spreaders = sum(env.spreaders), contacts = sum(env.numcontacts),
-                    touched = sum(numtouched),
+    push!(dayq, (day=ctr[:day], locale=locale, spreaders = sum(env.spreaders), contacts = sum(env.numcontacts),
+                    touched = sum(numtouched), accessible = sum(env.all_accessible),
                     unexposed=sum(grab(unexposed, agegrps, lag, locale, dat=dat)),
                     infected=sum(newinfected)))
     # add to stats queue for today
@@ -54,17 +61,6 @@ function spread!(locale; dat=openmx, env=env)
 
     return
 end
-
-
-# TODO calculate density_factor in setup, per locale
-# TODO fix logistic shift and scale
-test_density = rand((5000:3_000_000),20)  # use US Census data
-function minmax(x)
-    x_max = maximum(x, dims=1)
-    x_min = minimum(x, dims=1)
-    minmax_density = (x .- x_min) ./ (x_max .- x_min .+ 1e-08)
-end
-scale_minmax(x, newmin, newmax) = x .* (newmax - newmin) .+ newmin
 
 
 # contact factors for the spreaders
@@ -80,7 +76,7 @@ const contact_factors = [1     2.5    2.5     1.5   1;  # nil
 How many contacts do spreaders attempt to make?  This is based on the characteristics of the
 spreaders.
 """
-function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale=6, env=env)
+function how_many_contacts(spreaders, contact_factors, density_factor=1.0; scale=6, env=env)
     #=  This originally ignores the conditions of the touched--assumes they are all equally likely to be touched
         how_many_touched corrects this.
         We assume spreaders is small compared to all_accessible. At some point this might not be true:
@@ -98,7 +94,8 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale
                 scale = contact_factors[cond, agegrp]
 
                 spcount = spreaders[lag, cond, agegrp]
-                dgamma = Gamma(1.2, density_factor * scale)  #shape, scale
+                lag_reduce = .038 * 19  # reduce contact scale by lag between 1.0 and 0.3
+                dgamma = Gamma(1.2, lag_reduce * density_factor * scale)  #shape, scale
                 x = round.(Int,rand(dgamma,spcount))
 
                 if isempty(x)
@@ -108,6 +105,14 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.3; scale
             end
         end
     end
+
+    # correct over contacting
+    oc_ratio = sum(env.numcontacts) / sum(env.all_accessible)
+    if oc_ratio > 1.0
+        println(ctr[:day]," overcontact ratio ", oc_ratio)
+        env.numcontacts[:] = round.(1.0/oc_ratio .* env.numcontacts)
+    end
+    
 
     return env.numcontacts
 end
@@ -234,4 +239,9 @@ function how_many_infected(touched_by_age_cond, all_unexposed; env=env)
     @debug "\n newly infected: $newinfected  \n"
 
     return newinfected
+end
+
+
+function send_risk_by_recv_risk(send_risk, recv_risk)
+    repeat(recv_risk',outer=19) .* send_risk
 end

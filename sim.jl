@@ -16,27 +16,26 @@ mutable struct Env
                 zeros(Int64,19),      # lag_contacts
                 zeros(Int64,19,5)    # riskmx
                 )
-
 end
-
-
-# for debugging whole simulations
-const bugq = []
 
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
 const lags = 1:19   # rows
 
-# geo data cubes (4th dim)
+# geo data: id,fips,county,city,state,sizecat,pop,density
 const id = 1
-const state = 2
-const city = 3
-const size_cat = 4
-const popsize =  5
-# const locales = [1,2,3,4,5]  # rows
+const fips = 2
+const county = 3
+const city = 4
+const state = 5
+const sizecat = 6
+const popsize =  7
+const density = 8
+const density_fac = 9
 
-# population centers sizecats
+
+# population centers sizecats  
 const major = 1  # 20
 const large = 2  # 50
 const medium = 3
@@ -78,34 +77,11 @@ const a4 = 4 # 60-79
 const a5 = 5 # 80+
 const agegrps = 1:5
 const ages = length(agegrps)
-const recv_risk_by_age = [.1, .3, .3, .4, .5]
-
-const send_risk_by_lag = [.1,.3,.4,.6,.7,.8,.9,1.0,.9,.7,.5,.4,.2,.1,0,0,0,0,0]  # for nil, mild if infectious
-# const send_risk_by_lag2 = [0.1,0.3,,,,,,,,,,,,,,,    ]  # for sick, severe if infectious
 
 
 # traveling constants
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
-
-
-
-function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
-    @assert length(lag) == 1 "input only one lag value"
-    # @warn "Seeding is for testing and may result in case counts out of balance"
-    for loc in locales
-        for cond in conds
-            if cond in [nil, mild, sick, severe]
-                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
-            elseif cond in [recovered, dead]
-                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                # need to figure out what condition and lag get decremented!!
-            end
-        end
-        update_infectious!(loc, dat = dat)
-    end
-end
 
 
 """
@@ -204,10 +180,10 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 ####################################################################################
 
 
-function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv",
+function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_tree_all.csv",
                    nsfilename="nodstarts.csv", silent=true)
 
-    !isempty(bugq) && (deleteat!(bugq, 1:length(bugq)))   # empty it
+    !isempty(dayq) && (deleteat!(dayq, 1:length(dayq)))   # empty it
 
     locales = locales   # force local scope to the loop
     alldict = setup(geofilename; dectreefilename="dec_tree_all.csv",
@@ -217,6 +193,7 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
     openmx = alldict["dat"]["openmx"]
     isolatedmx = alldict["dat"]["isolatedmx"]
     dseries = build_series(locales)   # should use numgeo here
+    geodata = alldict["geo"]
 
     # pre-allocate arrays
     env = Env()
@@ -245,19 +222,14 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
                 seed!([0,3,3,0,0],5,nil, agegrps, locale, dat=openmx)
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
-            # isolate some folks
-            if ctr[:day] == 15
-                isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=openmx, isodat=isolatedmx)
-                isolate!(.70,[mild,sick],agegrps,1:19,locale; opendat=openmx, isodat=isolatedmx)
-            elseif ctr[:day] == 23
-                isolate!(.50,[unexposed,nil],agegrps,1,locale; opendat=openmx, isodat=isolatedmx)
-                isolate!(.70,[mild,sick],agegrps,1:19,locale; opendat=openmx, isodat=isolatedmx)
+            for case in runcases
+                case(ctr, locale, opendat=openmx, isodat=isolatedmx)
             end
-            spread!(locale, dat=openmx, env=env)
+            spread!(locale, geodata=geodata, dat=openmx, env=env)
             transition!(dt_set, locale, dat=openmx)
             transition!(dt_set, locale, dat=isolatedmx)
         end
-        queue_to_newseries!(newstatq, dseries, locales)
+        queue_to_newseries!(newstatq, dseries, locales) # update tracking stats for the day
     end
     println("Simulation completed for $(ctr[:day]) days.")
 
@@ -265,15 +237,92 @@ function run_a_sim(geofilename, n_days, locales; dtfilename = "dec_tree_all.csv"
         new_to_cum!(dseries, locale, starting_unexposed)
     end
 
-    return openmx, dseries, starting_unexposed
+    return alldict, dseries, starting_unexposed
 end
 
+
+function isolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day] == 15
+        isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+    elseif ctr[:day] == 23
+        isolate!(.50,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+    end
+end
+
+function unisolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day]  == 69
+        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+    end
+end
+
+function isolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day] == 15
+        isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+    elseif ctr[:day] == 23
+        isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+    end
+end
+
+function unisolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day]  == 69
+        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+    end
+end
+
+function unisolate_case_2b(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day]  == 84
+        unisolate!(.8,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        unisolate!(.8,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+    end
+end
+
+
+function isolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day] == 40
+        isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+    elseif ctr[:day] == 50
+        isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+    end
+end
+
+function unisolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx)
+    if ctr[:day]  == 80
+        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[mild,sick,severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+    end
+end
 
 ####################################################################################
 #   functions for simulation events
 ####################################################################################
 # things that cause condition changes: travel, spread, transition, isolate
 
+
+
+function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
+    @assert length(lag) == 1 "input only one lag value"
+    # @warn "Seeding is for testing and may result in case counts out of balance"
+    for loc in locales
+        for cond in conds
+            if cond in [nil, mild, sick, severe]
+                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
+                minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
+            elseif cond in [recovered, dead]
+                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
+                # need to figure out what condition and lag get decremented!!
+            end
+        end
+        update_infectious!(loc, dat = dat)
+    end
+end
 
 
 """
@@ -413,10 +462,6 @@ function travelin!(dat=openmx)
 end
 
 
-function make_crossrisk(byage, bylag)
-    repeat(byage',inner=19) .* bylag'
-end
-
 #######################################################################################
 #  probability
 #######################################################################################
@@ -477,12 +522,11 @@ function categorical_sample(probvec, trials)
 end
 
 
-function send_risk_by_recv_risk(send_risk, recv_risk)
-    repeat(recv_risk',outer=19) .* send_risk
-end
+function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :Dead];
+    geo=[])
 
-
-function cumplot(dseries, locale; plseries=[:Unexposed,:Infectious,:Recovered, :Dead])
+    pyplot()
+    theme(:ggplot2, foreground_color_border =:black)
 
     !(typeof(plseries) <: Array) && (plseries = [plseries])
 
@@ -491,21 +535,31 @@ function cumplot(dseries, locale; plseries=[:Unexposed,:Infectious,:Recovered, :
     cumseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:cum][!,plseries]])
     labels = string.(plseries)
     labels = reshape([labels...], 1, length(labels))
-
     people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
+    cityname = !isempty(geo) ? geo[locale, city] : ""
+    died = dseries[locale][:cum][end,:Dead]
+    infected = dseries[locale][:cum][1,:Unexposed] - dseries[locale][:cum][end,:Unexposed]
+    half = floor(Int,dseries[locale][:cum][1,:Unexposed] * 0.5)
 
     # the plot
     plot(   cumseries[:,1], cumseries[:,2:end], 
+            size = (700,500),
             label = labels, 
-            lw=3,
-            title = "Covid for $people people over $n days",
+            lw=2.3,
+            title = "Covid for $people people in $cityname over $n days",
             xlabel = "Simulation Days",
-            yaxis = ("People")
+            yaxis = ("People"),
+            reuse = false
         )
+    annotate!((6,half,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
+
 end
 
-function newplot(dseries, locale; plseries=[:Infectious])
-    
+function newplot(dseries, locale, plseries=[:Infectious])
+
+    pyplot()
+    theme(:ggplot2, foreground_color_border =:black)
+
     !(typeof(plseries) <: Array) && (plseries = [plseries])
 
     # the data
@@ -513,16 +567,17 @@ function newplot(dseries, locale; plseries=[:Infectious])
     newseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:new][!,plseries]])
     labels = string.(plseries)
     labels = reshape([labels...], 1, length(labels))
-
     people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
 
     # the plot
     bar(    newseries[:,1], newseries[:,2:end], 
+            size = (700,500),
             label = labels, 
             lw=1,
             title = "Covid Daily Change for $people people over $n days",
             xlabel = "Simulation Days",
-            yaxis = ("People")
+            yaxis = ("People"),
+            reuse =false
         )
 
 end
@@ -530,7 +585,7 @@ end
 
 ####################################################################################
 #   convenience functions for reading and inputting population statistics
-#       these all work with one locale at a time EXCEPT grab
+#                in the simulation data matrices
 ####################################################################################
 
 
@@ -577,15 +632,3 @@ function printsp(xs...)
 end
 
 sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
-
-function reviewbugs(q=bugq)
-    for it in q
-        println(it)
-        print("\nPress enter to continue, q enter to quit.> ");
-        ans = chomp(readline())
-        close()
-        if ans == "q"
-            break
-        end
-    end
-end

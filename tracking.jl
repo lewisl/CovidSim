@@ -6,6 +6,10 @@ const series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>
         8=>:Severe,  9=>:Travelers, 10=>:Isolated)
 
 
+# for debugging whole simulations
+const dayq = []
+
+
 # traveling 
     # inbound travelers: exogenous, domestic, outbound (assumed domestic) travelers
     const travelq = Queue{NamedTuple{(:cnt, :from, :to, :agegrp, :lag, :cond),
@@ -159,5 +163,18 @@ end
 function showq(qname)
     for item in qname
         println(item)
+    end
+end
+
+
+function reviewdays(q=dayq)
+    for it in q
+        println(it)
+        print("\nPress enter to continue, q enter to quit.> ");
+        ans = chomp(readline())
+        close()
+        if ans == "q"
+            break
+        end
     end
 end

@@ -11,6 +11,7 @@
 
 # Done
    # took env out of arguments to transition!
+   # changed bugq to dayq and moved it to tracking.jl
 
 module CovidSim
 
@@ -22,7 +23,6 @@ using Distributions
 using StatsBase
 using Printf
 using Plots
-
 
 include("dec_tree.jl")
 include("setup.jl")
@@ -54,7 +54,7 @@ export                  # functions for setup
     setup
 
 export                  # functions for tracking
-    reviewbugs,
+    reviewdays,
     showq,
     isolate!,
     _isolate!,
@@ -71,7 +71,7 @@ export                  # functions for decision trees
     get_the_probs
 
 export                  # control constants
-    bugq,
+    dayq,
     age_dist,
     lags
 
@@ -121,7 +121,8 @@ export              # constants for indices to data tables
 export            # queues for tracking
     travelq,
     isolatedq,
-    newstatq
+    newstatq,
+    dayq
 
 
 end # module CovidSim
