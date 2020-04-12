@@ -1,5 +1,7 @@
 
 # to pre-allocate large arrays, accessed and modified frequently
+# TODO as a way to hold what were formerly  globals and to hold
+#      complex parameter sets
 mutable struct Env
     spreaders::Array{Int64,3} # 19,4,5
     all_accessible::Array{Int64,3} # 19,6,5
@@ -7,15 +9,8 @@ mutable struct Env
     simple_accessible::Array{Int64,2} # 6,5
     lag_contacts::Array{Int,1} # 19,
     riskmx::Array{Float64,2} # 19,5
-
-    Env() = new(
-                zeros(Int64,19,4,5),  # spreaders
-                zeros(Int64,19,6,5),  # all_accessible
-                zeros(Int64,19,4,5),  # numcontacts
-                zeros(Int64,6,5),     # simple_accessible
-                zeros(Int64,19),      # lag_contacts
-                zeros(Int64,19,5)    # riskmx
-                )
+    contact_factors::Array{Float64,2}  # 4,5
+    touch_factors::Array{Float64,2}  #  6,5
 end
 
 
@@ -195,12 +190,11 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_
     dseries = build_series(locales)   # should use numgeo here
     geodata = alldict["geo"]
 
-    # pre-allocate arrays
-    env = Env()
+    # pre-allocate arrays and initialize parameters for spread!
+    env = initialize_sim_env()
 
     # start the counter at zero
     reset!(ctr, :day)  # remove key :day leftover from prior runs
-
 
     starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
     starting_unexposed = vcat(locales', starting_unexposed)
@@ -223,7 +217,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
             for case in runcases
-                case(ctr, locale, opendat=openmx, isodat=isolatedmx)
+                case(ctr, locale, opendat=openmx, isodat=isolatedmx, env=env)
             end
             spread!(locale, geodata=geodata, dat=openmx, env=env)
             transition!(dt_set, locale, dat=openmx)
@@ -241,7 +235,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_
 end
 
 
-function isolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function isolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day] == 15
         isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
         isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
@@ -251,14 +245,14 @@ function isolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx)
     end
 end
 
-function unisolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function unisolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
         unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
     end
 end
 
-function isolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function isolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day] == 15
         isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
         isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
@@ -268,22 +262,22 @@ function isolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx)
     end
 end
 
-function unisolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function unisolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
         unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
     end
 end
 
-function unisolate_case_2b(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function unisolate_case_2b(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 84
-        unisolate!(.8,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(.8,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+        unisolate!(.6,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
+        unisolate!(.6,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
     end
 end
 
 
-function isolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function isolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day] == 40
         isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
         isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
@@ -293,10 +287,50 @@ function isolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx)
     end
 end
 
-function unisolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx)
+function unisolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 80
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
         unisolate!(1.0,[mild,sick,severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+    end
+end
+
+function social_distance_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
+    if ctr[:day] == 40
+        oldmin = minimum(env.contact_factors)
+        oldmax = maximum(env.contact_factors)
+        newmin = oldmin * .9
+        newmax = oldmax * .8 > newmin ? oldmax * .8 : newmin * 1.1
+        env.contact_factors[:] = shifter(env.contact_factors, newmin, newmax)
+    end
+end
+
+function unsocial_distance_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
+    if ctr[:day] == 75
+        oldmin = minimum(env.contact_factors)
+        oldmax = maximum(env.contact_factors)
+        newmin = oldmin / .9
+        newmax = oldmax / .85 > newmin ? oldmax / .85 : newmin / 1.1
+        env.contact_factors[:] = shifter(env.contact_factors, newmin, newmax)
+    end
+end
+
+function social_distance_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
+    if ctr[:day] == 40
+        oldmin = minimum(env.touch_factors)
+        oldmax = maximum(env.touch_factors)
+        newmin = oldmin * .9
+        newmax = oldmax * .8 > newmin ? oldmax * .8 : newmin * 1.4
+        env.touch_factors[:] = shifter(env.touch_factors, newmin, newmax)
+    end
+end
+
+function unsocial_distance_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
+    if ctr[:day] == 75
+        oldmin = minimum(env.touch_factors)
+        oldmax = maximum(env.touch_factors)
+        newmin = oldmin / .9
+        newmax = oldmax / .85 > newmin ? oldmax / .85 : newmin / 1.4
+        env.touch_factors[:] = shifter(env.touch_factors, newmin, newmax)
     end
 end
 
@@ -305,6 +339,32 @@ end
 ####################################################################################
 # things that cause condition changes: travel, spread, transition, isolate
 
+
+function initialize_sim_env()
+    Env(zeros(Int64,19,4,5),  # spreaders
+        zeros(Int64,19,6,5),  # all_accessible
+        zeros(Int64,19,4,5),  # numcontacts
+        zeros(Int64,6,5),     # simple_accessible
+        zeros(Int64,19),      # lag_contacts
+        zeros(Int64,19,5),    # riskmx
+        # contact_factors for the spreaders
+        # agegrp 1     2      3       4     5
+                [ 1     2.5    2.5     1.5   1;     # nil
+                  1     2.5    2.5     1.5   1;     # mild
+                  0.7    1.0    1.0     0.7   0.5;   # sick
+                  0.5    0.8    0.8     0.5   0.2    # severe
+                ],
+        # touch_factors for those who are touched by spreaders
+        # not varying touch_factor lag of infectious states 
+        # because we ignore increased viral load from repeat exposures
+                [.6    .9      .8     .6   .35;    # unexposed
+                 .6    .9      .8     .6   .35;    # recovered
+                 .6    .9      .8     .6   .35;    # nil
+                 .6    .9      .7     .5   .28;    # mild
+                 .28   .35     .28    .18  .18;    # sick
+                 .18   .18     .18    .18  .18     # severe
+                ] )
+end
 
 
 function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
@@ -501,9 +561,9 @@ as a funny sort of probability or as a number outcome from a gamma
 distributed sample.
 1.2 provides a good shape with long tail right and big clump left
 """
-function gamma_prob(target; shape=1.2)
+function gamma_prob(target; shape=1.0)
     @assert 0.0 <= target <= 99.0 "target must be between 0.0 and 99.0"
-    dgamma = Gamma(1.2,target)
+    dgamma = Gamma(shape,target)
     pr = rand(dgamma, 1)[1] / 100.0
 end
 
@@ -526,7 +586,7 @@ function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :
     geo=[])
 
     pyplot()
-    theme(:ggplot2, foreground_color_border =:black)
+    theme(:ggplot2, foreground_color_border =:black, reuse = false)
 
     !(typeof(plseries) <: Array) && (plseries = [plseries])
 
@@ -549,6 +609,7 @@ function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :
             title = "Covid for $people people in $cityname over $n days",
             xlabel = "Simulation Days",
             yaxis = ("People"),
+            legendfontsize = 10,
             reuse = false
         )
     annotate!((6,half,Plots.text("Died: $died\nInfected: $infected", 10, :left)))

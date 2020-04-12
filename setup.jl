@@ -13,7 +13,7 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_file
     if geolim <= numgeo
         numgeo = geolim
     end
-    df = calc_density_factor(geodata[:, density])
+    df = shifter(geodata[:, density],0.9,1.6)
     geodata = [geodata df]
 
     # simulation data matrix
@@ -129,8 +129,12 @@ function scale_minmax(x, newmin, newmax)
     round.(x .* (newmax - newmin) .+ newmin, sigdigits=2)
 end
 
-function calc_density_factor(x, newmin=0.9, newmax=1.5)
-    scale_minmax(minmax_norm(x), newmin, newmax)
+shifter(x::Array,a,b,c,d) = c .+ (d-c)/(b-a) .* (x .- a)
+
+function shifter(x, newmin=0.9, newmax=1.5)
+    oldmin = minimum(x)
+    oldmax = maximum(x)
+    shifter(x, oldmin, oldmax, newmin, newmax)
 end
 
 

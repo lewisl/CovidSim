@@ -15,7 +15,6 @@ previously unexposed people, by agegrp?  For a single locale...
 """
 function spread!(locale; geodata=geodata, dat=openmx, env=env)
 
-
     # how many spreaders  TODO grab their condition.  Separate probs by condition
     env.spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # 19 x 4 x 5 lag x cond x agegrp
     @debug "  all the spreaders $(sum(env.spreaders))"
@@ -29,7 +28,8 @@ function spread!(locale; geodata=geodata, dat=openmx, env=env)
 
     # how many people are contacted based on characteristics of spreader
     density_factor = geodata[locale,density_fac]  # TODO probably need a failsafe for this
-    env.numcontacts[:] = how_many_contacts(env.spreaders, contact_factors, density_factor, env=env)
+    env.numcontacts[:] = how_many_contacts(env.spreaders, density_factor, env=env)
+
     @debug "  all the contacts $(sum(env.numcontacts))"
 
     # how many people are touched based on characteristics of recipient and potential contacts?
@@ -63,25 +63,18 @@ function spread!(locale; geodata=geodata, dat=openmx, env=env)
 end
 
 
-# contact factors for the spreaders
-            # agegrp     1     2      3       4     5
-const contact_factors = [1     2.5    2.5     1.5   1;  # nil
-                         1     2.5    2.5     1.5   1;  # mild
-                         0.7   1.0    1.0     0.7   0.5;  # sick
-                         0.5   0.8    0.8     0.5  0.2  # severe
-                        ]
-
 
 """
 How many contacts do spreaders attempt to make?  This is based on the characteristics of the
 spreaders.
 """
-function how_many_contacts(spreaders, contact_factors, density_factor=1.0; scale=6, env=env)
+function how_many_contacts(spreaders, density_factor=1.0; env=env)
     #=  This originally ignores the conditions of the touched--assumes they are all equally likely to be touched
         how_many_touched corrects this.
         We assume spreaders is small compared to all_accessible. At some point this might not be true:
         how_many_touched also handles this.
     =#
+
     sp_lags, sp_conds, sp_ages = size(spreaders)
     # numcontacts = zeros(Int, sp_lags, sp_conds, sp_ages)  # 19 x 4 x 5 lag x cond x agegrp
 
@@ -91,11 +84,11 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.0; scale
     for agegrp in 1:sp_ages
         for cond in 1:sp_conds
             for lag in 1:sp_lags
-                scale = contact_factors[cond, agegrp]
+                scale = env.contact_factors[cond, agegrp]
 
                 spcount = spreaders[lag, cond, agegrp]
                 lag_reduce = .038 * 19  # reduce contact scale by lag between 1.0 and 0.3
-                dgamma = Gamma(1.2, lag_reduce * density_factor * scale)  #shape, scale
+                dgamma = Gamma(1.0, lag_reduce * density_factor * scale)  #shape, scale
                 x = round.(Int,rand(dgamma,spcount))
 
                 if isempty(x)
@@ -113,7 +106,6 @@ function how_many_contacts(spreaders, contact_factors, density_factor=1.0; scale
         env.numcontacts[:] = round.(1.0/oc_ratio .* env.numcontacts)
     end
     
-
     return env.numcontacts
 end
 
@@ -132,53 +124,33 @@ function how_many_touched(numcontacts, all_accessible; env=env)
     There is a lot of setup before we get to business here.
 =#
 
-    # parameters for accessibility of the accessible--not who gets sick, just who is touched!
+    # map to access maps conditions to the rows of simple_accessible and touch_factors
     map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, nil= 3, mild=  4, sick= 5, severe= 6)
-    low, low2, low3 = .6, .5, .3
-    lowest, lowest2, lowest3, vlowest = .35, .28, .18, .15
-    highest, high, high2 = .9, .8, .7
-
-    access_table = zeros(count(x->x>0, map2access),length(agegrps))  #     6 x 5    cond x agegrp
-    access_table[map2access.unexposed, :] .= [low, highest, high, low, lowest]  # only using this one for now
-    access_table[map2access.recovered, :] .= [low, highest, high, low, lowest]  # row goes across agegrps
-    access_table[map2access.nil, :] .= [low, highest, high, low, lowest]
-    access_table[map2access.mild, :] .= [low, highest, high2, low2, lowest2]
-    access_table[map2access.sick, :] .= [lowest2, lowest, lowest2, lowest3, lowest3]
-    access_table[map2access.severe,:] .= vlowest
-    # not varying access pct for lag of infectious states because we ignore increased viral load from repeat exposures
 
     env.lag_contacts[:] = sum(numcontacts,dims=(2,3))[:,:,1] # (19, ) contacts by lag after sum by cond, agegrp
-    # totcontacts = sum(env.lag_contacts)
     totaccessible = sum(all_accessible)
 
-
-    # simplify accessible to unexposed, recovered, infectious by agegrps
+    # sum accessible to unexposed, recovered, infectious by agegrps (don't use nil, mild, sick, severe conditions)
     env.simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
     # next: unexposed, recovered, sum of(nil, mild, sick, severe) = infectious
     env.simple_accessible[:] = [env.simple_accessible[1:2,:]; sum(env.simple_accessible[3:6,:],dims=1); zeros(Int,3,5)];  # (6, 5)
 
-    sptime = @elapsed begin
-        s_a_split_by_lag = zeros(Int, 19,5)
-
-        pct = zeros(19)
-        pct[:] = env.lag_contacts ./ (sum(env.lag_contacts) + 1e-8)
-
-        if sum(pct) == 0.0
-            pct[:] = fill(1.0/19.0, 19)
-        end
-
-
-        @assert isapprox(sum(pct), 1.0, atol=1e-4) "pct must sum to 1.0 $(sum(pct))"
-        for i in agegrps, j in lags
-              s_a_split_by_lag[j,i] = round(Int,env.simple_accessible[map2access.unexposed, i] * pct[j])
-        end
-
-
-        s_a_pct = round.(reshape(env.simple_accessible[1:3,:] ./ totaccessible, 15), digits=3) # % for each cell
-        if !isapprox(sum(s_a_pct), 1.0, atol=1e-8)
-            s_a_pct = s_a_pct ./ sum(s_a_pct) # normalize so sums to 1.0
-        end
+    s_a_split_by_lag = zeros(Int, 19,5)
+    pct = zeros(19)
+    pct[:] = env.lag_contacts ./ (sum(env.lag_contacts) + 1e-8)
+    if sum(pct) == 0.0
+        pct[:] = fill(1.0/19.0, 19)
     end
+    @assert isapprox(sum(pct), 1.0, atol=1e-4) "pct must sum to 1.0 $(sum(pct))"
+    for i in agegrps, j in lags
+          s_a_split_by_lag[j,i] = round(Int,env.simple_accessible[map2access.unexposed, i] * pct[j])
+    end
+
+    s_a_pct = round.(reshape(env.simple_accessible[1:3,:] ./ totaccessible, 15), digits=3) # % for each cell
+    if !isapprox(sum(s_a_pct), 1.0, atol=1e-8)
+        s_a_pct = s_a_pct ./ sum(s_a_pct) # normalize so sums to 1.0
+    end
+
 
     # now to business: who gets touched in unexposed by agegrp?
 
@@ -199,12 +171,10 @@ function how_many_touched(numcontacts, all_accessible; env=env)
     for lag in lags
         lc = env.lag_contacts[lag]
         x = rand(dcat, lc) # probabistically distribute contacts for 1 lag across accessible by cond, agegrp
-
-        peeps = reshape([count(x .== i) for i in 1:15], 3,5)[1,:]  # (5,) after distributing across accessible,
-                # use only the first row for unexposed by agegrp
-
-        for a in agegrps # probabilistically see who of the accessible is "willing" to be touched
-            cnt = binomial_one_sample(peeps[a], access_table[map2access.unexposed, a])
+        # after distributing across accessible, use only the first row for unexposed by agegrp
+        peeps = reshape([count(x .== i) for i in 1:15], 3,5)[1,:]  # (5,) 
+        for a in agegrps # probabilistically see who of the accessible is significantly touched
+            cnt = binomial_one_sample(peeps[a], env.touch_factors[map2access.unexposed, a])
             touched_by_age_cond[lag,a] = clamp(cnt, 0, s_a_split_by_lag[lag,a])
         end
     end

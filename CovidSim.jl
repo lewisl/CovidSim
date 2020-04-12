@@ -1,5 +1,4 @@
 # TODO
-    # pre-allocate heavily used arrays
     # sanity check for spread mean outcomes
     # transition loop should auto-recognize where the branches should run
     # more info
@@ -7,11 +6,9 @@
         # by agegroup, hospitalization %, ICU admission %, fatality %
         # UW virology, expansion of deaths by state on log chart
     # probably need to raise effective death rate for people in 60-80 and 80+  per Vox article
-    # look for speed improvement: preallocation
 
 # Done
-   # took env out of arguments to transition!
-   # changed bugq to dayq and moved it to tracking.jl
+
 
 module CovidSim
 
@@ -40,13 +37,18 @@ export                  # functions for simulation
     how_many_contacts,
     how_many_touched,
     how_many_infected,
+    isolate!,
+    _isolate!,
+    unisolate!,
+    _unisolate!,
     cumplot,
     newplot,
     grab,
     input!,
     plus!,
     minus!,
-    total!
+    total!,
+    Env
 
 
 export                  # functions for setup
@@ -55,12 +57,13 @@ export                  # functions for setup
 
 export                  # functions for tracking
     reviewdays,
-    showq,
-    isolate!,
-    _isolate!,
-    unisolate!,
-    _unisolate!
+    showq
 
+export            # queues for tracking
+    travelq,
+    isolatedq,
+    newstatq,
+    dayq
 
 export                  # functions for decision trees
     setup_dt,
@@ -71,7 +74,6 @@ export                  # functions for decision trees
     get_the_probs
 
 export                  # control constants
-    dayq,
     age_dist,
     lags
 
@@ -118,11 +120,6 @@ export              # constants for indices to data tables
     ages,
     recv_risk_by_age
 
-export            # queues for tracking
-    travelq,
-    isolatedq,
-    newstatq,
-    dayq
 
 
 end # module CovidSim
