@@ -8,7 +8,7 @@
     # probably need to raise effective death rate for people in 60-80 and 80+  per Vox article
 
 # Done
-
+    # moved constants used as input parameters to the Env struct
 
 module CovidSim
 
@@ -20,6 +20,7 @@ using Distributions
 using StatsBase
 using Printf
 using Plots
+using StatsPlots
 
 include("dec_tree.jl")
 include("setup.jl")
@@ -27,6 +28,7 @@ include("sim.jl")
 include("tracking.jl")
 include("isolation.jl")
 include("spread.jl")
+include("cases.jl")
 
 
 export                  # functions for simulation
@@ -34,7 +36,7 @@ export                  # functions for simulation
     seed!,
     transition!,
     spread!,
-    how_many_contacts,
+    how_many_contacts!,
     how_many_touched,
     how_many_infected,
     isolate!,

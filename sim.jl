@@ -1,18 +1,44 @@
 
-# to pre-allocate large arrays, accessed and modified frequently
-# TODO as a way to hold what were formerly  globals and to hold
-#      complex parameter sets
+# pre-allocate large arrays, accessed and modified frequently
+# hold complex parameter sets
 mutable struct Env
     spreaders::Array{Int64,3} # 19,4,5
     all_accessible::Array{Int64,3} # 19,6,5
     numcontacts::Array{Int64,3} # 19,4,5
     simple_accessible::Array{Int64,2} # 6,5
+    numtouched::Array{Int64,2} # 19,5
     lag_contacts::Array{Int,1} # 19,
     riskmx::Array{Float64,2} # 19,5
-    contact_factors::Array{Float64,2}  # 4,5
-    touch_factors::Array{Float64,2}  #  6,5
+    contact_factors::Array{Float64,2}  # 4,5 parameters for spread!
+    touch_factors::Array{Float64,2}  #  6,5  parameters for spread!
+    send_risk_by_lag::Array{Float64,1}  # 19,  parameters for spread!
+    recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
+    sd_compliance::Array{Float64,2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
+
+    # constructor with keyword arguments and very basic type compatible defaults
+    function Env(;          spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
+                            all_accessible=zeros(Int,0,0,0),
+                            numcontacts=zeros(Int,0,0,0),
+                            simple_accessible=zeros(Int,0,0),
+                            numtouched=zeros(Int,0,0),
+                            lag_contacts=zeros(Int,19),
+                            riskmx=zeros(Float64,0,0),
+                            contact_factors=zeros(Float64,0,0),
+                            touch_factors=zeros(Float64,0,0),
+                            send_risk_by_lag=zeros(Float64,19),
+                            recv_risk_by_age=zeros(Float64,5),
+                            sd_compliance=ones(Float64,6,5)        )
+        return new(spreaders, all_accessible, numcontacts, simple_accessible, 
+                   numtouched, lag_contacts, riskmx, contact_factors, 
+                   touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
+    end
+        
 end
 
+#  stash for temporary values changed during simulation cases
+#      to change just once and then get the originals back
+#      it is the users responsibility to get rid of stuff
+const stash = Dict{Symbol, Array}()
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
@@ -169,14 +195,16 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 #
 
 
-
 ####################################################################################
 #   simulation runner
 ####################################################################################
 
 
-function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_tree_all.csv",
+function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dtfilename = "dec_tree_all.csv",
                    nsfilename="nodstarts.csv", silent=true)
+#=
+    see cases.jl for runcases and spreadcases
+=#
 
     !isempty(dayq) && (deleteat!(dayq, 1:length(dayq)))   # empty it
 
@@ -217,11 +245,12 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_
                 queuestats([0,3,3,0,0], locale, spreadstat; case="open")
             end
             for case in runcases
-                case(ctr, locale, opendat=openmx, isodat=isolatedmx, env=env)
+                case(locale, opendat=openmx, isodat=isolatedmx, env=env)
             end
-            spread!(locale, geodata=geodata, dat=openmx, env=env)
-            transition!(dt_set, locale, dat=openmx)
-            transition!(dt_set, locale, dat=isolatedmx)
+            density_factor = geodata[locale,density_fac]
+            spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
+            transition!(dt_set, locale, dat=openmx)   # transition all infectious cases "in the open"
+            transition!(dt_set, locale, dat=isolatedmx)  # transition all infectious cases in isolation
         end
         queue_to_newseries!(newstatq, dseries, locales) # update tracking stats for the day
     end
@@ -235,104 +264,6 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], dtfilename = "dec_
 end
 
 
-function isolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 15
-        isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
-    elseif ctr[:day] == 23
-        isolate!(.50,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
-    end
-end
-
-function unisolate_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day]  == 69
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
-    end
-end
-
-function isolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 15
-        isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
-    elseif ctr[:day] == 23
-        isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
-    end
-end
-
-function unisolate_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day]  == 69
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
-    end
-end
-
-function unisolate_case_2b(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day]  == 84
-        unisolate!(.6,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(.6,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
-    end
-end
-
-
-function isolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 40
-        isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
-    elseif ctr[:day] == 50
-        isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
-    end
-end
-
-function unisolate_case_3(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day]  == 80
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick,severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
-    end
-end
-
-function social_distance_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 40
-        oldmin = minimum(env.contact_factors)
-        oldmax = maximum(env.contact_factors)
-        newmin = oldmin * .9
-        newmax = oldmax * .8 > newmin ? oldmax * .8 : newmin * 1.1
-        env.contact_factors[:] = shifter(env.contact_factors, newmin, newmax)
-    end
-end
-
-function unsocial_distance_case_1(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 75
-        oldmin = minimum(env.contact_factors)
-        oldmax = maximum(env.contact_factors)
-        newmin = oldmin / .9
-        newmax = oldmax / .85 > newmin ? oldmax / .85 : newmin / 1.1
-        env.contact_factors[:] = shifter(env.contact_factors, newmin, newmax)
-    end
-end
-
-function social_distance_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 40
-        oldmin = minimum(env.touch_factors)
-        oldmax = maximum(env.touch_factors)
-        newmin = oldmin * .9
-        newmax = oldmax * .8 > newmin ? oldmax * .8 : newmin * 1.4
-        env.touch_factors[:] = shifter(env.touch_factors, newmin, newmax)
-    end
-end
-
-function unsocial_distance_case_2(ctr, locale; opendat=openmx, isodat=isolatedmx, env=env)
-    if ctr[:day] == 75
-        oldmin = minimum(env.touch_factors)
-        oldmax = maximum(env.touch_factors)
-        newmin = oldmin / .9
-        newmax = oldmax / .85 > newmin ? oldmax / .85 : newmin / 1.4
-        env.touch_factors[:] = shifter(env.touch_factors, newmin, newmax)
-    end
-end
 
 ####################################################################################
 #   functions for simulation events
@@ -341,29 +272,27 @@ end
 
 
 function initialize_sim_env()
-    Env(zeros(Int64,19,4,5),  # spreaders
-        zeros(Int64,19,6,5),  # all_accessible
-        zeros(Int64,19,4,5),  # numcontacts
-        zeros(Int64,6,5),     # simple_accessible
-        zeros(Int64,19),      # lag_contacts
-        zeros(Int64,19,5),    # riskmx
-        # contact_factors for the spreaders
-        # agegrp 1     2      3       4     5
-                [ 1     2.5    2.5     1.5   1;     # nil
-                  1     2.5    2.5     1.5   1;     # mild
-                  0.7    1.0    1.0     0.7   0.5;   # sick
-                  0.5    0.8    0.8     0.5   0.2    # severe
-                ],
-        # touch_factors for those who are touched by spreaders
-        # not varying touch_factor lag of infectious states 
-        # because we ignore increased viral load from repeat exposures
-                [.6    .9      .8     .6   .35;    # unexposed
-                 .6    .9      .8     .6   .35;    # recovered
-                 .6    .9      .8     .6   .35;    # nil
-                 .6    .9      .7     .5   .28;    # mild
-                 .28   .35     .28    .18  .18;    # sick
-                 .18   .18     .18    .18  .18     # severe
-                ] )
+    Env(spreaders=zeros(Int64,19,4,5),  
+        all_accessible=zeros(Int64,19,6,5),  
+        numcontacts=zeros(Int64,19,4,5),  
+        simple_accessible=zeros(Int64,6,5),  
+        numtouched=zeros(Int64,19,5),   
+        lag_contacts=zeros(Int64,19),      
+        riskmx = zeros(Float64,19,5),    
+        contact_factors =       [ 1    2.5    2.5     1.5    1;    # nil
+                                  1    2.5    2.5     1.5    1;    # mild
+                                0.7    1.0    1.0     0.7   0.5;   # sick
+                                0.5    0.8    0.8     0.5   0.2],  # severe
+                      # agegrp    1     2      3       4     5
+        touch_factors =         [.6    .9      .8     .6   .35;    # unexposed
+                                 .6    .9      .8     .6   .35;    # recovered
+                                 .6    .9      .8     .6   .35;    # nil
+                                 .6    .9      .7     .5   .28;    # mild
+                                 .28   .35     .28    .18  .18;    # sick
+                                 .18   .18     .18    .18  .18],   # severe                               
+        send_risk_by_lag = [.1, .3, .7, .9, .9, .9, .8, .7, .5, .4, .2, .1, .1, 0.05, 0.05, 0.5, 0, 0, 0],
+        recv_risk_by_age = [.1, .3, .3, .4, .5],
+        sd_compliance = ones(6,5))
 end
 
 
@@ -599,20 +528,21 @@ function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :
     cityname = !isempty(geo) ? geo[locale, city] : ""
     died = dseries[locale][:cum][end,:Dead]
     infected = dseries[locale][:cum][1,:Unexposed] - dseries[locale][:cum][end,:Unexposed]
-    half = floor(Int,dseries[locale][:cum][1,:Unexposed] * 0.5)
+    firstseries = plseries[1]
+    half_yscale = floor(Int, maximum(dseries[locale][:cum][!,firstseries]) * 0.5)
 
     # the plot
     plot(   cumseries[:,1], cumseries[:,2:end], 
             size = (700,500),
             label = labels, 
             lw=2.3,
-            title = "Covid for $people people in $cityname over $n days",
+            title = "Covid for $people people in $cityname over $n days\nActive Cases for Each Day",
             xlabel = "Simulation Days",
             yaxis = ("People"),
             legendfontsize = 10,
             reuse = false
         )
-    annotate!((6,half,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
+    annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
 
 end
 
@@ -634,7 +564,7 @@ function newplot(dseries, locale, plseries=[:Infectious])
     bar(    newseries[:,1], newseries[:,2:end], 
             size = (700,500),
             label = labels, 
-            lw=1,
+            lw=0,
             title = "Covid Daily Change for $people people over $n days",
             xlabel = "Simulation Days",
             yaxis = ("People"),
@@ -643,6 +573,59 @@ function newplot(dseries, locale, plseries=[:Infectious])
 
 end
 
+
+function dayplot(dayq::Array)
+    dayseries = DataFrame(dayq)
+    dayplot(dayseries)
+end
+
+function dayplot(dayseries::DataFrame)
+    plot(dayseries[!,:day], dayseries[!,:spreaders],label="Spreaders", dpi=200,lw=2,
+         xlabel="Simulation Days", ylabel="People", title="Daily Spread of Covid",
+         bg_legend=:white)
+    
+    plot!(dayseries[!,:day], dayseries[!,:contacts],label="Contacts", dpi=200,lw=2)
+    plot!(dayseries[!,:day], dayseries[!,:touched],label="Touched", dpi=200,lw=2)
+    plot!(dayseries[!,:day], dayseries[!,:infected],label="Infected", dpi=200,lw=2)
+end
+
+
+
+function day_animate2(dayseries)
+    n = size(dayseries,1)
+    # daymat = Matrix(dayseries)
+
+    xd = dayseries[1:5,:]
+
+    topy = max(maximum(dayseries[!,:spreaders]),maximum(dayseries[!,:contacts]),
+                maximum(dayseries[!,:touched]),maximum(dayseries[!,:infected]) )
+
+    @df xd plot(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
+                labels=^(["Spreaders" "Contacts" "Touched" "Infected"]),dpi=200, lw=2,ylim=(0,topy))
+
+    for i = 5:2:n
+        xd = dayseries[i-2:i,:]
+
+        @df xd plot!(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
+                 labels=false, dpi=200, lw=2, ylim=(0,3e4))
+        gui()
+
+        if i < round(Int, n/4)
+            sleep(0.3)
+        elseif i < round(Int,n/2)
+            sleep(0.1)
+        else
+            sleep(.001)
+        end
+        # print("\nPress enter to continue, q enter to quit.> ");
+        # ans = chomp(readline()) 
+        # if ans == "q"
+        #     break
+        # end    
+    end
+end
+
+# Plots.AnimatedGif("/var/folders/mf/73qj_8c91dzg4sw459_7mchm0000gn/T/jl_Js4px6.gif")
 
 ####################################################################################
 #   convenience functions for reading and inputting population statistics

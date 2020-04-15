@@ -464,12 +464,12 @@ end
 #                 endnode = path[i+1]
 #                 if endnode == (0,0)
 #                     # pr *= br.pr
-#                     push!(outcomes,("recovered", round(pr, sigdigits=4)))
+#                     push!(outcomes,("recovered", round(pr, digits=4)))
 #                     # println(outcomes)
 #                     break
 #                 elseif endnode == (0,5)
 #                     # pr *= br.pr
-#                     push!(outcomes, ("dead", round(pr,sigdigits=4)))
+#                     push!(outcomes, ("dead", round(pr,digits=4)))
 #                     # println(outcomes)
 #                     break
 #                 end

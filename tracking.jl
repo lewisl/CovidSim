@@ -6,6 +6,13 @@ const series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>
         8=>:Severe,  9=>:Travelers, 10=>:Isolated)
 
 
+"""
+- use incr!(ctr, :day) for day of the simulation:  creates and adds 1
+- use reset!(ctr, :day) to remove :day and return its current value, set it to 0
+- use ctr[:day] to return current value of day
+"""
+const ctr = counter(Symbol) # from package DataStructures
+
 # for debugging whole simulations
 const dayq = []
 
@@ -94,14 +101,6 @@ function queuestats(cnt, locale, func::typeof(isolatestat); case="open")
     end
 end
 
-
-
-"""
-- use incr!(ctr, :day) for day of the simulation:  creates and adds 1
-- use reset!(ctr, :day) to remove :day and return its current value, set it to 0
-- use ctr[:day] to return current value of day
-"""
-const ctr = counter(Symbol) # from package DataStructures
 
 # all locales
 function queue_to_newseries!(newstatq, dseries, locales)

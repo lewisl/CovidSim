@@ -126,7 +126,7 @@ function minmax_norm(x)
 end
 
 function scale_minmax(x, newmin, newmax) 
-    round.(x .* (newmax - newmin) .+ newmin, sigdigits=2)
+    round.(x .* (newmax - newmin) .+ newmin, digits=2)
 end
 
 shifter(x::Array,a,b,c,d) = c .+ (d-c)/(b-a) .* (x .- a)
