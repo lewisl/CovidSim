@@ -152,33 +152,77 @@ function social_distance_case_1(density_factor, all_unexposed; env=env)
 end
 
 
+function social_distance_case_2(density_factor, all_unexposed; env=env)
+    startday = 40; endday = 150
 
-# function unsocial_distance_case_1(density_factor; env=env)
-#     if ctr[:day] == 75
-#         oldmin = minimum(env.contact_factors)
-#         oldmax = maximum(env.contact_factors)
-#         newmin = oldmin / .9
-#         newmax = oldmax / .85 > newmin ? oldmax / .85 : newmin / 1.1
-#         env.contact_factors[:] = shifter(env.contact_factors, newmin, newmax)
-#     end
-# end
+    if ctr[:day] >= startday  && ctr[:day] <= endday
 
-function social_distance_case_2(density_factor; env=env)
-    if ctr[:day] == 40
-        oldmin = minimum(env.touch_factors)
-        oldmax = maximum(env.touch_factors)
-        newmin = oldmin * .9
-        newmax = oldmax * .8 > newmin ? oldmax * .8 : newmin * 1.4
-        env.touch_factors[:] = shifter(env.touch_factors, newmin, newmax)
+        # copy the old values
+        if !haskey(spread_stash, :old_comp)
+            spread_stash[:old_comp] = copy(env.sd_compliance) # copy isolates stashed array from changes
+        end
+        if !haskey(spread_stash, :oldtf)
+            spread_stash[:oldtf] = copy(touch_factors) # copy isolates stashed array from changes
+        end
+
+        # do the math once; retrieve thereafter
+        env.sd_compliance[:] = if !haskey(spread_stash, :new_comp)
+                                    spread_stash[:new_comp] = copy(spread_stash[:old_comp]) .* 0.95
+                                else
+                                    copy(spread_stash[:new_comp])  # env.sd_compliance is not changed during the case
+                                end  # 75 to 85 ns
+
+        # change the touch factors, just once: 
+        env.touch_factors[:] = if !haskey(spread_stash, :casetf)  # squash the contact_factors, stash, return
+                                    newmin = .15
+                                    newmax = 0.5 
+                                    spread_stash[:casetf] = round.(shifter(env.touch_factors, newmin, newmax),digits=2)
+                                    copy(spread_stash[:casetf])  # copy is needed isolate the stash
+                                    # print("new cf  ");println(spread_stash[:casecf]) 
+                                    # print("  old cf "); println(spread_stash[:oldcf])
+                                else  
+                                    copy(spread_stash[:casetf]) # get the case contact_factors Do we need to copy each day?
+                                end
+
+        # println(" compliant sd_compliance ",env.sd_compliance[3:6,:])
+
+        # run spread! for the complying
+        how_many_contacts!(density_factor, env=env)
+        how_many_touched!(env=env)
+        spread_stash[:comply_infected] = how_many_infected(all_unexposed, env=env)
+
+        # run spread! for the non-complying
+        # set spreaders to non-complying
+        # println(" noncompliant sd_compliance ",env.sd_compliance[3:6,:])  -- need the copy?
+        env.spreaders[:] = round.(Int, permutedims(permutedims(copy(spread_stash[:all_spr]),[2,3,1]) .* (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
+
+        # println(" split of spreaders: total: ", sum(spread_stash[:all_spr]), 
+        #         " comply ", sum(round.(Int,permutedims(permutedims(spread_stash[:all_spr],[2,3,1]) .* env.sd_compliance[3:6,:], [3,1,2]))),
+        #         " noncomply ", sum(round.(Int, permutedims(permutedims(copy(spread_stash[:all_spr]),[2,3,1]) .* (1.0 .- env.sd_compliance[3:6,:]), [3,1,2])))         )
+
+        # retrieve old contact_factors for non-complying
+        env.contact_factors[:] = copy(spread_stash[:oldcf]) # copy  isolates the stashed copy
+        # run the spread
+        how_many_contacts!(density_factor, env=env)
+        how_many_touched!(env=env)
+        spread_stash[:noncomply_infected] = how_many_infected(all_unexposed, env=env)
+
+        # println(" noncompliant spreaders  $(sum(env.spreaders))   ")
+        # println(" noncompliant contacts  $(sum(env.numcontacts))   ")
+        # println(" noncompliant touched   $(sum(env.numtouched))  ")
+        # println(" noncompliant infected   $(sum(spread_stash[:noncomply_infected]))       ")
+
+        newinfected = spread_stash[:noncomply_infected] .+ spread_stash[:comply_infected]
+    else # before and after the case days
+        if ctr[:day] == endday + 1
+            # reset contact_factors and sd_compliance back to "normal"  this will stick
+            env.contact_factors[:] = copy(spread_stash[:oldcf])
+            env.sd_compliance[:] = copy(spread_stash[:old_comp])
+        end
+        how_many_contacts!(density_factor, env=env)
+        how_many_touched!(env=env)
+        newinfected = how_many_infected(all_unexposed, env=env)
     end
-end
 
-function unsocial_distance_case_2(density_factor; env=env)
-    if ctr[:day] == 75
-        oldmin = minimum(env.touch_factors)
-        oldmax = maximum(env.touch_factors)
-        newmin = oldmin / .9
-        newmax = oldmax / .85 > newmin ? oldmax / .85 : newmin / 1.4
-        env.touch_factors[:] = shifter(env.touch_factors, newmin, newmax)
-    end
+    return newinfected
 end

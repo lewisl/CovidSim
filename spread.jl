@@ -58,7 +58,6 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
         end
     end
 
-
     # move the people from unexposed:agegrp to infectious:agegrp and nil
     plus!.(newinfected, infectious, agegrps, lag, locale, dat=dat)
     plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)

@@ -88,6 +88,8 @@ function display_tree(tree)
     end
 end
 
+# built this by eyeballing the correct definition of the tree structure;
+#   a really smart person would write code to follow the branches in a tree
 paths2 =    [
                [(1,1),(2,1),(0,0)],
                [(1,1),(2,1),(3,3),(0,0)],
