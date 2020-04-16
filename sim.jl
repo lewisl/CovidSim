@@ -123,78 +123,6 @@ Tranition pr indices that return -1 are not used and will raise an error.
 const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3, sick=4, severe=5)
 
 
-#function daystep()  # one day of simulation
-
-    # loop across days of the simulation
-        # function hooks for:...
-        # seeding events--especially inbound international travel
-        # outbreaks--when we don't have pockets implemented
-        # rules--that restrict movement and affect touches and infection contacts
-
-
-    # need rules for how many people travel across locales; then rules for travel restrictions
-         # DONE = travelin!: some people travel in; distribution of them are infectious
-        # pull item from queue:  add to destination: agegrp/condition, agegrp/outcome
-        #                        remove from source: agegrp/condition, agegrp/outcome
-        # TODO add to log
-
-    # some people will isolate: need to come up with rules for isolation, leaks from isolation
-        #   DONE = isolate_queue! put people into isolation by agegroup, locale, condition, lag
-                    # and isolate_move!=>remove from open, unisolate_queue!, unisolate_move!
-                    # add isolation people to queue
-                    # unisolate:  remove people from isolatedmx and put them back into openmx
-        #  transition people in isolation across conditions
-        
-
-    # DONE = transition! distribute residents across all lags and conditions
-        # openmx
-        # isolatedmx
-        # loop across all locales to transition all
-            # start from last lag, by age group:
-                    # severe distribute to sick, severe or die remain at lag 18
-                    # sick distribute to severe, mild remain at lag 18
-                    # mild distribute to sick, recovered (no nil at this point) at lag 18
-                    # nil distribute to nil, mild, sick, severe at lags 2-6
-            # for earlier lags:
-                    # severe distribute to sick, severe or die => advance one lag
-                    # sick distribute to sick, severe, mild => advance one lag
-                    # mild distribute to sick, recovered => advance one lag
-                    # nil distribute to nil, mild, recovered => advance one lag
-
-            # go dead => remove from previous condition; remove from resident, remove from totalpop:  make sure we can count # dead today (or more than yesterday)
-            # go recovered => remove from previous condition; remove from exposed? remove from infectious
-
-            # TODO log new dead, new recovered  to change state
-
-
-
-    # DONE:  spread from infectious people to unexposed|recovered people(not isolated)
-            #contact distribution of residents across age&condition&lags
-            # DONE: handle partial (treating as full) immunity of recovered
-            # DONE = spread!  touchers -> num_touched -> split by age/condition
-            # DONE in spread!  of those contacted, a distribution become exposed & nil at lag 0
-
-            # DONE log new infectious
-
-
-    # DONE = travelout! some residents travel out
-        # choose distribution of people traveling by age and condition
-        # add to queue
-
-    # TODO summarize current state values for unexposed, infectious, dead, recovered
-        # add to series using change_state, summarize function
-
-#end
-
-# TODO Build locale data in a dataframe
-#   cols: id, state, locale, pop, density, travelprobs, gender split, age dist (maybe)
-#
-#
-#
-#
-#
-
-
 ####################################################################################
 #   simulation runner
 ####################################################################################
@@ -206,7 +134,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
     see cases.jl for runcases and spreadcases
 =#
 
-    !isempty(dayq) && (deleteat!(dayq, 1:length(dayq)))   # empty it
+    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
 
     locales = locales   # force local scope to the loop
     alldict = setup(geofilename; dectreefilename="dec_tree_all.csv",
@@ -234,16 +162,6 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
         inc!(ctr, :day)  # update the simulation day counter
         silent || println("simulation day: ", ctr[:day])
         for locale in locales
-            # seed some people arriving as carriers
-            if ctr[:day] == 1
-                println("first seed locale $locale....")
-                seed!([0,3,3,0,0],5,nil, agegrps, locale, dat=openmx)
-                queuestats([0,3,3,0,0], locale, spreadstat; case="open")
-            elseif ctr[:day] == 10
-                println("second seed locale $locale...")
-                seed!([0,3,3,0,0],5,nil, agegrps, locale, dat=openmx)
-                queuestats([0,3,3,0,0], locale, spreadstat; case="open")
-            end
             for case in runcases
                 case(locale, opendat=openmx, isodat=isolatedmx, env=env)
             end
@@ -279,37 +197,41 @@ function initialize_sim_env()
         numtouched=zeros(Int64,19,5),   
         lag_contacts=zeros(Int64,19),      
         riskmx = zeros(Float64,19,5),    
-        contact_factors =       [ 1    2.5    2.5     1.5    1;    # nil
-                                  1    2.5    2.5     1.5    1;    # mild
+        contact_factors =       [ 1    2.1    2.1     1.5    1;    # nil
+                                  1    1.9    1.9     1.4   0.9;    # mild
                                 0.7    1.0    1.0     0.7   0.5;   # sick
                                 0.5    0.8    0.8     0.5   0.2],  # severe
                       # agegrp    1     2      3       4     5
-        touch_factors =         [.6    .9      .8     .6   .35;    # unexposed
-                                 .6    .9      .8     .6   .35;    # recovered
-                                 .6    .9      .8     .6   .35;    # nil
-                                 .6    .9      .7     .5   .28;    # mild
+        touch_factors =         [.6    .8      .7     .5   .35;    # unexposed
+                                 .6    .8      .7     .5   .35;    # recovered
+                                 .6    .8      .7     .5   .35;    # nil
+                                 .6    .7      .6     .4   .28;    # mild
                                  .28   .35     .28    .18  .18;    # sick
                                  .18   .18     .18    .18  .18],   # severe                               
-        send_risk_by_lag = [.1, .3, .7, .9, .9, .9, .8, .7, .5, .4, .2, .1, .1, 0.05, 0.05, 0.5, 0, 0, 0],
-        recv_risk_by_age = [.1, .3, .3, .4, .5],
+        send_risk_by_lag = [.1, .3, .6, .8, .9, .9, .8, .7, .5, .4, .2, .1, .1, 0.05, 0.05, 0.5, 0, 0, 0],
+        recv_risk_by_age = [.1, .35, .35, .45, .55],
         sd_compliance = zeros(6,5))
 end
 
 
-function seed!(cnt, lag, conds, agegrps, locales; dat=openmx)
+function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
     @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
-    for loc in locales
-        for cond in conds
-            if cond in [nil, mild, sick, severe]
-                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
-            elseif cond in [recovered, dead]
-                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                # need to figure out what condition and lag get decremented!!
+    if day == ctr[:day]
+        println("*** seed day $(ctr[:day]) locale $locale....")
+        for loc in locale
+            for cond in conds
+                if cond in [nil, mild, sick, severe]
+                    input!.(cnt, cond, agegrps, lag, loc, dat=dat)
+                    minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
+                elseif cond in [recovered, dead]
+                    input!.(cnt, cond, agegrps, lag, loc, dat=dat)
+                    # need to figure out what condition and lag get decremented!!
+                end
             end
+            update_infectious!(loc, dat = dat)
+            queuestats(cnt, locale, spreadstat; case="open")
         end
-        update_infectious!(loc, dat = dat)
     end
 end
 
@@ -342,6 +264,7 @@ function transition!(dt_set, locale; case="open", dat=openmx)  # TODO also need 
                 end
             end
         else
+            @assert lag < 19 "lag hit 19; must have decision tree node to clear day 19 cases"
             # bump people up a day without changing their conditions
             input!(grab(nil:severe, agegrps,lag,locale, dat=dat),nil:severe, agegrps,lag+1, locale, dat=dat)
             minus!(grab(nil:severe, agegrps,lag,locale, dat=dat),nil:severe, agegrps,lag, locale, dat=dat)
@@ -510,130 +433,6 @@ function categorical_sample(probvec, trials)
     x = rand(Categorical(probvec), trials)
 end
 
-
-function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :Dead];
-    geo=[])
-
-    pyplot()
-    theme(:ggplot2, foreground_color_border =:black, reuse = false)
-
-    !(typeof(plseries) <: Array) && (plseries = [plseries])
-
-    # the data
-    n = size(dseries[locale][:cum],1)
-    cumseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:cum][!,plseries]])
-    labels = string.(plseries)
-    labels = reshape([labels...], 1, length(labels))
-    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
-    cityname = !isempty(geo) ? geo[locale, city] : ""
-    died = dseries[locale][:cum][end,:Dead]
-    infected = dseries[locale][:cum][1,:Unexposed] - dseries[locale][:cum][end,:Unexposed]
-    firstseries = plseries[1]
-    half_yscale = floor(Int, maximum(dseries[locale][:cum][!,firstseries]) * 0.5)
-
-    # the plot
-    plot(   cumseries[:,1], cumseries[:,2:end], 
-            size = (700,500),
-            label = labels, 
-            lw=2.3,
-            title = "Covid for $people people in $cityname over $n days\nActive Cases for Each Day",
-            xlabel = "Simulation Days",
-            yaxis = ("People"),
-            legendfontsize = 10,
-            reuse = false
-        )
-    annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
-end
-
-function newplot(dseries, locale, plseries=[:Infectious])
-
-    pyplot()
-    theme(:ggplot2, foreground_color_border =:black)
-
-    !(typeof(plseries) <: Array) && (plseries = [plseries])
-
-    # the data
-    n = size(dseries[locale][:new],1)
-    newseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:new][!,plseries]])
-    labels = string.(plseries)
-    labels = reshape([labels...], 1, length(labels))
-    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
-
-    # the plot
-    bar(    newseries[:,1], newseries[:,2:end], 
-            size = (700,500),
-            label = labels, 
-            lw=0,
-            title = "Covid Daily Change for $people people over $n days",
-            xlabel = "Simulation Days",
-            yaxis = ("People"),
-            reuse =false
-        )
-
-end
-
-
-function day2df(dayq::Array)
-    dayseries = DataFrame(dayq)
-
-    dayseries[!, :cuminfected] .= zeros(Int, size(dayseries,1))
-    dayseries[1, :cuminfected] = copy(dayseries[1,:infected])
-    for i = 2:size(dayseries,1)
-       dayseries[i,:cuminfected] = dayseries[i-1,:cuminfected] + dayseries[i,:infected]
-    end
-
-    return dayseries
-end
-
-function dayplot(dayseries::DataFrame)
-    plot(dayseries[!,:day], dayseries[!,:spreaders],label="Spreaders", dpi=200,lw=2,
-         xlabel="Simulation Days", ylabel="People", title="Daily Spread of Covid",
-         bg_legend=:white)
-    
-    plot!(dayseries[!,:day], dayseries[!,:contacts],label="Contacts", dpi=200,lw=2)
-    plot!(dayseries[!,:day], dayseries[!,:touched],label="Touched", dpi=200,lw=2)
-    plot!(dayseries[!,:day], dayseries[!,:infected],label="Infected", dpi=200,lw=2)
-    plot!(dayseries[!,:day], dayseries[!,:cuminfected],label="Cum Infected", dpi=200,lw=2)
-
-end
-
-
-
-function day_animate2(dayseries)
-    n = size(dayseries,1)
-    # daymat = Matrix(dayseries)
-
-    xd = dayseries[1:5,:]
-
-    topy = max(maximum(dayseries[!,:spreaders]),maximum(dayseries[!,:contacts]),
-                maximum(dayseries[!,:touched]),maximum(dayseries[!,:infected]) )
-
-    @df xd plot(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
-                labels=^(["Spreaders" "Contacts" "Touched" "Infected"]),dpi=200, lw=2,ylim=(0,topy))
-
-    for i = 5:2:n
-        xd = dayseries[i-2:i,:]
-
-        @df xd plot!(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
-                 labels=false, dpi=200, lw=2, ylim=(0,3e4))
-        gui()
-
-        if i < round(Int, n/4)
-            sleep(0.3)
-        elseif i < round(Int,n/2)
-            sleep(0.1)
-        else
-            sleep(.001)
-        end
-        # print("\nPress enter to continue, q enter to quit.> ");
-        # ans = chomp(readline()) 
-        # if ans == "q"
-        #     break
-        # end    
-    end
-end
-
-# Plots.AnimatedGif("/var/folders/mf/73qj_8c91dzg4sw459_7mchm0000gn/T/jl_Js4px6.gif")
 
 ####################################################################################
 #   convenience functions for reading and inputting population statistics

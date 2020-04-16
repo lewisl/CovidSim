@@ -8,7 +8,7 @@
     # probably need to raise effective death rate for people in 60-80 and 80+  per Vox article
 
 # Done
-    # moved constants used as input parameters to the Env struct
+    
 
 module CovidSim
 
@@ -41,10 +41,6 @@ export                  # functions for simulation
     how_many_infected,
     isolate!,
     unisolate!,
-    cumplot,
-    newplot,
-    dayplot,
-    dayanimate2,
     grab,
     input!,
     plus!,
@@ -52,7 +48,9 @@ export                  # functions for simulation
     total!,
     Env,
     Spreadcase,
-    case_setter
+    case_setter,
+    initialize_sim_env,
+    spread_sanity
 
 
 export                  # functions for setup
@@ -61,13 +59,17 @@ export                  # functions for setup
 
 export                  # functions for tracking
     reviewdays,
-    showq
+    showq,
+    cumplot,
+    newplot,
+    dayplot,
+    dayanimate2
 
 export            # queues for tracking
     travelq,
     isolatedq,
     newstatq,
-    dayq
+    spreadq
 
 export                  # functions for decision trees
     setup_dt,

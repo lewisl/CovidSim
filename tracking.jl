@@ -14,7 +14,7 @@ const series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>
 const ctr = counter(Symbol) # from package DataStructures
 
 # for debugging whole simulations
-const dayq = []
+const spreadq = []
 
 
 # traveling 
@@ -166,7 +166,7 @@ function showq(qname)
 end
 
 
-function reviewdays(q=dayq)
+function reviewdays(q=spreadq)
     for it in q
         println(it)
         print("\nPress enter to continue, q enter to quit.> ");
@@ -187,3 +187,133 @@ function reviewdays(df::DataFrame)
         end
     end
 end
+
+
+###########################################################################################
+#  Plotting
+###########################################################################################
+
+
+function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :Dead];
+    geo=[])
+
+    pyplot()
+    theme(:ggplot2, foreground_color_border =:black, reuse = false)
+
+    !(typeof(plseries) <: Array) && (plseries = [plseries])
+
+    # the data
+    n = size(dseries[locale][:cum],1)
+    cumseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:cum][!,plseries]])
+    labels = string.(plseries)
+    labels = reshape([labels...], 1, length(labels))
+    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
+    cityname = !isempty(geo) ? geo[locale, city] : ""
+    died = dseries[locale][:cum][end,:Dead]
+    infected = dseries[locale][:cum][1,:Unexposed] - dseries[locale][:cum][end,:Unexposed]
+    firstseries = plseries[1]
+    half_yscale = floor(Int, maximum(dseries[locale][:cum][!,firstseries]) * 0.5)
+
+    # the plot
+    plot(   cumseries[:,1], cumseries[:,2:end], 
+            size = (700,500),
+            label = labels, 
+            lw=2.3,
+            title = "Covid for $people people in $cityname over $n days\nActive Cases for Each Day",
+            xlabel = "Simulation Days",
+            ylabel = "People",
+            legendfontsize = 10,
+            reuse = false
+        )
+    annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
+end
+
+function newplot(dseries, locale, plseries=[:Infectious])
+
+    pyplot()
+    theme(:ggplot2, foreground_color_border =:black)
+
+    !(typeof(plseries) <: Array) && (plseries = [plseries])
+
+    # the data
+    n = size(dseries[locale][:new],1)
+    newseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:new][!,plseries]])
+    labels = string.(plseries)
+    labels = reshape([labels...], 1, length(labels))
+    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
+
+    # the plot
+    groupedbar(    newseries[:,1], newseries[:,2:end], 
+            size = (700,500),
+            label = labels, 
+            lw=0,
+            title = "Covid Daily Change for $people people over $n days",
+            xlabel = "Simulation Days",
+            yaxis = ("People"),
+            reuse =false
+        )
+
+end
+
+
+function day2df(spreadq::Array)
+    spreadseries = DataFrame(spreadq)
+
+    spreadseries[!, :cuminfected] .= zeros(Int, size(spreadseries,1))
+    spreadseries[1, :cuminfected] = copy(spreadseries[1,:infected])
+    for i = 2:size(spreadseries,1)
+       spreadseries[i,:cuminfected] = spreadseries[i-1,:cuminfected] + spreadseries[i,:infected]
+    end
+
+    return spreadseries
+end
+
+
+function dayplot(spreadseries::DataFrame)
+    pyplot()
+    plot(spreadseries[!,:day], spreadseries[!,:spreaders],label="Spreaders", dpi=200,lw=2,
+         xlabel="Simulation Days", ylabel="People", title="Daily Spread of Covid",
+         bg_legend=:white)
+    
+    plot!(spreadseries[!,:day], spreadseries[!,:contacts],label="Contacts", dpi=200,lw=2)
+    plot!(spreadseries[!,:day], spreadseries[!,:touched],label="Touched", dpi=200,lw=2)
+    plot!(spreadseries[!,:day], spreadseries[!,:infected],label="Infected", dpi=200,lw=2)
+    # plot!(spreadseries[!,:day], spreadseries[!,:cuminfected],label="Cum Infected", dpi=200,lw=2)
+
+end
+
+function day_animate2(spreadseries)
+    n = size(spreadseries,1)
+    # daymat = Matrix(spreadseries)
+
+    xd = spreadseries[1:5,:]
+
+    topy = max(maximum(spreadseries[!,:spreaders]),maximum(spreadseries[!,:contacts]),
+                maximum(spreadseries[!,:touched]),maximum(spreadseries[!,:infected]) )
+
+    @df xd plot(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
+                labels=^(["Spreaders" "Contacts" "Touched" "Infected"]),dpi=200, lw=2,ylim=(0,topy))
+
+    for i = 5:2:n
+        xd = spreadseries[i-2:i,:]
+
+        @df xd plot!(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
+                 labels=false, dpi=200, lw=2, ylim=(0,3e4))
+        gui()
+
+        if i < round(Int, n/4)
+            sleep(0.3)
+        elseif i < round(Int,n/2)
+            sleep(0.1)
+        else
+            sleep(.001)
+        end
+        # print("\nPress enter to continue, q enter to quit.> ");
+        # ans = chomp(readline()) 
+        # if ans == "q"
+        #     break
+        # end    
+    end
+end
+
+# Plots.AnimatedGif("/var/folders/mf/73qj_8c91dzg4sw459_7mchm0000gn/T/jl_Js4px6.gif")
