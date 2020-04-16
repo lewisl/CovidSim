@@ -543,7 +543,6 @@ function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :
             reuse = false
         )
     annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
-
 end
 
 function newplot(dseries, locale, plseries=[:Infectious])

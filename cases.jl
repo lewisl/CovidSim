@@ -109,6 +109,40 @@ function case_setter(cases=[]; env=env)
 end  # function case_setter
 
 
+function spread_case_runner(density_factor, all_unexposed; env=env)
+    spread_stash[:spreaders] = copy(env.spreaders)  # stash today's spreaders--isolated from env
+    spread_stash[:simple_accessible] = copy(env.simple_accessible) # stash today's accessible--isolated from env
+    newinfected = []  # capture infected for comply and nocomply groups
+    for i in [:comply,:nocomply]
+        if i == :comply  # split the spreaders and accessible, set the case factors
+            env.spreaders[:]= round.(Int,permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .* 
+                                       env.sd_compliance[3:6,:], [3,1,2]))
+            env.simple_accessible[:]= round.(Int,copy(spread_stash[:simple_accessible]) .* 
+                                             env.sd_compliance)
+            env.contact_factors = copy(spread_stash[:case_cf])
+            env.touch_factors = copy(spread_stash[:case_tf])
+        else  # i == :nocomply other split of spreaders and accessible, restore default factors
+            env.spreaders[:]= round.(Int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .* 
+                                        (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
+            env.simple_accessible[:]= round.(Int, copy(spread_stash[:simple_accessible]) .* 
+                                             (1.0 .- env.sd_compliance))
+            # set the default contact_factors and touch_factors
+            env.contact_factors = copy(spread_stash[:default_cf])
+            env.touch_factors = copy(spread_stash[:default_tf])
+        end  # if
+        push!(newinfected, spreadsteps(density_factor, all_unexposed, env=env))
+        if i == :comply
+            spread_stash[:comply_contacts] = copy(env.numcontacts)
+            spread_stash[:comply_touched] = copy(env.numtouched)
+            spread_stash[:comply_spreaders] = copy(env.spreaders)
+        end
+    end  # for loop
+    # total values for comply + nocomply
+    newinfected = newinfected[1] .+ newinfected[2]
+end
+
+
+
 function social_distance_case_1(density_factor, all_unexposed; env=env)
     startday = 40; endday = 150
 
