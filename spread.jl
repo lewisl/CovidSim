@@ -14,7 +14,7 @@ previously unexposed people, by agegrp?  For a single locale...
 """
 function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env=env)
 
-    if ctr[:day]  == 1
+    if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
         cleanup_spread_cases()
     end
 
@@ -40,15 +40,42 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
     all_unexposed = grab(unexposed, agegrps, 1, locale, dat=dat)  # (5, ) agegrp for lag 1
 
-    if isempty(spreadcases)
-        how_many_contacts!(density_factor, env=env) # how many people are contacted based on spreader? updates env.numcontacts
-        how_many_touched!(env=env)   # lag x agegrp # how many are touched based on recipient and contacts?
-        newinfected = how_many_infected(all_unexposed, env=env)    # (5,)  # how many people become infected?
-    else
-        for case in spreadcases
-            newinfected = case(density_factor, all_unexposed, env=env)
-        end
-    end
+    # set and run spreadcases
+    case_setter(spreadcases, env=env)  # bounces out right away if empty
+    if iszero(env.sd_compliance) || isone(env.sd_compliance)  # no compliance or full compliance--no split, just run once
+        newinfected = spreadsteps(density_factor, all_unexposed, env=env)
+    else # TODO this wants to be a case_runner function
+        spread_stash[:spreaders] = copy(env.spreaders)  # stash today's spreaders--isolated from env
+        spread_stash[:simple_accessible] = copy(env.simple_accessible) # stash today's accessible--isolated from env
+        newinfected = []  # capture infected for comply and nocomply groups
+        for i in [:comply,:nocomply]
+            if i == :comply  # split the spreaders and accessible, set the case factors
+                env.spreaders[:]= round.(Int,permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .* 
+                                           env.sd_compliance[3:6,:], [3,1,2]))
+                env.simple_accessible[:]= round.(Int,copy(spread_stash[:simple_accessible]) .* 
+                                                 env.sd_compliance)
+                env.contact_factors = copy(spread_stash[:case_cf])
+                env.touch_factors = copy(spread_stash[:case_tf])
+            else  # i == :nocomply other split of spreaders and accessible, restore default factors
+                env.spreaders[:]= round.(Int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .* 
+                                            (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
+                env.simple_accessible[:]= round.(Int, copy(spread_stash[:simple_accessible]) .* 
+                                                 (1.0 .- env.sd_compliance))
+                # set the default contact_factors and touch_factors
+                env.contact_factors = copy(spread_stash[:default_cf])
+                env.touch_factors = copy(spread_stash[:default_tf])
+            end  # if
+            push!(newinfected, spreadsteps(density_factor, all_unexposed, env=env))
+            if i == :comply
+                spread_stash[:comply_contacts] = copy(env.numcontacts)
+                spread_stash[:comply_touched] = copy(env.numtouched)
+            end
+        end  # for loop
+        # total values for comply + nocomply
+        newinfected = newinfected[1] .+ newinfected[2]
+        spreaders = spread_stash[:spreaders]
+    end  # no active case or active case
+
 
     # test if newinfected > unexposed
     lag = 1
@@ -63,8 +90,10 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)
     minus!.(newinfected, unexposed, agegrps, lag, locale, dat=dat)
 
-    push!(dayq, (day=ctr[:day], locale=locale, spreaders = sum(spreaders), contacts = sum(numcontacts),
-                    touched = sum(numtouched), accessible = sum(all_accessible),
+    push!(dayq, (day=ctr[:day], locale=locale, spreaders = sum(spreaders), 
+                    contacts = sum(numcontacts) + sum(get(spread_stash, :comply_contacts, 0)),
+                    touched = sum(numtouched) + sum(get(spread_stash, :comply_touched, 0)), 
+                    accessible = sum(all_accessible),
                     unexposed=sum(grab(unexposed, agegrps, lag, locale, dat=dat)),
                     infected=sum(newinfected)))
     # add to stats queue for today
@@ -73,6 +102,12 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     return
 end
 
+
+function spreadsteps(density_factor, all_unexposed; env=env)
+    how_many_contacts!(density_factor, env=env) # how many people are contacted based on spreader? updates env.numcontacts
+    how_many_touched!(env=env)   # lag x agegrp # how many are touched based on recipient and contacts?
+    newinfected = how_many_infected(all_unexposed, env=env)    # (5,)  # how many people become infected?
+end
 
 
 """
@@ -156,7 +191,7 @@ function how_many_touched!(; env=env)
             # unexposed, recovered, sum of(nil, mild, sick, severe) = infectious  6,5 with last 3 rows all zeros
     simple_accessible[:] = [simple_accessible[1:2,:]; sum(simple_accessible[3:6,:],dims=1); zeros(Int,3,5)];  # (6, 5)
     # s_a_pct is dist. of accessible by agegrp and uexposed, recovered, infectious (15,)
-    s_a_pct = round.(reshape(simple_accessible[1:3,:] ./ totaccessible, 15), digits=3) # % for each cell
+    s_a_pct = round.(reshape(simple_accessible[1:3,:] ./ totaccessible, 15), digits=5) # % for each cell
     if !isapprox(sum(s_a_pct), 1.0, atol=1e-8) 
         s_a_pct = s_a_pct ./ sum(s_a_pct) # normalize so sums to 1.0
     end
@@ -232,7 +267,7 @@ function how_many_infected(all_unexposed; env=env)
 
     @debug "\n newly infected: $newinfected  \n"
 
-    return newinfected  # x agegrp (only condition is nil, assumed lag = 1 => first day infected)
+    return newinfected  # (num of agegrps, ) (only condition is nil, assumed lag = 1 => first day infected)
 end
 
 
@@ -242,8 +277,8 @@ end
 
 
 function cleanup_spread_cases()
-    for k in [:oldcf, :casecf, :old_comp, :new_comp,
-        :all_spr, :comply_infected, :noncomply_infected]
+    for k in [:oldcf, :casecf, :old_comp, :new_comp, :simple_accessible,
+        :spreaders, :comply_infected, :noncomply_infected]
         delete!(spread_stash, k)
     end
 end

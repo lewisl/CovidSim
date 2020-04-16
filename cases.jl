@@ -60,10 +60,54 @@ function unisolate_case_3(locale; opendat=openmx, isodat=isolatedmx, env=env)
     end
 end
 
-
+# define a cases as mycase=Spreadcase(15,cf_array,tf_array,compliance_array_or_float)
 # pass these cases to run_a_sim in kwarg spreadcases as a list--they'll be run in function spread!
-# scases = [CovidSim.<funcname>, CovidSim.<funcname>, ...]  then run_a_sim(geofilename, n_days, locales; spreadcases=scases)
+# scases = [mycase, case_2, ...]  then run_a_sim(geofilename, n_days, locales; spreadcases=scases)
 # cases above can be combined with these passing in both runcases and spreadcases
+struct Spreadcase
+    day::Int
+    cf::Array{Float64,2}  # (4,5)
+    tf::Array{Float64,2}  # (6,5)
+    compliance::Union{Float64, Array{Float64,2}}
+end
+
+function case_setter(cases=[]; env=env)
+    for c in cases
+        if c.day == ctr[:day]
+            # before the case starts--ignore it 
+            # after the case--it's already in effect--nothing to change
+            if iszero(c.compliance)  # active cases are over (until new case is effective)
+                # restore defaults for spread!  TODO: this can fail if case order is funky
+                env.sd_compliance = zeros(6,5)
+                env.contact_factors = copy(spread_stash[:default_cf])
+                env.touch_factors = copy(spread_stash[:default_tf])
+                delete!(spread_stash, :case_cf)
+                delete!(spread_stash, :case_tf)
+            else
+            # set contact_factors, touch_factors to the case values
+                # copy c.cf to spread_stash
+                # copy c.cf to env.contact_factors->active contact_factors  => when running spreadsteps
+                if !haskey(spread_stash, :default_cf)  # should only ever happen once for an entire simulation
+                    spread_stash[:default_cf] = copy(env.contact_factors)
+                end
+                if !haskey(spread_stash, :default_tf)
+                    spread_stash[:default_tf] = copy(env.touch_factors)
+                end
+
+                spread_stash[:case_cf] = copy(c.cf)  # shouldn't need copy, but it's safer
+                spread_stash[:case_tf] = copy(c.tf)  #             "
+
+            # set the compliance note: compliance is the same for spreaders and accessible
+                    # it varies by agegrp and condition if desired
+                # check all compliance values in [0.0, 1.0]
+                @assert c.compliance .>= 0.0 "compliance values must be positive"
+                @assert c.compliance .<= 1.0 "compliance values must be in [0.0,1.0]"
+                env.sd_compliance .= copy(c.compliance)  # TODO do we need to copy? takes 2x time
+            end # if for current day case
+        end  # if test for today
+    end # case for loop
+end  # function case_setter
+
 
 function social_distance_case_1(density_factor, all_unexposed; env=env)
     startday = 40; endday = 150
@@ -99,8 +143,6 @@ function social_distance_case_1(density_factor, all_unexposed; env=env)
                                     copy(spread_stash[:casecf]) # get the case contact_factors Do we need to copy each day?
                                 end
 
-        # println(" compliant sd_compliance ",env.sd_compliance[3:6,:])
-
         # get spreaders for the beginning of a new spread! day--before splitting into compliant and noncompliant
         spread_stash[:all_spr] = copy(env.spreaders)  # stash today's spreaders--isolated from env
 
@@ -109,11 +151,6 @@ function social_distance_case_1(density_factor, all_unexposed; env=env)
         how_many_contacts!(density_factor, env=env)
         how_many_touched!(env=env)
         spread_stash[:comply_infected] = how_many_infected(all_unexposed, env=env)
-
-        # println(" compliant spreaders  $(sum(env.spreaders))   ")
-        # println(" compliant contacts  $(sum(env.numcontacts))   ")
-        # println(" compliant touched   $(sum(env.numtouched))  ")
-        # println(" compliant infected   $(sum(spread_stash[:comply_infected]))       ")
 
         # run spread! for the non-complying
         # set spreaders to non-complying

@@ -171,7 +171,17 @@ function reviewdays(q=dayq)
         println(it)
         print("\nPress enter to continue, q enter to quit.> ");
         ans = chomp(readline())
-        close()
+        if ans == "q"
+            break
+        end
+    end
+end
+
+function reviewdays(df::DataFrame)
+    for it in eachrow(df)
+        display(it)
+        print("\nPress enter to continue, q enter to quit.> ");
+        ans = chomp(readline())
         if ans == "q"
             break
         end

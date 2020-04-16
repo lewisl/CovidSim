@@ -50,7 +50,9 @@ export                  # functions for simulation
     plus!,
     minus!,
     total!,
-    Env
+    Env,
+    Spreadcase,
+    case_setter
 
 
 export                  # functions for setup

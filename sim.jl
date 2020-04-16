@@ -292,7 +292,7 @@ function initialize_sim_env()
                                  .18   .18     .18    .18  .18],   # severe                               
         send_risk_by_lag = [.1, .3, .7, .9, .9, .9, .8, .7, .5, .4, .2, .1, .1, 0.05, 0.05, 0.5, 0, 0, 0],
         recv_risk_by_age = [.1, .3, .3, .4, .5],
-        sd_compliance = ones(6,5))
+        sd_compliance = zeros(6,5))
 end
 
 
@@ -574,9 +574,16 @@ function newplot(dseries, locale, plseries=[:Infectious])
 end
 
 
-function dayplot(dayq::Array)
+function day2df(dayq::Array)
     dayseries = DataFrame(dayq)
-    dayplot(dayseries)
+
+    dayseries[!, :cuminfected] .= zeros(Int, size(dayseries,1))
+    dayseries[1, :cuminfected] = copy(dayseries[1,:infected])
+    for i = 2:size(dayseries,1)
+       dayseries[i,:cuminfected] = dayseries[i-1,:cuminfected] + dayseries[i,:infected]
+    end
+
+    return dayseries
 end
 
 function dayplot(dayseries::DataFrame)
@@ -587,6 +594,8 @@ function dayplot(dayseries::DataFrame)
     plot!(dayseries[!,:day], dayseries[!,:contacts],label="Contacts", dpi=200,lw=2)
     plot!(dayseries[!,:day], dayseries[!,:touched],label="Touched", dpi=200,lw=2)
     plot!(dayseries[!,:day], dayseries[!,:infected],label="Infected", dpi=200,lw=2)
+    plot!(dayseries[!,:day], dayseries[!,:cuminfected],label="Cum Infected", dpi=200,lw=2)
+
 end
 
 
