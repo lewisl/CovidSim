@@ -15,7 +15,7 @@ mutable struct Env
     recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
     sd_compliance::Array{Float64,2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
-    # constructor with keyword arguments and very basic type compatible defaults
+    # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
     function Env(;          spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
                             all_accessible=zeros(Int,0,0,0),
                             numcontacts=zeros(Int,0,0,0),
@@ -28,11 +28,11 @@ mutable struct Env
                             send_risk_by_lag=zeros(Float64,19),
                             recv_risk_by_age=zeros(Float64,5),
                             sd_compliance=ones(Float64,6,5)        )
-        return new(spreaders, all_accessible, numcontacts, simple_accessible, 
-                   numtouched, lag_contacts, riskmx, contact_factors, 
+        return new(spreaders, all_accessible, numcontacts, simple_accessible,
+                   numtouched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
     end
-        
+
 end
 
 #  stash for temporary values changed during simulation cases
@@ -56,7 +56,7 @@ const density = 8
 const density_fac = 9
 
 
-# population centers sizecats  
+# population centers sizecats
 const major = 1  # 20
 const large = 2  # 50
 const medium = 3
@@ -167,6 +167,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
             end
             density_factor = geodata[locale,density_fac]
             spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
+            @bp
             transition!(dt_set, locale, dat=openmx)   # transition all infectious cases "in the open"
             transition!(dt_set, locale, dat=isolatedmx)  # transition all infectious cases in isolation
         end
@@ -190,13 +191,13 @@ end
 
 
 function initialize_sim_env()
-    Env(spreaders=zeros(Int64,19,4,5),  
-        all_accessible=zeros(Int64,19,6,5),  
-        numcontacts=zeros(Int64,19,4,5),  
-        simple_accessible=zeros(Int64,6,5),  
-        numtouched=zeros(Int64,19,5),   
-        lag_contacts=zeros(Int64,19),      
-        riskmx = zeros(Float64,19,5),    
+    Env(spreaders=zeros(Int64,19,4,5),
+        all_accessible=zeros(Int64,19,6,5),
+        numcontacts=zeros(Int64,19,4,5),
+        simple_accessible=zeros(Int64,6,5),
+        numtouched=zeros(Int64,19,5),
+        lag_contacts=zeros(Int64,19),
+        riskmx = zeros(Float64,19,5),
         contact_factors =       [ 1    2.1    2.1     1.5    1;    # nil
                                   1    1.9    1.9     1.4   0.9;    # mild
                                 0.7    1.0    1.0     0.7   0.5;   # sick
@@ -207,9 +208,9 @@ function initialize_sim_env()
                                  .6    .8      .7     .5   .35;    # nil
                                  .6    .7      .6     .4   .28;    # mild
                                  .28   .35     .28    .18  .18;    # sick
-                                 .18   .18     .18    .18  .18],   # severe                               
-        send_risk_by_lag = [.1, .3, .6, .8, .9, .9, .8, .7, .5, .4, .2, .1, .1, 0.05, 0.05, 0.5, 0, 0, 0],
-        recv_risk_by_age = [.1, .35, .35, .45, .55],
+                                 .18   .18     .18    .18  .18],   # severe
+        send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0],
+        recv_risk_by_age = [.1, .4, .4, .50, .55],
         sd_compliance = zeros(6,5))
 end
 
@@ -248,7 +249,6 @@ function transition!(dt_set, locale; case="open", dat=openmx)  # TODO also need 
 
     nodestarts = dt_set.starts # day that a node takes effect
     dt = dt_set.dt             # decision trees
-
     for lag = 19:-1:1
         if lag in keys(nodestarts)
             # decision points determine how people's conditions change
@@ -299,16 +299,18 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
 
 
     # distribute to infectious cases,recovered, dead
-    lag != lastlag && (plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1,locale, dat=dat)) # add to infectious cases for next lag
+    lag != lastlag && (plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
     plus!(distvec[to_recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[to_dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
+    minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
+
+    # set the amounts and toconds for the queue of daily changes
     leaveout = mapcond2tran[fromcond]
     deleteat!(distvec, leaveout) # exclude the source condition
     deleteat!(transition_cases, leaveout)
-
     moveout = sum(distvec)
-    minus!(moveout, fromcond, agegrp, lag, locale, dat=dat)  # subtract from cond in current lag
+
 
     queuestats(distvec, transition_cases, locale, transitionstat)
     queuestats(-moveout, fromcond, locale, transitionstat)

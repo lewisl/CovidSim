@@ -1,6 +1,4 @@
 # TODO
-    # sanity check for spread mean outcomes
-    # transition loop should auto-recognize where the branches should run
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -8,7 +6,7 @@
     # probably need to raise effective death rate for people in 60-80 and 80+  per Vox article
 
 # Done
-    
+
 
 module CovidSim
 
@@ -21,6 +19,7 @@ using StatsBase
 using Printf
 using Plots
 using StatsPlots
+using Debugger
 
 include("dec_tree.jl")
 include("setup.jl")
@@ -48,6 +47,8 @@ export                  # functions for simulation
     total!,
     Env,
     Spreadcase,
+    sd_gen,
+    seed_case_gen,
     case_setter,
     initialize_sim_env,
     spread_sanity
@@ -69,7 +70,8 @@ export            # queues for tracking
     travelq,
     isolatedq,
     newstatq,
-    spreadq
+    spreadq,
+    day2df
 
 export                  # functions for decision trees
     setup_dt,

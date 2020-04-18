@@ -6,16 +6,18 @@
 Generate seeding cases.
 inputs: day, cnt, lag, cond, agegrp
 Two of the inputs may refer to multiple items and must match in number of items.
+
+Returns a function that can be used in runcases input to run_a_sim.
 """
-function seed_case_gen(day, cnt, lag, cond, agegrp)
+function seed_case_gen(day, cnt, lag, cond, agegrp) # these args go into the returned seed! case
     function scase(locale; opendat=openmx, isodat=isolatedmx, env=env)  # args must match runcases loop in run_a_sim
         seed!(day, cnt, lag, cond, agegrp, locale, dat=opendat)
     end
 end
 
-# some generated seed! cases
-seed_1_12 = seed_case_gen(1, [0,12,12,0,0], 3, nil, agegrps)
-
+# some generated seed! cases-->these are global (in code)
+# seed_1_24 = seed_case_gen(1, [0,12,12,0,0], 3, nil, agegrps)
+# seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 3, nil, agegrps)
 
 
 # some isolation cases
@@ -32,7 +34,7 @@ end
 function unisolate_case_1(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
     end
 end
 
@@ -49,14 +51,14 @@ end
 function unisolate_case_2(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
     end
 end
 
 function unisolate_case_2b(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 84
         unisolate!(.6,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(.6,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+        unisolate!(.6,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
     end
 end
 
@@ -74,7 +76,7 @@ end
 function unisolate_case_3(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 80
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick,severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat) 
+        unisolate!(1.0,[mild,sick,severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
     end
 end
 
@@ -90,9 +92,10 @@ struct Spreadcase
 end
 
 function spread_case_setter(cases=[]; env=env)
-    for c in cases
+    for case in cases
+        c = case(env=env)
         if c.day == ctr[:day]
-            # before the case starts--ignore it 
+            # before the case starts--ignore it
             # after the case--it's already in effect--nothing to change
             if iszero(c.compliance)  # signal to shutdown cases and restore defaults
                 # restore defaults for spread!  TODO: this can fail if case order is funky
@@ -133,16 +136,16 @@ function spread_case_runner(density_factor, all_unexposed; env=env)
     newinfected = []  # capture infected for comply and nocomply groups
     for i in [:comply,:nocomply]
         if i == :comply  # split the spreaders and accessible, set the case factors
-            env.spreaders[:]= round.(Int,permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .* 
+            env.spreaders[:]= round.(Int,permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
                                        env.sd_compliance[3:6,:], [3,1,2]))
-            env.simple_accessible[:]= round.(Int,copy(spread_stash[:simple_accessible]) .* 
+            env.simple_accessible[:]= round.(Int,copy(spread_stash[:simple_accessible]) .*
                                              env.sd_compliance)
             env.contact_factors = copy(spread_stash[:case_cf])
             env.touch_factors = copy(spread_stash[:case_tf])
         else  # i == :nocomply other split of spreaders and accessible, restore default factors
-            env.spreaders[:]= round.(Int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .* 
+            env.spreaders[:]= round.(Int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
                                         (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
-            env.simple_accessible[:]= round.(Int, copy(spread_stash[:simple_accessible]) .* 
+            env.simple_accessible[:]= round.(Int, copy(spread_stash[:simple_accessible]) .*
                                              (1.0 .- env.sd_compliance))
             # set the default contact_factors and touch_factors
             env.contact_factors = copy(spread_stash[:default_cf])
@@ -159,16 +162,17 @@ function spread_case_runner(density_factor, all_unexposed; env=env)
     newinfected = newinfected[1] .+ newinfected[2]
 end
 
-function sd_moderate(;start=45, comply=.85, env=env)
-    sd_mod = Spreadcase(start,
-                        round.(shifter(env.contact_factors, .2, 1.6),digits=2),
-                        round.(shifter(env.contact_factors, .18, .7),digits=2),
+
+function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
+    function sd_mod(;env=env)
+        sd_mod = Spreadcase(start,
+                        round.(shifter(env.contact_factors, cf...),digits=2),
+                        round.(shifter(env.touch_factors, tf...),digits=2),
                         comply)
+    end
 end
 
-function sd_moderate_end(;start=90, comply=.6, env=env)
-    sd_mod_end = Spreadcase(start,
-                            round.(shifter(env.contact_factors, .2, 2.0),digits=2),
-                            round.(shifter(env.contact_factors, .18, .9),digits=2),
-                            comply)
-end
+# copy beyond the comment and run in the REPL, use as input
+#
+# mod_45 = sd_gen()  # with defaults
+# mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)

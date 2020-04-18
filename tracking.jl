@@ -269,6 +269,10 @@ function day2df(spreadq::Array)
 end
 
 
+function dayplot(spreadq)
+    dayplot(DataFrame(spreadq))
+end
+
 function dayplot(spreadseries::DataFrame)
     pyplot()
     plot(spreadseries[!,:day], spreadseries[!,:spreaders],label="Spreaders", dpi=200,lw=2,
