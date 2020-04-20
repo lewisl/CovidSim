@@ -17,11 +17,10 @@ struct Branch
 end
 
 
-function setup_dt(dtfname; node_starts_filename = "dec_tree_starts.csv")
+function setup_dt(dtfname)
     arr = read_dectree_file(dtfname)
     dectrees = create_node_dict(arr)
-    nodestarts = build_nodestarts(node_starts_filename)
-    return (dt=dectrees, starts=nodestarts)
+    return dectrees
 end
 
 function read_dectree_file(fname)
@@ -31,51 +30,43 @@ end
 
 
 function create_node_dict(arr::Array) # this wants to be recursive--another time...
-    arrdectrees = []  # array of decision trees (dicts)
+    arrdectrees = []  # array of decision trees (dicts); keys are agegrps (1:5)
     ages = unique!(arr[:,1])
     for agegrp in ages
-        xx = view(arr, arr[:,1] .== agegrp, :) # view on one agegrp
-        dectree = Dict{Tuple, Array}()  # Dict of nodes.  each node is an array of branches 
+        xx = view(arr, arr[:,1] .== agegrp, :) # view selecting one agegrp
+        # tree is Dict of nodes.  each node is array of branches
+        tree = Dict{Tuple{Int64,Int64},Array{Any,1}}()  # start a new tree for each agegrp
+        starts = Dict{Int64, Array{Tuple{Int64,Int64},1}}()   # start dict of starts for each agregrp
         nodelist = unique!(xx[:,2])
+        arrbranches = []  # set outer scope
         for strnode in nodelist
             node = eval(Meta.parse(strnode))  # convert the string to a tuple
             rr = xx[xx[:,2].==strnode,:]  # rows for the branches of this node
             arrbranches = []   # array of branches
+            lag = 0 # start lag (a day) as Int in [1, laglim]
             for br in 1:size(rr,1)  # make a branch
                 # field values
-                fromcond = eval(Symbol(rstrip(rr[br,3])))  # convert a string to a variable name, which holds an Int
-                tocond = eval(Symbol(rstrip(rr[br,4])))
-                pr = rr[br,5]    # float
-                next = eval(Meta.parse(rr[br,6]))  # convert a string to a tuple
+                lag = rr[br,3] # NOTE: last one in wins--start should be the same for all branches of a node--sorry for the redundancy
+                fromcond = eval(Symbol(rstrip(rr[br,4])))  # convert a string to a variable name, which holds an Int
+                tocond = eval(Symbol(rstrip(rr[br,5])))
+                pr = rr[br,6]    # float
+                next = eval(Meta.parse(rr[br,7]))  # convert a string to a tuple
                 fromcondname = condnames[fromcond]  # lookup text name for the numeric index
                 tocondname = condnames[tocond]    
-
                 newbr = Branch(fromcond, tocond, pr, next, fromcondname, tocondname)
-                push!(arrbranches, newbr)        
+                push!(arrbranches, newbr)  
             end
-            dectree[node] = arrbranches  # put all branches for this node in the dict for the agegrp
+            if !haskey(starts, lag)
+                starts[lag] =  [node] 
+            else
+                push!(starts[lag], node)
+            end 
+            tree[node] = arrbranches
         end
-        push!(arrdectrees, dectree) # done with all of the nodes, put the tree in the array
+        agegrp_tpl = (starts=starts, tree=tree)  # put all branches for this node in the dict for the agegrp
+        push!(arrdectrees, agegrp_tpl) # done with all of the nodes, put the tree in the array
     end
     return arrdectrees
-end
-
-
-function build_nodestarts(fname)
-    arr = readdlm(fname, ',', header=true, comments=true, comment_char='#')[1]
-    ns = Dict{Int, Array{Tuple{Int,Int},1}}()
-    for r in eachrow(arr)
-        day = r[1]
-        tpl = eval(Meta.parse(r[2]))
-        @assert day in (1:19) "day must be in 1:19"
-        @assert typeof(tpl) <: Tuple{Int, Int} "Tuple input as text must convert to a tuple of 2 ints"
-        if haskey(ns, day)
-            push!(ns[day], tpl)    
-        else
-            ns[day] = [tpl]
-        end
-    end
-    return ns
 end
 
 
@@ -324,32 +315,53 @@ end
 #     return numbranches
 # end
 
+# new idea for dectree structure
 
 #=
-    (1, 1)
+dt[1]
+(   starts = Dict{Int, Array{} with 4 entries:
+        5 => [(1,1)],
+        9 => [(2,1),(2,2), (2,3)],
+        14 => [(3,2),(3,3),(3,4)],
+        19 => [(4,4)],
+    tree = Dict{Tuple{Int64,Int64},NamedTuple{(:start, :branches),Tuple{Int64,Array{Any,1}}}} with 8 entries:
+      (2, 3) => [Branch(7, 7, 0.85, (3, 3), "…
+      (3, 2) => [Branch(6, 3, 1.0, (0, 0), "…
+      (3, 3) => [Branch(7, 3, 0.85, (0, 0), …
+      (2, 2) => [Branch(6, 6, 1.0, (3, 2), "m…
+      (1, 1) => [Branch(5, 5, 0.2, (2, 1), "n…
+      (4, 4) => [Branch(8, 3, 0.9, (0, 0), "…
+      (2, 1) => [Branch(5, 3, 0.8, (0, 0), "n…
+      (3, 4) => [Branch(8, 3, 0.45, (0, 0), …    
+    )
+
+=#
+
+#=
+    (1, 1) => (start=5, branches=[
        CovidSim.Branch(5, 5, 0.2, (2, 1), "nil", "nil")
        CovidSim.Branch(5, 6, 0.65, (2, 2), "nil", "mild")
-       CovidSim.Branch(5, 7, 0.15, (2, 3), "nil", "sick")
-    (2, 1)
+       CovidSim.Branch(5, 7, 0.15, (2, 3), "nil", "sick")])
+    (2, 1) =>  (start=9, branches=[
        CovidSim.Branch(5, 3, 0.8, (0, 0), "nil", "recovered")
-       CovidSim.Branch(5, 7, 0.2, (3, 3), "nil", "sick")
-    (2, 2)
-       CovidSim.Branch(6, 6, 1.0, (3, 2), "mild", "mild")
-    (2, 3)
+       CovidSim.Branch(5, 7, 0.2, (3, 3), "nil", "sick")])
+    (2, 2) =>  (start=9, branches=[
+       CovidSim.Branch(6, 6, 1.0, (3, 2), "mild", "mild")])
+    (2, 3) =>  (start=9, branches=[
        CovidSim.Branch(7, 7, 0.85, (3, 3), "sick", "sick")
-       CovidSim.Branch(7, 8, 0.15, (3, 4), "sick", "severe")
-    (3, 2)
-       CovidSim.Branch(6, 3, 1.0, (0, 0), "mild", "recovered")
-    (3, 3)
+       CovidSim.Branch(7, 8, 0.15, (3, 4), "sick", "severe")])
+    (3, 2) =>  (start=14, branches=[
+       CovidSim.Branch(6, 3, 1.0, (0, 0), "mild", "recovered")])
+    (3, 3) =>  (start=14, branches=[
        CovidSim.Branch(7, 3, 0.85, (0, 0), "sick", "recovered")
-       CovidSim.Branch(7, 8, 0.15, (4, 4), "sick", "severe")
-    (3, 4)
+       CovidSim.Branch(7, 8, 0.15, (4, 4), "sick", "severe")])
+    (3, 4) =>  (start=14, branches=[
        CovidSim.Branch(8, 3, 0.45, (0, 0), "severe", "recovered")
        CovidSim.Branch(8, 8, 0.5, (4, 4), "severe", "severe")
-       CovidSim.Branch(8, 4, 0.05, (0, 0), "severe", "dead")
-    (4, 4)
+       CovidSim.Branch(8, 4, 0.05, (0, 0), "severe", "dead")])
+    (4, 4) =>  (start=19, branches=[
        CovidSim.Branch(8, 3, 0.9, (0, 0), "severe", "recovered")
-       CovidSim.Branch(8, 4, 0.1, (0, 0), "severe", "dead")
+       CovidSim.Branch(8, 4, 0.1, (0, 0), "severe", "dead")])
 =#
 
 

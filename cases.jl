@@ -24,41 +24,41 @@ end
 function isolate_case_1(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day] == 15
         isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     elseif ctr[:day] == 23
         isolate!(.50,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
 function unisolate_case_1(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
 function isolate_case_2(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day] == 15
         isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     elseif ctr[:day] == 23
         isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
 function unisolate_case_2(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
 function unisolate_case_2b(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 84
         unisolate!(.6,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(.6,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        unisolate!(.6,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
@@ -66,17 +66,17 @@ end
 function isolate_case_3(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day] == 40
         isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     elseif ctr[:day] == 50
         isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
 function unisolate_case_3(locale; opendat=openmx, isodat=isolatedmx, env=env)
     if ctr[:day]  == 80
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick,severe],agegrps,1:19,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[mild,sick,severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
 
@@ -176,3 +176,5 @@ end
 #
 # mod_45 = sd_gen()  # with defaults
 # mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
+# str_45 = sd_gen(start=45, comply=1.0, cf=(.3,1.0), tf=(.18,.3))
+# zer = sd_gen(start=90, comply=0.0)

@@ -28,7 +28,7 @@ function build_indices(ages, lags)
     unexposed = Row_indices(4,1,1,4:8) # active or cumulative
     exposed = Row_indices(9, ages,lags)  # aging over 18 days; means not_infectious
     infectious = Row_indices(104, ages, lags) # aging over 18 days
-    isolated = Row_indices(199, ages, lags) # aging over 18 days
+    isolated = Row_indices(laglim9, ages, lags) # aging over 18 days
     recovered = Row_indices(674, 1, 1, 674:678) # active or cumulative
 
     # population outcomes
@@ -70,7 +70,7 @@ end
 
 function setup(symdata_filename, age_brackets, lag_brackets)
     symdata = readdlm(symdata_filename, ',')
-    pop =  build_indices(5, 19)  
+    pop =  build_indices(5, laglim)  
     println("sick indices: ", pop["sick"].idx)
     println("locale 1 popsize: ", symdata[pop["popsize"],1])
     println("locale 2 unexposed age bracket 1: ", symdata[pop["unexposed"].idx[1][1],2])

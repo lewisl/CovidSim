@@ -269,19 +269,23 @@ function day2df(spreadq::Array)
 end
 
 
-function dayplot(spreadq)
-    dayplot(DataFrame(spreadq))
+function dayplot(spreadq, plseries=[])
+    dayplot(DataFrame(spreadq), plseries)
 end
 
-function dayplot(spreadseries::DataFrame)
+function dayplot(spreadseries::DataFrame, plseries=[])
     pyplot()
-    plot(spreadseries[!,:day], spreadseries[!,:spreaders],label="Spreaders", dpi=200,lw=2,
+    plot(spreadseries[!,:day], spreadseries[!,:infected],label="Infected", dpi=200,lw=2,
          xlabel="Simulation Days", ylabel="People", title="Daily Spread of Covid",
          bg_legend=:white)
     
-    plot!(spreadseries[!,:day], spreadseries[!,:contacts],label="Contacts", dpi=200,lw=2)
-    plot!(spreadseries[!,:day], spreadseries[!,:touched],label="Touched", dpi=200,lw=2)
-    plot!(spreadseries[!,:day], spreadseries[!,:infected],label="Infected", dpi=200,lw=2)
+    for addlseries in plseries
+        lbl = titlecase(string(addlseries))
+        plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, dpi=200,lw=2)
+        # plot!(spreadseries[!,:day], spreadseries[!,:touched],label="Touched", dpi=200,lw=2)
+        # plot!(spreadseries[!,:day], spreadseries[!,:spreaders],label="Spreaders", dpi=200,lw=2)
+    end
+    gui()  # force instant plot window
     # plot!(spreadseries[!,:day], spreadseries[!,:cuminfected],label="Cum Infected", dpi=200,lw=2)
 
 end

@@ -5,7 +5,7 @@
 const mean_density = 3316  # see Excel for backup
 
 
-function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_filename="dec_tree_starts.csv", geolim=10)
+function setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=10)
 
     # geodata
     geodata = readgeodata(geofilename)
@@ -23,7 +23,7 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", node_starts_file
     init_unexposed!(openmx, geodata, numgeo)
 
     # transition decision trees 
-    dt = setup_dt(dectreefilename; node_starts_filename=node_starts_filename)
+    dt = setup_dt(dectreefilename)
 
     # # isolation probabilities: not sure we need this
     # iso_pr = build_iso_probs()
@@ -54,7 +54,7 @@ function build_data(numgeo)
 end
 
 # one environment at a time
-function data_dict(numgeo; lags=19, conds=10, agegrps=5)
+function data_dict(numgeo; lags=laglim, conds=10, agegrps=5)
     dat = Dict()
     for i = 1:numgeo
         dat[i] = zeros(Int, lags, conds, agegrps)

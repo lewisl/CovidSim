@@ -2,16 +2,16 @@
 # pre-allocate large arrays, accessed and modified frequently
 # hold complex parameter sets
 mutable struct Env
-    spreaders::Array{Int64,3} # 19,4,5
-    all_accessible::Array{Int64,3} # 19,6,5
-    numcontacts::Array{Int64,3} # 19,4,5
+    spreaders::Array{Int64,3} # laglim,4,5
+    all_accessible::Array{Int64,3} # laglim,6,5
+    numcontacts::Array{Int64,3} # laglim,4,5
     simple_accessible::Array{Int64,2} # 6,5
-    numtouched::Array{Int64,2} # 19,5
-    lag_contacts::Array{Int,1} # 19,
-    riskmx::Array{Float64,2} # 19,5
+    numtouched::Array{Int64,2} # laglim,5
+    lag_contacts::Array{Int,1} # laglim,
+    riskmx::Array{Float64,2} # laglim,5
     contact_factors::Array{Float64,2}  # 4,5 parameters for spread!
     touch_factors::Array{Float64,2}  #  6,5  parameters for spread!
-    send_risk_by_lag::Array{Float64,1}  # 19,  parameters for spread!
+    send_risk_by_lag::Array{Float64,1}  # laglim,  parameters for spread!
     recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
     sd_compliance::Array{Float64,2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
@@ -21,11 +21,11 @@ mutable struct Env
                             numcontacts=zeros(Int,0,0,0),
                             simple_accessible=zeros(Int,0,0),
                             numtouched=zeros(Int,0,0),
-                            lag_contacts=zeros(Int,19),
+                            lag_contacts=zeros(Int,laglim),
                             riskmx=zeros(Float64,0,0),
                             contact_factors=zeros(Float64,0,0),
                             touch_factors=zeros(Float64,0,0),
-                            send_risk_by_lag=zeros(Float64,19),
+                            send_risk_by_lag=zeros(Float64,laglim),
                             recv_risk_by_age=zeros(Float64,5),
                             sd_compliance=ones(Float64,6,5)        )
         return new(spreaders, all_accessible, numcontacts, simple_accessible,
@@ -42,7 +42,8 @@ const stash = Dict{Symbol, Array}()
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
-const lags = 1:19   # rows
+const laglim = 19
+const lags = 1:laglim   # rows
 
 # geo data: id,fips,county,city,state,sizecat,pop,density
 const id = 1
@@ -137,9 +138,8 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
 
     locales = locales   # force local scope to the loop
-    alldict = setup(geofilename; dectreefilename="dec_tree_all.csv",
-                    node_starts_filename="dec_tree_starts.csv", geolim=10)
-    dt_set = alldict["dt"]  # decision trees for transition
+    alldict = setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=10)
+    dt = alldict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = alldict["dat"]["openmx"]
     isolatedmx = alldict["dat"]["isolatedmx"]
@@ -159,7 +159,11 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
     # trantime = 0
 
     for i = 1:n_days
+        # if i == 20
+        #     @assert false " stopped at beginning of day 3"
+        # end
         inc!(ctr, :day)  # update the simulation day counter
+        @debug "\n\n Start day $(ctr[:day])"
         silent || println("simulation day: ", ctr[:day])
         for locale in locales
             for case in runcases
@@ -168,8 +172,8 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
             density_factor = geodata[locale,density_fac]
             spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
             @bp
-            transition!(dt_set, locale, dat=openmx)   # transition all infectious cases "in the open"
-            transition!(dt_set, locale, dat=isolatedmx)  # transition all infectious cases in isolation
+            transition!(dt, locale, dat=openmx)   # transition all infectious cases "in the open"
+            transition!(dt, locale, dat=isolatedmx)  # transition all infectious cases in isolation
         end
         queue_to_newseries!(newstatq, dseries, locales) # update tracking stats for the day
     end
@@ -191,27 +195,29 @@ end
 
 
 function initialize_sim_env()
-    Env(spreaders=zeros(Int64,19,4,5),
-        all_accessible=zeros(Int64,19,6,5),
-        numcontacts=zeros(Int64,19,4,5),
-        simple_accessible=zeros(Int64,6,5),
-        numtouched=zeros(Int64,19,5),
-        lag_contacts=zeros(Int64,19),
-        riskmx = zeros(Float64,19,5),
-        contact_factors =       [ 1    2.1    2.1     1.5    1;    # nil
-                                  1    1.9    1.9     1.4   0.9;    # mild
-                                0.7    1.0    1.0     0.7   0.5;   # sick
-                                0.5    0.8    0.8     0.5   0.2],  # severe
-                      # agegrp    1     2      3       4     5
-        touch_factors =         [.6    .8      .7     .5   .35;    # unexposed
-                                 .6    .8      .7     .5   .35;    # recovered
-                                 .6    .8      .7     .5   .35;    # nil
-                                 .6    .7      .6     .4   .28;    # mild
-                                 .28   .35     .28    .18  .18;    # sick
-                                 .18   .18     .18    .18  .18],   # severe
-        send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0],
-        recv_risk_by_age = [.1, .4, .4, .50, .55],
-        sd_compliance = zeros(6,5))
+    ret =   Env(spreaders=zeros(Int64,laglim,4,5),
+                all_accessible=zeros(Int64,laglim,6,5),
+                numcontacts=zeros(Int64,laglim,4,5),
+                simple_accessible=zeros(Int64,6,5),
+                numtouched=zeros(Int64,laglim,5),
+                lag_contacts=zeros(Int64,laglim),
+                riskmx = zeros(Float64,laglim,5),
+                contact_factors =       [ 1    2.1    2.1     1.5    1;    # nil
+                                          1    1.9    1.9     1.4   0.9;    # mild
+                                        0.7    1.0    1.0     0.7   0.5;   # sick
+                                        0.5    0.8    0.8     0.5   0.2],  # severe
+                              # agegrp    1     2      3       4     5
+                touch_factors =         [.6    .8      .7     .5   .35;    # unexposed
+                                         .6    .8      .7     .5   .35;    # recovered
+                                         .6    .8      .7     .5   .35;    # nil
+                                         .6    .7      .6     .4   .28;    # mild
+                                         .28   .35     .28    .18  .18;    # sick
+                                         .18   .18     .18    .18  .18],   # severe
+                send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0],
+                recv_risk_by_age = [.1, .4, .4, .50, .55],
+                sd_compliance = zeros(6,5))
+    ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
+    return ret
 end
 
 
@@ -245,30 +251,47 @@ nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. The final
 outcomes are recovered or dead.
 """
-function transition!(dt_set, locale; case="open", dat=openmx)  # TODO also need to run for isolatedmx
+function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
 
-    nodestarts = dt_set.starts # day that a node takes effect
-    dt = dt_set.dt             # decision trees
-    for lag = 19:-1:1
-        if lag in keys(nodestarts)
-            # decision points determine how people's conditions change
-            for agegrp in agegrps # get the params from the dec_tree
-                for node in nodestarts[lag]
+    for lag = laglim:-1:1
+        dec_tree_move = false
+        for agegrp in agegrps # get the params from the dec_tree
+            tree = dt[agegrp].tree
+            nodestarts = dt[agegrp].starts
+            if lag in keys(nodestarts)
+                for node in nodestarts[lag]  # node is a pair; pair.first is the key; pair.second is the value: a tuple (start=n, branches=[Branch])
+                    # println("agegrp: ", agegrp, " node: ", node.first, " start: ", node.second.start)
+                    # println("branch array: ", br_array)
                     toprobs = zeros(6)
-                    for branch in dt[agegrp][node]  # agegroup index in array, node key in agegroup dict
+                    for branch in tree[node]  # agegroup index in array, node key in agegroup dict
                         toprobs[mapcond2tran[branch.tocond]] = branch.pr
                     end
-                    fromcond = dt[agegrp][node][1].fromcond
+                    fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
+                    # println(" to probs :", toprobs, " fromcond: ", fromcond, " agegrp: ", agegrp, " lag: ", lag, " locale: ", locale)
                     @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
-                    dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, case=case, dat=dat)
+                    dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, dat=dat)
                 end
+                dec_tree_move = true
             end
-        else
-            @assert lag < 19 "lag hit 19; must have decision tree node to clear day 19 cases"
-            # bump people up a day without changing their conditions
-            input!(grab(nil:severe, agegrps,lag,locale, dat=dat),nil:severe, agegrps,lag+1, locale, dat=dat)
-            minus!(grab(nil:severe, agegrps,lag,locale, dat=dat),nil:severe, agegrps,lag, locale, dat=dat)
         end
+        @bp
+        if lag == laglim  # there must be a node that starts on laglim and clears everyone left on the last lag!
+            # TODO  we need an assert that there is no one left to move to an infectious condition in the next line
+            # @assert sum(distvec[map2pr.nil:map2pr.severe]) == 0 "infectious folks not zero lag $laglim, day $(ctr[:day])0--found $(sum(distvec[map2pr.nil:map2pr.severe]))"
+            if sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)) !== 0
+                @warn  "infectious conditions not zero at lag $laglim, day $(ctr[:day])--found $(sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)))"
+            end
+            continue
+        end
+
+        if dec_tree_move
+            continue
+        end
+        # @assert lag < laglim "lag hit 19; must have decision tree node to clear day 19 cases"
+        # bump people up a day without changing their conditions
+
+        input!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag+1, locale, dat=dat)
+        minus!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag,   locale, dat=dat)
     end
 
     # total of all people who are nil, mild, sick, or severe across all lag days
@@ -276,7 +299,7 @@ function transition!(dt_set, locale; case="open", dat=openmx)  # TODO also need 
 end
 
 
-function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = "open", dat=openmx, lastlag=19)
+function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
     @assert length(locale) == 1  "Assertion failed: length locale was not 1"
     transition_cases = [recovered, nil,mild,sick,severe, dead]
 
@@ -285,13 +308,16 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
     if folks == 0
         return   # save some time if there is nothing to do
     end
-    @debug "folks $folks lag $lag age $agegrp cond $fromcond"
+    @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
 
+
+    map2pr = (unexposed = -1, infectious = -1, recovered = 1, dead = 6, nil = 2, mild = 3, sick = 4, severe = 5)
 
     # get the dist vector of folks to each outcome (6 outcomes)
         # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
     @assert isapprox(sum(toprobs), 1.0, atol=1e-3) "target vector must sum to 1.0; submitted $toprobs"
-    distvec = bucket(categorical_sample(toprobs,folks), lim=6, bins=6)
+    x = categorical_sample(toprobs, folks)
+    distvec = [count(x .== i) for i in 1:size(toprobs,1)]
     @debug begin
         cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
         "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
@@ -299,11 +325,12 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
 
 
     # distribute to infectious cases,recovered, dead
-    lag != lastlag && (plus!(distvec[to_nil:to_severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
-    plus!(distvec[to_recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-    plus!(distvec[to_dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-    minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
+    @bp  # WHY ARE PEOPLE DISAPPEARING IN THE NEXT 4 LINES?
+    lag != lastlag && (plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
+    plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
+    plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
+    minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
     # set the amounts and toconds for the queue of daily changes
     leaveout = mapcond2tran[fromcond]
@@ -311,9 +338,9 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; case = 
     deleteat!(transition_cases, leaveout)
     moveout = sum(distvec)
 
-
     queuestats(distvec, transition_cases, locale, transitionstat)
     queuestats(-moveout, fromcond, locale, transitionstat)
+    return
 end
 
 
