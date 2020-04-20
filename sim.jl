@@ -42,7 +42,7 @@ const stash = Dict{Symbol, Array}()
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
-const laglim = 19
+const laglim = 25
 const lags = 1:laglim   # rows
 
 # geo data: id,fips,county,city,state,sizecat,pop,density
@@ -52,7 +52,7 @@ const county = 3
 const city = 4
 const state = 5
 const sizecat = 6
-const popsize =  7
+const popsize = 7
 const density = 8
 const density_fac = 9
 
@@ -129,8 +129,8 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 ####################################################################################
 
 
-function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dtfilename = "dec_tree_all.csv",
-                   nsfilename="nodstarts.csv", silent=true)
+function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
+                   dtfilename = "dec_tree_all.csv", silent=true)
 #=
     see cases.jl for runcases and spreadcases
 =#
@@ -138,7 +138,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
 
     locales = locales   # force local scope to the loop
-    alldict = setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=10)
+    alldict = setup(geofilename; dectreefilename=dtfilename, geolim=15)
     dt = alldict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = alldict["dat"]["openmx"]
@@ -159,9 +159,6 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
     # trantime = 0
 
     for i = 1:n_days
-        # if i == 20
-        #     @assert false " stopped at beginning of day 3"
-        # end
         inc!(ctr, :day)  # update the simulation day counter
         @debug "\n\n Start day $(ctr[:day])"
         silent || println("simulation day: ", ctr[:day])
@@ -171,7 +168,6 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[], dt
             end
             density_factor = geodata[locale,density_fac]
             spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
-            @bp
             transition!(dt, locale, dat=openmx)   # transition all infectious cases "in the open"
             transition!(dt, locale, dat=isolatedmx)  # transition all infectious cases in isolation
         end
@@ -195,6 +191,13 @@ end
 
 
 function initialize_sim_env()
+    @assert laglim >= 19 "laglim must be >= 19--got $laglim"
+    # expand send_risk_by_lag length to match laglim
+    filln = laglim - 18
+    mid = fill(0.05, filln)
+    last3 = [0.0,0.0,0.0]
+    first15 = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05]
+    send_risk = [first15..., mid..., last3...]
     ret =   Env(spreaders=zeros(Int64,laglim,4,5),
                 all_accessible=zeros(Int64,laglim,6,5),
                 numcontacts=zeros(Int64,laglim,4,5),
@@ -202,18 +205,18 @@ function initialize_sim_env()
                 numtouched=zeros(Int64,laglim,5),
                 lag_contacts=zeros(Int64,laglim),
                 riskmx = zeros(Float64,laglim,5),
-                contact_factors =       [ 1    2.1    2.1     1.5    1;    # nil
-                                          1    1.9    1.9     1.4   0.9;    # mild
+                contact_factors =       [ 1    1.8    1.8     1.5    1;    # nil
+                                          1    1.6    1.6     1.4   0.9;    # mild
                                         0.7    1.0    1.0     0.7   0.5;   # sick
                                         0.5    0.8    0.8     0.5   0.2],  # severe
                               # agegrp    1     2      3       4     5
-                touch_factors =         [.6    .8      .7     .5   .35;    # unexposed
-                                         .6    .8      .7     .5   .35;    # recovered
-                                         .6    .8      .7     .5   .35;    # nil
-                                         .6    .7      .6     .4   .28;    # mild
+                touch_factors =         [.55    .62     .58     .4   .35;    # unexposed
+                                         .55    .62     .58     .4   .35;    # recovered
+                                         .55    .62     .58     .4   .35;    # nil
+                                         .55    .6      .5     .35   .28;    # mild
                                          .28   .35     .28    .18  .18;    # sick
                                          .18   .18     .18    .18  .18],   # severe
-                send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0],
+                send_risk_by_lag = send_risk,
                 recv_risk_by_age = [.1, .4, .4, .50, .55],
                 sd_compliance = zeros(6,5))
     ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
@@ -254,42 +257,38 @@ outcomes are recovered or dead.
 function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
 
     for lag = laglim:-1:1
-        dec_tree_move = false
-        for agegrp in agegrps # get the params from the dec_tree
+        dec_tree_applied = false
+        for agegrp in agegrps
             tree = dt[agegrp].tree
             nodestarts = dt[agegrp].starts
-            if lag in keys(nodestarts)
+            if lag in keys(nodestarts) # check if a decision tree applies today
                 for node in nodestarts[lag]  # node is a pair; pair.first is the key; pair.second is the value: a tuple (start=n, branches=[Branch])
-                    # println("agegrp: ", agegrp, " node: ", node.first, " start: ", node.second.start)
-                    # println("branch array: ", br_array)
                     toprobs = zeros(6)
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
                         toprobs[mapcond2tran[branch.tocond]] = branch.pr
                     end
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
-                    # println(" to probs :", toprobs, " fromcond: ", fromcond, " agegrp: ", agegrp, " lag: ", lag, " locale: ", locale)
                     @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
-                    dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, dat=dat)
+                    distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, dat=dat)
                 end
-                dec_tree_move = true
+                dec_tree_applied = true
             end
         end
-        @bp
+
         if lag == laglim  # there must be a node that starts on laglim and clears everyone left on the last lag!
-            # TODO  we need an assert that there is no one left to move to an infectious condition in the next line
-            # @assert sum(distvec[map2pr.nil:map2pr.severe]) == 0 "infectious folks not zero lag $laglim, day $(ctr[:day])0--found $(sum(distvec[map2pr.nil:map2pr.severe]))"
             if sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)) !== 0
                 @warn  "infectious conditions not zero at lag $laglim, day $(ctr[:day])--found $(sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)))"
             end
-            continue
+            if !dec_tree_applied # e.g., dec_tree was NOT applied for final lag
+                @warn "decision node not applied at last lag--probably wrong outcomes"
+            end
         end
 
-        if dec_tree_move
-            continue
+        if dec_tree_applied
+            continue  # EITHER move people with a decision node OR by just bumping them up
         end
-        # @assert lag < laglim "lag hit 19; must have decision tree node to clear day 19 cases"
-        # bump people up a day without changing their conditions
 
+        # on a day with no decision tree, bump every infected person up one day within the same condition
         input!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag+1, locale, dat=dat)
         minus!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag,   locale, dat=dat)
     end
@@ -299,7 +298,7 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
 end
 
 
-function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
+function distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
     @assert length(locale) == 1  "Assertion failed: length locale was not 1"
     transition_cases = [recovered, nil,mild,sick,severe, dead]
 
@@ -313,11 +312,11 @@ function dist_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; dat=ope
 
     map2pr = (unexposed = -1, infectious = -1, recovered = 1, dead = 6, nil = 2, mild = 3, sick = 4, severe = 5)
 
-    # get the dist vector of folks to each outcome (6 outcomes)
-        # distvec:   1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
+    # get the distvect of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
     @assert isapprox(sum(toprobs), 1.0, atol=1e-3) "target vector must sum to 1.0; submitted $toprobs"
     x = categorical_sample(toprobs, folks)
-    distvec = [count(x .== i) for i in 1:size(toprobs,1)]
+    # println(x)
+    distvec = bucket(x, vals=1:length(toprobs))        # [count(x .== i) for i in 1:size(toprobs,1)]
     @debug begin
         cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
         "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
@@ -374,7 +373,7 @@ function travelout!(locale, numgeo, rules=[])
                 numfolks = sum(grab(cond, agegrp, lag, locale)) # this locale, all lags
                 travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
                 x = rand(travdests, travcnt)  # randomize across destinations
-                bydest = bucket(x, lim, bins)
+                bydest = bucket(x, vals=1:length(travdests))
                 for dest in 1:length(bydest)
                     isempty(bydest) && continue
                     cnt = bydest[dest]
@@ -407,16 +406,13 @@ end
 #  probability
 #######################################################################################
 
-# this could still be faster by memoizing x--don't look again at items already counted.
+
 # discrete integer histogram
-function bucket(x; lim=5, bins = 5)
-    ret = zeros(Int, bins)
-    comp = collect(1:lim)
-    for j in comp
-        n = count(isequal(j),x)
-        ret[j] += n
+function bucket(x; vals=[])
+    if isempty(vals)
+        vals = range(minimum(x), stop = maximum(x))
     end
-    return ret
+    [count(x .== i) for i in vals]
 end
 
 

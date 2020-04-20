@@ -5,16 +5,16 @@
 const mean_density = 3316  # see Excel for backup
 
 
-function setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=10)
+function setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=15)
 
     # geodata
     geodata = readgeodata(geofilename)
     numgeo = size(geodata,1)
-    if geolim <= numgeo
+    if geolim < numgeo
         numgeo = geolim
     end
-    df = shifter(geodata[:, density],0.9,1.6)
-    geodata = [geodata df]
+    density_factor = shifter(geodata[:, density],0.9,1.6)
+    geodata = [geodata density_factor]
 
     # simulation data matrix
     datadict = build_data(numgeo)
@@ -46,7 +46,6 @@ function build_data(numgeo)
     openmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
     isolatedmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
-    # isolatedmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
     # openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
     # isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)

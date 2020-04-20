@@ -5,7 +5,7 @@
 
 #  stash for temporary values changed during simulation cases
 #      to change just once and then get the originals back
-#      it is the users responsibility to get rid of stuff
+#      it is the users responsibility to empty the stash
 const spread_stash = Dict{Symbol, Array}()
 
 """
@@ -272,7 +272,7 @@ function cleanup_spread_cases()
 end
 
 
-function spread_sanity(x; shape= 1.0,scale=1.8,pr=0.65)
+function spread_sanity(x; shape= 1.0,scale=1.6,pr=0.6)
     send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0]
     recv_risk_by_age = [.1, .4, .4, .50, .55]    
     risk = mean(recv_risk_by_age' .* send_risk_by_lag) 

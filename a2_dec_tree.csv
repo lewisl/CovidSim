@@ -1,17 +1,17 @@
-agegrp,node,fromcond,tocond,pr,next
-2,"(1,1)",nil,mild,0.85,"(2,2)"
-2,"(1,1)",nil,sick,0.15,"(2,3)"
-2,"(2,2)",mild,mild,1.0,"(3,2)"
-2,"(2,3)",sick,sick,0.85,"(3,3)"
-2,"(2,3)",sick,severe,0.15,"(3,4)"
-2,"(3,2)",mild,recovered,1.0,"(0,0)"
-2,"(3,3)",sick,recovered,0.8,"(0,0)"
-2,"(3,3)",sick,severe,0.2,"(4,4)"
-2,"(3,4)",severe,recovered,0.35,"(0,0)"
-2,"(3,4)",severe,severe,0.55,"(4,4)"
-2,"(3,4)",severe,dead,0.1,"(0,5)"
-2,"(4,4)",severe,recovered,0.85,"(0,0)"
-2,"(4,4)",severe,dead,0.15,"(0,5)"
+agegrp,node,start,fromcond,tocond,pr,next
+2,"(1,1)",5,nil,mild,0.85,"(2,2)"
+2,"(1,1)",5,nil,sick,0.15,"(2,3)"
+2,"(2,2)",9,mild,mild,1.0,"(3,2)"
+2,"(2,3)",9,sick,sick,0.85,"(3,3)"
+2,"(2,3)",9,sick,severe,0.15,"(3,4)"
+2,"(3,2)",14,mild,recovered,1.0,"(0,0)"
+2,"(3,3)",14,sick,recovered,0.8,"(0,0)"
+2,"(3,3)",14,sick,severe,0.2,"(4,4)"
+2,"(3,4)",14,severe,recovered,0.35,"(0,0)"
+2,"(3,4)",14,severe,severe,0.55,"(4,4)"
+2,"(3,4)",14,severe,dead,0.1,"(0,5)"
+2,"(4,4)",19,severe,recovered,0.85,"(0,0)"
+2,"(4,4)",19,severe,dead,0.15,"(0,5)"
 # Dead probability:  0.0099
 # Rec probability:   0.9920687499999999
 # agegrp 2

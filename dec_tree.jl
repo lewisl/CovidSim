@@ -56,7 +56,7 @@ function create_node_dict(arr::Array) # this wants to be recursive--another time
                 newbr = Branch(fromcond, tocond, pr, next, fromcondname, tocondname)
                 push!(arrbranches, newbr)  
             end
-            if !haskey(starts, lag)
+            if !haskey(starts, lag)  # doesn't have it: it's new
                 starts[lag] =  [node] 
             else
                 push!(starts[lag], node)
