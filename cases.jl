@@ -16,8 +16,8 @@ function seed_case_gen(day, cnt, lag, cond, agegrp) # these args go into the ret
 end
 
 # some generated seed! cases-->these are global (in code)
-# seed_1_24 = seed_case_gen(1, [0,12,12,0,0], 3, nil, agegrps)
-# seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 3, nil, agegrps)
+# seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
+# seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)
 
 
 # some isolation cases
@@ -98,10 +98,11 @@ function spread_case_setter(cases=[]; env=env)
             # before the case starts--ignore it
             # after the case--it's already in effect--nothing to change
             if iszero(c.compliance)  # signal to shutdown cases and restore defaults
-                # restore defaults for spread!  TODO: this can fail if case order is funky
-                env.sd_compliance = zeros(6,5)
-                env.contact_factors = copy(spread_stash[:default_cf])
-                env.touch_factors = copy(spread_stash[:default_tf])
+                # restore defaults for spread!  
+                default_env = initialize_sim_env()
+                env.sd_compliance = default_env.sd_compliance
+                env.contact_factors = default_env.contact_factors
+                env.touch_factors = default_env.touch_factors
                 delete!(spread_stash, :case_cf)
                 delete!(spread_stash, :case_tf)
             else
@@ -176,6 +177,6 @@ end
 #
 # mod_45 = sd_gen()  # with defaults
 # mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
-# str_45 = sd_gen(start=45, comply=1.0, cf=(.3,1.0), tf=(.18,.3))
+# str_45 = sd_gen(start=45, comply=.90, cf=(.3,1.0), tf=(.18,.3))
 # str_55 = sd_gen(start=55, comply=.95, cf=(.3,1.0), tf=(.18,.3))
 # zer = sd_gen(start=90, comply=0.0)

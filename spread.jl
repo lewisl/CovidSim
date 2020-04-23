@@ -15,7 +15,7 @@ previously unexposed people, by agegrp?  For a single locale...
 function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env=env)
 
     if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
-        cleanup_spread_cases()
+        cleanup_spread_stash()
     end
 
     # variables from env
@@ -44,7 +44,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     spread_case_setter(spreadcases, env=env)  # bounces out right away if empty
     if iszero(env.sd_compliance) || isone(env.sd_compliance)  # no compliance or full compliance--no split, just run once
         newinfected = spreadsteps(density_factor, all_unexposed, env=env)
-    else # TODO this wants to be a case_runner function
+    else # we need to split people into complying and noncomplying
         newinfected = spread_case_runner(density_factor, all_unexposed, env=env)
     end  # no active case or active case
 
@@ -83,7 +83,7 @@ end
 
 
 """
-How many contacts do spreaders attempt to make?  This is based on the characteristics of the
+How many contacts do spreaders attempt to reach?  This is based on the characteristics of the
 spreaders.
 """
 function how_many_contacts!(density_factor=1.0; env=env)
@@ -95,7 +95,7 @@ function how_many_contacts!(density_factor=1.0; env=env)
 
     # variables from env
     spreaders = env.spreaders  # laglim,4,5
-    numcontacts = env.numcontacts
+    numcontacts = env.numcontacts  # the result
     contact_factors = env.contact_factors
     all_accessible = env.all_accessible
 
@@ -105,7 +105,6 @@ function how_many_contacts!(density_factor=1.0; env=env)
     end
 
     sp_lags, sp_conds, sp_ages = size(spreaders)
-    # numcontacts = zeros(Int, sp_lags, sp_conds, sp_ages)  # laglim x 4 x 5 lag x cond x agegrp
 
     # how many people are contacted by each spreader?  Think of this as reaching out...
         # numcontacts is the potential number of people contacted by a spreader in each
@@ -119,29 +118,26 @@ function how_many_contacts!(density_factor=1.0; env=env)
                     numcontacts[lag, cond, agegrp] = 0
                     continue
                 end
-                lag_reduce = 1.0 # .038 * 19  # reduce contact scale by lag between 1.0 and 0.3 -- WHY
-                dgamma = Gamma(1.0, lag_reduce * density_factor * scale)  #shape, scale
+                dgamma = Gamma(1.0, density_factor * scale)  #shape, scale
                 x = rand(dgamma,spcount)
-                numcontacts[lag, cond, agegrp] = round(sum(x))
+                numcontacts[lag, cond, agegrp] = round(Int,sum(x))
             end
         end
     end
 
-    # correct over contacting
+    # correct over contacting: this can happen with high scale towards the high point of infection
     oc_ratio = sum(numcontacts) / sum(all_accessible)
     if oc_ratio > 1.0
-        println(ctr[:day]," overcontact ratio ", oc_ratio)
+        println(ctr[:day],"warning: overcontact ratio ", oc_ratio)
         numcontacts[:] = round.(1.0/oc_ratio .* numcontacts)
     end
-
-    # return numcontacts
 end
 
 
 """
 For potential contacts by spreaders reaching out, how many of the accessible (susceptible and NOT)
-are actuallly "touched" by a spreader? This is loosely based on the characteristics of the
-receiver.
+are consequentially "touched" by a spreader? This is based on the characteristics of the
+recipient. This also splits the recipients by the characteristics of the spreaders and the recipients.
 """
 function how_many_touched!(; env=env)
 #=
@@ -152,11 +148,11 @@ function how_many_touched!(; env=env)
     There is a lot of setup before we get to business here.
 =#
     # variables from simulation environment
-    numcontacts =       env.numcontacts
+    numcontacts =       env.numcontacts         # outcome from how_many_contacts!
     simple_accessible = env.simple_accessible
     lag_contacts =      env.lag_contacts
     touch_factors =     env.touch_factors
-    numtouched =        env.numtouched
+    numtouched =        env.numtouched          # result by lag of spreader and agegrp or recipient
 
     if sum(simple_accessible) == 0   # this can happen with a social distancing case with 100% compliance
         numtouched[:] .= 0
@@ -224,7 +220,6 @@ end
 
 
 function how_many_infected(all_unexposed; env=env)
-    # transmissibility by agegrp of recipient
     #=
         - multiply the transmissibility of the spreader times the transmissibility of the contacts
                 by lag for spreaders and by agegrp for the contacts
@@ -232,7 +227,8 @@ function how_many_infected(all_unexposed; env=env)
         - we'll test to be sure we don't exceed the unexposed and reduce touches to 80% of unexposed by agegrp
     =#
 
-    # touched_by_lag_age (laglim,5)     all_unexposed (5,)
+    # variables from env
+    touched_by_lag_age = env.numtouched  # (laglim,5)  all_unexposed (5,)
 
     newinfected = zeros(Int, length(agegrps))  # (5,)
 
@@ -240,39 +236,36 @@ function how_many_infected(all_unexposed; env=env)
         return newinfected
     end
 
-    # variables from env
-    touched_by_lag_age = env.numtouched
-
     # setup risk table   now part of initialization: caller must update if send or recv risk has changed
     # env.riskmx[:] = send_risk_by_recv_risk(env.send_risk_by_lag, env.recv_risk_by_age)  # (laglim,5)
 
     for age in agegrps
         for lag in lags
-            newsick = binomial_one_sample(touched_by_lag_age[lag, age], env.riskmx[lag, age])
-            newsick = clamp(newsick, 0, floor(Int,.8 * all_unexposed[age]))
+            newsick = binomial_one_sample(touched_by_lag_age[lag, age], env.riskmx[lag, age])  # draws, probability
+            newsick = clamp(newsick, 0, floor(Int,.9 * all_unexposed[age]))
             newinfected[age] += newsick
         end
     end
 
     @debug "\n newly infected: $newinfected  \n"
 
-    return newinfected  # (num of agegrps, ) (only condition is nil, assumed lag = 1 => first day infected)
+    return newinfected  # (length of agegrps, ) (only condition is nil, assumed lag = 1 => first day infected)
 end
 
 
 function send_risk_by_recv_risk(send_risk, recv_risk)
-    recv_risk' .* send_risk
+    recv_risk' .* send_risk  # (laglim, agegrps)
 end
 
 
-function cleanup_spread_cases()
+function cleanup_spread_stash()
     for k in keys(spread_stash)
         delete!(spread_stash, k)
     end
 end
 
 
-function spread_sanity(x; shape= 1.0,scale=1.6,pr=0.6)
+function spread_sanity(x; shape= 1.0,scale=1.6,pr=0.6) # defaults are before social distancing or isolation
     send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0]
     recv_risk_by_age = [.1, .4, .4, .50, .55]    
     risk = mean(recv_risk_by_age' .* send_risk_by_lag) 

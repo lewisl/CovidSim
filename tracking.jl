@@ -60,6 +60,14 @@ const spreadq = []
     end
 
 
+
+# for Johns Hopkins US actual data
+struct Col_ref
+    date::String
+    col::Int64
+end
+
+
 # for transition
 function queuestats(vals, conds, locale, func::typeof(transitionstat); case="open")
     @assert length(vals) == length(conds) "lengths of vals and conds don't match"
@@ -156,6 +164,10 @@ function new_to_cum!(dseries, locale, starting_unexposed)
         r0 = collect(cumseries[r_idx-1,:])
         push!(cumseries, r0 .+ r1)
     end
+
+    # add :Total_infected to match Johns Hopkins statistics
+    cumseries[!, :Total_infected] = cumseries[!, :Infectious] + cumseries[!, :Recovered] + cumseries[!, :Dead]
+    cum[!, :Total_infected] = cum[!, :Infectious] + cum[!, :Recovered] + cum[!, :Dead]
 end
 
 
@@ -195,7 +207,7 @@ end
 
 
 function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :Dead];
-    geo=[])
+    days="all",geo=[])
 
     pyplot()
     theme(:ggplot2, foreground_color_border =:black, reuse = false)
@@ -212,10 +224,11 @@ function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :
     died = dseries[locale][:cum][end,:Dead]
     infected = dseries[locale][:cum][1,:Unexposed] - dseries[locale][:cum][end,:Unexposed]
     firstseries = plseries[1]
-    half_yscale = floor(Int, maximum(dseries[locale][:cum][!,firstseries]) * 0.5)
+    half_yscale = floor(Int, maximum(dseries[locale][:cum][!,firstseries]) * 0.7)
+    days = days == "all" ? (1:n) : days
 
     # the plot
-    plot(   cumseries[:,1], cumseries[:,2:end], 
+    plot(   cumseries[days,1], cumseries[days,2:end], 
             size = (700,500),
             label = labels, 
             lw=2.3,
@@ -287,8 +300,8 @@ function dayplot(spreadseries::DataFrame, plseries=[])
     end
     gui()  # force instant plot window
     # plot!(spreadseries[!,:day], spreadseries[!,:cuminfected],label="Cum Infected", dpi=200,lw=2)
-
 end
+
 
 function day_animate2(spreadseries)
     n = size(spreadseries,1)

@@ -20,6 +20,7 @@ using Printf
 using Plots
 using StatsPlots
 using Debugger
+using Dates
 
 include("dec_tree.jl")
 include("setup.jl")
@@ -28,6 +29,7 @@ include("tracking.jl")
 include("isolation.jl")
 include("spread.jl")
 include("cases.jl")
+include("johns_hopkins_data.jl")
 
 
 export                  # functions for simulation
@@ -80,6 +82,11 @@ export                  # functions for decision trees
     display_tree,
     sanity_test,
     get_the_probs
+
+export                 # functions for accessing data from Johns Hopkins
+    get_real_data,
+    loc2df,
+    read_actual
 
 export                  # control constants
     age_dist,

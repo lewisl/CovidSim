@@ -54,7 +54,10 @@ const state = 5
 const sizecat = 6
 const popsize = 7
 const density = 8
-const density_fac = 9
+const anchor = 9
+const restrict = 10
+const density_fac = 11
+
 
 
 # population centers sizecats
@@ -196,8 +199,10 @@ function initialize_sim_env()
     filln = laglim - 18
     mid = fill(0.05, filln)
     last3 = [0.0,0.0,0.0]
-    first15 = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05]
+    first15 = [0.0, .3, .7, .8, .9, .9, .8, .7, .6, .5, .4, .2, .1, 0.05, 0.05]
     send_risk = [first15..., mid..., last3...]
+
+    # initialize the simulation Env
     ret =   Env(spreaders=zeros(Int64,laglim,4,5),
                 all_accessible=zeros(Int64,laglim,6,5),
                 numcontacts=zeros(Int64,laglim,4,5),
@@ -260,9 +265,9 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
         dec_tree_applied = false
         for agegrp in agegrps
             tree = dt[agegrp].tree
-            nodestarts = dt[agegrp].starts
-            if lag in keys(nodestarts) # check if a decision tree applies today
-                for node in nodestarts[lag]  # node is a pair; pair.first is the key; pair.second is the value: a tuple (start=n, branches=[Branch])
+            node_decpoints = dt[agegrp].dec_points
+            if lag in keys(node_decpoints) # check if a decision tree applies today
+                for node in node_decpoints[lag]  
                     toprobs = zeros(6)
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
                         toprobs[mapcond2tran[branch.tocond]] = branch.pr
