@@ -67,7 +67,7 @@ function build_data(numgeo)
 end
 
 # one environment at a time
-function data_dict(numgeo; lags=laglim, conds=10, agegrps=5)
+function data_dict(numgeo; lags=laglim, conds=8, agegrps=5)
     dat = Dict()
     for i = 1:numgeo
         dat[i] = zeros(Int, lags, conds, agegrps)
@@ -150,7 +150,7 @@ function shifter(x, newmin=0.9, newmax=1.5)
     shifter(x, oldmin, oldmax, newmin, newmax)
 end
 
-
+# not used
 function build_iso_probs()
     # these don't need to sum to one in either direction!  independent events
     default_iso_pr = zeros(6,5)

@@ -38,7 +38,7 @@ It's a bit tricky because a tree is a bit of a gnarly nested data structure:
 Now, I can quickly tell for all the trees if the branch endpoints all add up to 1 and get the expected value proportions for recovering or dying.  This was really satisfying, if slightly morbid.
 
 Here is what a tree looks like:
-```
+```julia
 #=
 (1, 1)  # node and indented array of branches
    CovidSim.Branch(5, 5, 0.2, (2, 1), "nil", "nil")  # from, to, probability, next node, from name, to name

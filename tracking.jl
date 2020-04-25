@@ -167,7 +167,6 @@ function new_to_cum!(dseries, locale, starting_unexposed)
 
     # add :Total_infected to match Johns Hopkins statistics
     cumseries[!, :Total_infected] = cumseries[!, :Infectious] + cumseries[!, :Recovered] + cumseries[!, :Dead]
-    cum[!, :Total_infected] = cum[!, :Infectious] + cum[!, :Recovered] + cum[!, :Dead]
 end
 
 
@@ -239,6 +238,7 @@ function cumplot(dseries, locale, plseries=[:Unexposed,:Infectious,:Recovered, :
             reuse = false
         )
     annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
+    gui()
 end
 
 function newplot(dseries, locale, plseries=[:Infectious])
@@ -265,7 +265,7 @@ function newplot(dseries, locale, plseries=[:Infectious])
             yaxis = ("People"),
             reuse =false
         )
-
+    gui()
 end
 
 

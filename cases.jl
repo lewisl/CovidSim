@@ -177,6 +177,6 @@ end
 #
 # mod_45 = sd_gen()  # with defaults
 # mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
-# str_45 = sd_gen(start=45, comply=.90, cf=(.3,1.0), tf=(.18,.3))
-# str_55 = sd_gen(start=55, comply=.95, cf=(.3,1.0), tf=(.18,.3))
+# str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
+# str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
 # zer = sd_gen(start=90, comply=0.0)

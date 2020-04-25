@@ -49,24 +49,24 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     end  # no active case or active case
 
     # test if newinfected > unexposed
-    lag = 1
+    lag1 = 1
     for agegrp in agegrps
-        if newinfected[agegrp] > grab(unexposed, agegrp, lag, locale, dat=dat)
+        if newinfected[agegrp] > grab(unexposed, agegrp, lag1, locale, dat=dat)
             @warn "big problem: infected exceeds unexposed in spread!"
         end
     end
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
-    plus!.(newinfected, infectious, agegrps, lag, locale, dat=dat)
-    plus!.(newinfected, nil, agegrps, lag, locale, dat=dat)
-    minus!.(newinfected, unexposed, agegrps, lag, locale, dat=dat)
+    plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
+    plus!.(newinfected, nil, agegrps, lag1, locale, dat=dat)
+    minus!.(newinfected, unexposed, agegrps, lag1, locale, dat=dat)
 
     push!(spreadq, (day=ctr[:day], locale=locale,
                 spreaders = sum(spreaders) + sum(get(spread_stash, :comply_spreaders, 0)),
                 contacts = sum(numcontacts) + sum(get(spread_stash, :comply_contacts, 0)),
                 touched = sum(numtouched) + sum(get(spread_stash, :comply_touched, 0)),
                 accessible = sum(all_accessible),
-                unexposed=sum(grab(unexposed, agegrps, lag, locale, dat=dat)),
+                unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
                 infected=sum(newinfected)))
     # add to stats queue for today
     queuestats(sum(newinfected), locale, spreadstat) # sum(5 agegroups), nil is the default, single locale
@@ -202,6 +202,7 @@ function how_many_touched!(; env=env)
 
     dcat = Categorical(s_a_pct) # categorical distribution by agegrp and unexposed, recovered, infectious
     numtouched[:] = zeros(Int, laglim, length(agegrps)) # (laglim,5)
+
     # loop over numcontacts lag vector
     for lag in lags
         lc = lag_contacts[lag]
@@ -265,122 +266,69 @@ function cleanup_spread_stash()
 end
 
 
-function spread_sanity(x; shape= 1.0,scale=1.6,pr=0.6) # defaults are before social distancing or isolation
-    send_risk_by_lag = [.1, .3, .7, .8, .9, .9, .8, .7, .6, .5, .3, .1, .1, 0.05, 0.05, 0.05, 0, 0, 0]
-    recv_risk_by_age = [.1, .4, .4, .50, .55]    
-    risk = mean(recv_risk_by_age' .* send_risk_by_lag) 
-    dgamma = Gamma(shape, scale)
-    contact(x) = round(Int,sum(rand(dgamma,x)))
-    touch(x) = rand(Binomial(x, pr))
-    infect(x) = round(Int, risk .* x)
-    samp = [reduce(+,[infect(touch(contact(x))) for i in 1:14]) for i in 1:50] # sample of newinfected
-    mean_contacts = round(Int, mean([contact(x) for i in 1:50]))
-    mean_touches = round(Int, mean([touch(mean_contacts) for i in 1:50]))
-    mean_infected = round(Int, mean(samp))
-    return (r0=mean(samp) / x, mean_contacts=mean_contacts, mean_touches=mean_touches, mean_infected=mean_infected)
+function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], shift_contact=(), shift_touch=(), pri=false)
+    # setup separate environment
+    r0env = initialize_sim_env();
+    r0mx = data_dict(1)  # single locale
+    locale = 1
+    popsize = 1_000_000
+    for agegrp in agegrps
+        r0mx[locale][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * popsize)
+    end
+    track_infected = zeros(Int, 5)
+
+    # setup data
+    all_unexposed = grab(unexposed, agegrps, 1, locale, dat=r0mx)  # (5, ) agegrp for lag 1
+
+    r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps,lags, locale, dat=r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
+    r0env.simple_accessible[:] = sum(r0env.all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
+
+    if sa_pct[1] != 1.0
+        sa_pct = [sa_pct[1],sa_pct[2],sa_pct[3], fill(sa_pct[3]./4.0, 3)...]
+        res = [r0env.simple_accessible[1,:] .* i for i in sa_pct]
+        sanew = zeros(6,5)
+        for i in 1:6
+           sanew[i,:] .= res[i]
+        end
+        r0env.simple_accessible[:] = round.(Int, sanew)
+    end
+
+    spreaders = ones(Int,25,4,5)
+    spreaders[1,:,:] .= 0;
+    r0env.spreaders = spreaders
+
+    # parameters that drive r0
+    isempty(shift_contact)  || (r0env.contact_factors =shifter(r0env.contact_factors, shift_contact...))
+    isempty(shift_touch) || (r0env.touch_factors = shifter(r0env.touch_factors, shift_touch...))
+
+    for i = 1:laglim
+        isempty(dt) || (transition!(dt, locale,dat=r0mx)) # optionally start with a transition
+
+        how_many_contacts!(density_factor, env=r0env)
+
+        how_many_touched!(env=r0env)
+
+        track_infected .+= how_many_infected(all_unexposed, env=r0env)
+    end
+
+    # for last iteration, but close across most of them
+    tot_spreaders = sum(r0env.spreaders)
+    tot_contacts = sum(r0env.numcontacts)
+    tot_touched = sum(r0env.numtouched)
+    tot_infected = sum(track_infected)
+    r0 = tot_infected / tot_spreaders
+
+    if pri
+        contact_factors = round.(r0env.contact_factors, digits=3)
+        touch_factors = round.(r0env.touch_factors, digits=3)
+
+            println("r0 = $r0")
+            println("spreaders = $tot_spreaders, contacts = $tot_contacts, touched = $tot_touched, infected = $tot_infected")
+            print("contact_factors ")
+            display(contact_factors)
+            print("touch_factors ")
+            display(touch_factors) 
+    end
+    return(r0=r0,spreaders=tot_spreaders,contacts=tot_contacts,touched=tot_touched,infected=tot_infected)
 end
 
-#=
-    R0 tables
-    arithmetic mean of risk in the model is .118
-
-tables by pr
-for pr = 0.25    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4   1.6   1.8   2.0
-     0.15  0.45  0.54  0.63  0.72  0.81  0.9
-     0.25  0.75  0.89  1.05  1.2   1.35  1.5
-     0.35  1.06  1.26  1.47  1.68  1.9   2.09
-     0.45  1.35  1.63  1.89  2.16  2.45  2.69
-     0.55  1.66  1.98  2.32  2.63  2.98  3.29
-     0.65  1.96  2.33  2.73  3.13  3.53  3.9
-
-for pr = 0.35    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4   1.6   1.8   2.0
-     0.15  0.63  0.75  0.89  1.01  1.14  1.27
-     0.25  1.05  1.26  1.47  1.68  1.89  2.1
-     0.35  1.47  1.76  2.06  2.35  2.66  2.93
-     0.45  1.9   2.26  2.66  3.04  3.42  3.79
-     0.55  2.31  2.78  3.25  3.67  4.16  4.64
-     0.65  2.73  3.29  3.81  4.34  4.96  5.46
-
-for pr = 0.45    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4   1.6   1.8   2.0
-     0.15  0.81  0.97  1.13  1.29  1.46  1.61
-     0.25  1.35  1.62  1.89  2.16  2.42  2.69
-     0.35  1.89  2.26  2.64  3.02  3.38  3.77
-     0.45  2.43  2.92  3.4   3.9   4.37  4.85
-     0.55  2.95  3.55  4.15  4.72  5.35  5.94
-     0.65  3.51  4.22  4.89  5.65  6.34  7.0
-
-
-for pr = 0.45    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4   1.6   1.8   2.0
-     0.15  0.99  1.19  1.38  1.58  1.78  1.98
-     0.25  1.65  1.98  2.32  2.64  2.98  3.29
-     0.35  2.32  2.77  3.23  3.7   4.16  4.63
-     0.45  2.97  3.54  4.15  4.75  5.35  5.95
-     0.55  3.63  4.34  5.09  5.82  6.56  7.27
-     0.65  4.3   5.15  6.0   6.82  7.73  8.61
-
-for pr = 0.65    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4   1.6   1.8    2.0
-     0.15  1.17  1.4   1.64  1.87  2.1    2.35
-     0.25  1.95  2.34  2.72  3.12  3.5    3.91
-     0.35  2.72  3.29  3.82  4.38  4.93   5.47
-     0.45  3.51  4.22  4.93  5.59  6.33   7.04
-     0.55  4.29  5.17  6.02  6.88  7.72   8.58
-     0.65  5.05  6.09  7.08  8.13  9.18  10.18
-
-for pr = 0.75    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4   1.6    1.8    2.0
-     0.15  1.35  1.62  1.88  2.16   2.43   2.7
-     0.25  2.25  2.72  3.15  3.62   4.04   4.5
-     0.35  3.15  3.77  4.41  5.02   5.66   6.31
-     0.45  4.06  4.85  5.65  6.5    7.29   8.08
-     0.55  4.97  5.94  6.95  7.92   8.95   9.91
-     0.65  5.86  7.04  8.2   9.36  10.54  11.67
-
-
-for pr = 0.85    risk by scale
-    risk   scale->
-     0.0   1.0   1.2   1.4    1.6    1.8    2.0
-     0.15  1.52  1.84  2.14   2.46   2.75   3.06
-     0.25  2.54  3.05  3.58   4.08   4.6    5.11
-     0.35  3.57  4.3   4.98   5.71   6.43   7.15
-     0.45  4.58  5.5   6.43   7.35   8.26   9.16
-     0.55  5.6   6.74  7.83   8.97  10.11  11.22
-     0.65  6.62  7.95  9.27  10.57  11.92  13.26
-
-
-tables by risk
-for risk = .15
-    pr     scale->
-     0.0   1.0   1.2   1.4   1.6   1.8   2.0   2.2   2.5
-     0.15  0.27  0.33  0.38  0.43  0.48  0.54  0.59  0.67
-     0.25  0.45  0.54  0.63  0.72  0.81  0.9   1.0   1.12
-     0.35  0.63  0.75  0.89  1.01  1.13  1.26  1.38  1.58
-     0.45  0.81  0.97  1.13  1.3   1.46  1.62  1.78  2.03
-     0.55  0.99  1.18  1.39  1.58  1.78  1.98  2.17  2.47
-     0.65  1.17  1.4   1.65  1.87  2.11  2.34  2.58  2.92
-     0.75  1.35  1.62  1.89  2.16  2.44  2.69  2.97  3.37
-     0.85  1.53  1.84  2.14  2.44  2.75  3.06  3.37  3.82
-
-for risk = .15
-    pr     scale->
-     0.0   1.0   1.2   1.4   1.6   1.8   2.0   2.2   2.5
-     0.15  0.45  0.54  0.63  0.72  0.81  0.9   0.99  1.12
-     0.25  0.75  0.9   1.04  1.2   1.35  1.49  1.66  1.88
-     0.35  1.05  1.27  1.47  1.67  1.88  2.1   2.31  2.63
-     0.45  1.35  1.61  1.89  2.16  2.44  2.69  2.96  3.39
-     0.55  1.65  1.98  2.31  2.64  2.98  3.3   3.62  4.13
-     0.65  1.95  2.33  2.72  3.13  3.51  3.89  4.29  4.88
-     0.75  2.25  2.7   3.14  3.61  4.06  4.5   4.94  5.63
-     0.85  2.55  3.06  3.58  4.08  4.58  5.1   5.6   6.37
-
-=#

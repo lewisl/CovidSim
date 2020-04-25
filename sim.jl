@@ -182,7 +182,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
         new_to_cum!(dseries, locale, starting_unexposed)
     end
 
-    return alldict, dseries, starting_unexposed
+    return alldict, dseries, env
 end
 
 
@@ -197,9 +197,9 @@ function initialize_sim_env()
     @assert laglim >= 19 "laglim must be >= 19--got $laglim"
     # expand send_risk_by_lag length to match laglim
     filln = laglim - 18
-    mid = fill(0.05, filln)
-    last3 = [0.0,0.0,0.0]
-    first15 = [0.0, .3, .7, .8, .9, .9, .8, .7, .6, .5, .4, .2, .1, 0.05, 0.05]
+    mid = fill(0.3, filln)
+    last3 = [0.3,0.3,0.1]
+    first15 = [0.0, .3, .7, .8, .9, .9, .8, .7, .6, .5, .4, .3, .3, 0.3, 0.3]
     send_risk = [first15..., mid..., last3...]
 
     # initialize the simulation Env
@@ -211,7 +211,7 @@ function initialize_sim_env()
                 lag_contacts=zeros(Int64,laglim),
                 riskmx = zeros(Float64,laglim,5),
                 contact_factors =       [ 1    1.8    1.8     1.5    1;    # nil
-                                          1    1.6    1.6     1.4   0.9;    # mild
+                                          1    1.7    1.7     1.4   0.9;    # mild
                                         0.7    1.0    1.0     0.7   0.5;   # sick
                                         0.5    0.8    0.8     0.5   0.2],  # severe
                               # agegrp    1     2      3       4     5

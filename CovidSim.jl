@@ -53,8 +53,7 @@ export                  # functions for simulation
     seed_case_gen,
     case_setter,
     initialize_sim_env,
-    spread_sanity
-
+    r0_sim
 
 export                  # functions for setup
     build_data,

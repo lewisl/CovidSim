@@ -113,9 +113,8 @@ function sanity_test_all(dtfname)
     trees = setup_dt(dtfname)
     tbl = zeros(size(trees,1),4)
     for (i, it) in enumerate(trees)
-        tree = it.tree
-        paths = walktree(tree,(1,1))
-        res = sanity_test(paths, tree)
+        paths = walktree(it.tree,(1,1))
+        res = sanity_test(paths, it.tree)
         tbl[i, :] .= [i, res.total, res.recovered, res.dead]
     end
     return tbl
@@ -143,10 +142,10 @@ function sanity_test(paths, tree)
     return (recovered=recoveredpr, dead=deadpr, total=recoveredpr+deadpr, probs=probs)
 end
 
-function get_the_probs(seq, tree)
+function get_the_probs(path, tree)
     probs = []
-    for cnt in 1:length(seq)-1
-        it1, it2 = seq[cnt], seq[cnt+1]
+    for cnt in 1:length(path)-1
+        it1, it2 = path[cnt], path[cnt+1]
         node = tree[it1]
         for br in node
             if br.next == it2
@@ -154,9 +153,9 @@ function get_the_probs(seq, tree)
             end
         end
     end
-    if seq[end] == (0,0)
+    if path[end] == (0,0)
         probs = ("recovered", probs)
-    elseif seq[end] == (0,5)
+    elseif path[end] == (0,5)
         probs = ("dead", probs)
     end
     return probs
