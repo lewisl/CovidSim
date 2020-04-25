@@ -266,7 +266,9 @@ function cleanup_spread_stash()
 end
 
 
-function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], shift_contact=(), shift_touch=(), pri=false)
+function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
+                compliance=[], shift_contact=(), shift_touch=(), pri=false)
+    # factor_source must be one of: r0env, or env of current simulation
     # setup separate environment
     r0env = initialize_sim_env();
     r0mx = data_dict(1)  # single locale
@@ -280,8 +282,11 @@ function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], shift_contact=
     # setup data
     all_unexposed = grab(unexposed, agegrps, 1, locale, dat=r0mx)  # (5, ) agegrp for lag 1
 
-    r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps,lags, locale, dat=r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
+    r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps, lags, locale, dat=r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
     r0env.simple_accessible[:] = sum(r0env.all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
+    if !isempty(compliance)
+        r0env.simple_accessible[:] = round.(compliance .* r0env.simple_accessible)
+    end
 
     if sa_pct[1] != 1.0
         sa_pct = [sa_pct[1],sa_pct[2],sa_pct[3], fill(sa_pct[3]./4.0, 3)...]
@@ -298,6 +303,8 @@ function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], shift_contact=
     r0env.spreaders = spreaders
 
     # parameters that drive r0
+    !isempty(cf) && (r0env.contact_factors = deepcopy(cf))
+    !isempty(tf) && (r0env.touch_factors = deepcopy(tf))
     isempty(shift_contact)  || (r0env.contact_factors =shifter(r0env.contact_factors, shift_contact...))
     isempty(shift_touch) || (r0env.touch_factors = shifter(r0env.touch_factors, shift_touch...))
 

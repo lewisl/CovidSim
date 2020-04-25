@@ -1,4 +1,4 @@
-This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. 
+This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. [Look at some preliminary results...](https://github.com/lewisl/CovidSim/blob/master/report%201.ipynb)
 
 The model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The groups are:
 
@@ -49,7 +49,7 @@ Transition of infected individuals (in the disease cell groups above) is control
 
 - sanity check on decision trees
 
-   Each decision tree (for an age group) must insure that all infected individuals resolve to recovered or dead at the end of the maximum lag period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this provides the expected (mean) % of recovered and dead by age group, which can be compared to reported clinical outcomes.
+   Each decision tree (for an age group) must insure that all infected individuals resolve to recovered or dead at the end of the maximum lag period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this provides the expected (mean) % of recovered and dead by age group, which can be compared to reported clinical outcomes. [Read more...](https://github.com/lewisl/CovidSim/blob/master/decision%20tree%20concept.md)
 
 A benefit of the model is comparative ease for running a variety of test cases to examine the response of disease progression to events and potential policy interventions:
 

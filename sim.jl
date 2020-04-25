@@ -133,7 +133,7 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 
 
 function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
-                   dtfilename = "dec_tree_all.csv", silent=true)
+                   dtfilename = "dec_tree_all.csv", showr0 = true, silent=true)
 #=
     see cases.jl for runcases and spreadcases
 =#
@@ -173,6 +173,10 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
             spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
             transition!(dt, locale, dat=openmx)   # transition all infectious cases "in the open"
             transition!(dt, locale, dat=isolatedmx)  # transition all infectious cases in isolation
+            if showr0 && (mod(ctr[:day],10) == 0)
+                current_r0 = sim_r0(env=env)
+                println("at day $(ctr[:day]) r0 = $current_r0")
+            end
         end
         queue_to_newseries!(newstatq, dseries, locales) # update tracking stats for the day
     end
@@ -186,6 +190,29 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
 end
 
 
+function sim_r0(;env=env)
+    # captures current population condition 
+    pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
+    sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
+
+    # if social_distancing case with split population
+    if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
+        compliance = env.sd_compliance
+        cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
+        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, sa_pct=sa_pct).r0
+
+        cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
+        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, sa_pct=sa_pct).r0
+
+        # this works if all compliance values are the same; approximate otherwise
+        current_r0 = round(mean(compliance) * r0_comply + (1.0-mean(compliance)) * r0_nocomply, digits=2)
+    else
+        cf =  env.contact_factors
+        tf = env.touch_factors     
+        current_r0 = round(r0_sim(cf=cf, tf=tf, sa_pct=sa_pct).r0, digits=2)   
+    end
+    return current_r0
+end
 
 ####################################################################################
 #   functions for simulation events

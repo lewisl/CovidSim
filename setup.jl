@@ -13,7 +13,7 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=15)
     if geolim < numgeo
         numgeo = geolim
     end
-    density_factor = shifter(geodata[:, density],0.9,1.6)
+    density_factor = shifter(geodata[:, density],0.9,1.25)
     geodata = [geodata density_factor]
     # fix dates   
     geodata[:, anchor] .= quickdate(geodata[:, anchor])
