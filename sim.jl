@@ -263,16 +263,12 @@ function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
         println("*** seed day $(ctr[:day]) locale $locale....")
         for loc in locale
             for cond in conds
-                if cond in [nil, mild, sick, severe]
-                    input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                    minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
-                elseif cond in [recovered, dead]
-                    input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                    # need to figure out what condition and lag get decremented!!
-                end
+                @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
+                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
+                minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
+                update_infectious!(loc, dat = dat)
+                queuestats(cnt=cnt, locale=locale, agegrp=agegrps, cond=conds, event=:seed)
             end
-            update_infectious!(loc, dat = dat)
-            queuestats(cnt, locale, spreadstat; case="open")
         end
     end
 end
@@ -369,8 +365,8 @@ function distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; d
     deleteat!(transition_cases, leaveout)
     moveout = sum(distvec)
 
-    queuestats(distvec, transition_cases, locale, transitionstat)
-    queuestats(-moveout, fromcond, locale, transitionstat)
+    queuestats(cnt=distvec, cond=transition_cases, locale=locale, agegrp=agegrp, event=:transition)
+    queuestats(cnt=-moveout, cond=fromcond, locale=locale, agegrp=agegrp, event=:transition)
     return
 end
 

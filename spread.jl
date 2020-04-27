@@ -26,7 +26,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     numtouched =        env.numtouched
 
     # set function scope for variables modified in loop
-    newinfected = zeros(Int, 5)
+    newinfected = zeros(Int, 5) # by agegrp
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
     spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # laglim x 4 x 5 lag x cond x agegrp
@@ -69,7 +69,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
                 unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
                 infected=sum(newinfected)))
     # add to stats queue for today
-    queuestats(sum(newinfected), locale, spreadstat) # sum(5 agegroups), nil is the default, single locale
+    queuestats(cnt=newinfected, cond=nil, locale=locale, agegrp=agegrps, event=:spread) # sum(5 agegroups), nil is the default, single locale
 
     return
 end
@@ -339,3 +339,34 @@ function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
     return(r0=r0,spreaders=tot_spreaders,contacts=tot_contacts,touched=tot_touched,infected=tot_infected)
 end
 
+
+function r0_table(n=6, cfstart = 0.9, tfstart = 0.3)
+    tbl = zeros(n+1,n+1)
+    cfiter = [cfstart + (i-1) * .1 for i=1:n]
+    tfiter = [tfstart + (i-1) * 0.05 for i=1:n]
+    for (j,cf) in enumerate(cfiter)
+        for (i,tf) = enumerate(tfiter)
+            tbl[i+1,j+1] = r0_sim(shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
+        end
+    end
+    tbl[1, 2:n+1] .= cfiter
+    tbl[2:n+1, 1] .= tfiter
+    tbl[:] = round.(tbl, digits=2)
+    display(tbl)
+    return tbl
+end
+
+#=
+approximate r0 values from model (simulation uses samples)
+           max c_f
+            1.1   1.2   1.3   1.4   1.5   1.6   1.7   1.8
+max t_f    -----------------------------------------------
+     0.25 | 0.57  0.58  0.63  0.73  0.72  0.79  0.74  0.87
+     0.3  | 0.59  0.7   0.76  0.74  0.91  1.0   0.95  1.01
+     0.35 | 0.62  0.82  0.8   0.99  0.93  1.11  1.11  1.12
+     0.4  | 0.82  0.88  0.98  1.08  0.99  1.31  1.38  1.33
+     0.45 | 0.94  1.02  1.1   1.12  1.23  1.35  1.39  1.52
+     0.5  | 1.03  1.14  1.12  1.24  1.44  1.45  1.5   1.58
+     0.55 | 1.07  1.19  1.24  1.52  1.55  1.46  1.67  1.7
+     0.6  | 1.18  1.33  1.45  1.44  1.53  1.82  1.78  2.07
+=#

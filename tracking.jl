@@ -3,7 +3,18 @@
 #########################################################################################
 
 const series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead, 5=>:Nil, 6=>:Mild, 7=>:Sick,
-        8=>:Severe,  9=>:Travelers, 10=>:Isolated)
+        8=>:Severe,  9=>:Travelers, 10=>:Isolated,
+        # columns by agegrp
+        11=>:Unexposed_1, 12=>:Unexposed_2, 13=>:Unexposed_3, 14=>:Unexposed_4, 15=>:Unexposed_5,
+        21=>:Infectious_1, 22=>:Infectious_2, 23=>:Infectious_3, 24=>:Infectious_4, 25=>:Infectious_5,
+        31=>:Recovered_1, 32=>:Recovered_2, 33=>:Recovered_3, 34=>:Recovered_4, 35=>:Recovered_5,
+        41=>:Dead_1, 42=>:Dead_2, 43=>:Dead_3, 44=>:Dead_4, 45=>:Dead_5,
+        51=>:Nil_1, 52=>:Nil_2, 53=>:Nil_3, 54=>:Nil_4, 55=>:Nil_5,
+        61=>:Mild_1, 62=>:Mild_2, 63=>:Mild_3, 64=>:Mild_4, 65=>:Mild_5,
+        71=>:Sick_1, 72=>:Sick_2, 73=>:Sick_3, 74=>:Sick_4, 75=>:Sick_5,
+        81=>:Severe_1, 82=>:Severe_2, 83=>:Severe_3, 84=>:Severe_4, 85=>:Severe_5,
+        101=>:Isolated_1, 102=>:Isolated_2, 103=>:Isolated_3, 104=>:Isolated_4, 105=>:Isolated_5
+        )
 
 
 """
@@ -35,29 +46,27 @@ const spreadq = []
         return (cnt=cnt, cond=cond, agegrp=agegrp, lag=lag, locale=locale)
     end
 
-# tracking statistics
 
-    const newstatq = DataFrame(day=Int[], cnt=Int[], locale=Int[], tocond=Int[])
 
-    TravelStat = typeof((;cnt=0, locale=0, cond=0, to=0))
-    function travelstat(;cnt=0, locale=0, cond=0, to=0)
-        (cnt=cnt, locale=locale, cond=cond, to=to)
-    end
+    # TravelStat = typeof((;cnt=0, locale=0, cond=0, to=0))
+    # function travelstat(;cnt=0, locale=0, cond=0, to=0)
+    #     (cnt=cnt, locale=locale, cond=cond, to=to)
+    # end
 
-    TransitionStat = typeof((;cnt=0, locale=0, tocond=5))
-    function transitionstat(; cnt=0, locale=0, tocond=5)
-        (cnt=cnt, locale=locale, tocond=tocond)
-    end
+    # TransitionStat = typeof((;cnt=0, locale=0, tocond=5, agegrp=1, event=:transition))
+    # function transitionstat(; cnt=0, locale=0, agegrp=1, tocond=5,  event=:transition)
+    #     (cnt=cnt, locale=locale, tocond=tocond, agegrp=1, event=:transition)
+    # end
 
-    IsolateStat = typeof((;cnt=0, locale=0))
-    function isolatestat(; cnt=0, locale=0, tocond=isolated)
-        (cnt=cnt, locale=locale, tocond=tocond)
-    end
+    # IsolateStat = typeof((;cnt=0, locale=0))
+    # function isolatestat(; cnt=0, locale=0, tocond=isolated)
+    #     (cnt=cnt, locale=locale, tocond=tocond)
+    # end
 
-    SpreadStat = typeof((;cnt=0, locale=0, tocond=nil))
-    function spreadstat(;cnt=0,locale=0,tocond=nil)
-       (cnt=cnt, locale=locale, tocond=tocond)
-    end
+    # SpreadStat = typeof((;cnt=[], locale=0, tocond=nil, event=:spread))
+    # function spreadstat(;cnt=[], locale=0, tocond=nil, event=:spread)
+    #    (cnt=cnt, locale=locale, tocond=tocond, event=:spread)
+    # end
 
 
 
@@ -69,45 +78,72 @@ end
 
 
 # for transition
-function queuestats(vals, conds, locale, func::typeof(transitionstat); case="open")
-    @assert length(vals) == length(conds) "lengths of vals and conds don't match"
+# function queuestats(vals, conds, locale, agegrp, event)
+#     @assert length(vals) == length(conds) "lengths of vals and conds don't match"
+#     thisday = ctr[:day]
+#     for i in eachindex(vals)
+#         vals[i] == 0 && continue
+#         additem = func(cnt = vals[i], locale=locale, agegrp=agegrp, tocond=conds[i], event=event)
+#         push!(newstatq, (day=thisday, additem...))
+#     end
+# end
+
+
+# tracking statistics
+
+const newstatq = DataFrame(day=Int[], cnt=Int[], locale=Int[], agegrp=Int[], tocond=Int[], event=Symbol[])
+
+function queuestats(;cnt, cond, locale, agegrp, event)  # must supply values for all keyword args
     thisday = ctr[:day]
-    for i in eachindex(vals)
-        vals[i] == 0 && continue
-
-        additem = func(cnt = vals[i], locale=locale, tocond=conds[i])
-        push!(newstatq, (day=thisday, additem...))
-    end
-end
-
-
-# for spread
-function queuestats(vals, locale, func::typeof(spreadstat); case="open")
-    @assert length(vals) >= 0 "lengths of vals must be greater than 0"
-    thisday = ctr[:day]
-    cnt = sum(vals)
-    if cnt == 0
+    if event == :spread
+        @assert length(cnt) == length(agegrp) "lengths of cnt and agegrp must be equal: got $(length(cnt)) and $(length(agegrp))"
+        if sum(cnt) == 0   # vals is newinfected (5,) from how_many_infected!
+        else
+            # net addition to nil
+            # additem = spreadstat(cnt = cnt, locale=locale, tocond=tocond)  # defaults to tocond=nil, event=:spread
+            for i in length(cnt)
+                push!(newstatq, (day=thisday, cnt=cnt[i], locale=locale, agegrp=agegrp[i], tocond=cond, event=:spread))
+                # net subtraction from unexposed
+                # additem = spreadstat(cnt = -vals, locale = locale, tocond=unexposed, event=event)
+                push!(newstatq, (day=thisday, cnt=-cnt[i], locale=locale, agegrp=agegrp[i], tocond=unexposed, event=:spread))
+            end
+        end
+    elseif event == :seed
+        @assert length(cnt) == length(agegrp) "lengths of cnt and agegrp must be equal: got $(length(cnt)) and $(length(agegrp))"
+        for i in length(cnt)
+            push!(newstatq, (day=thisday, cnt=cnt[i], locale=locale, agegrp=agegrp[i], tocond=cond, event=:spread)) 
+        end
+    elseif event == :transition
+        @assert length(cnt) == length(cond) "lengths of cnt and conds don't match for queueing :transition event"
+        for i in eachindex(cnt)
+            cnt[i] == 0 && continue
+            # additem = transitionstat(cnt = vals[i], locale=locale, agegrp=agegrp, tocond=conds[i], event=event)
+            push!(newstatq, (day=thisday, cnt = cnt[i], locale=locale, agegrp=agegrp, tocond=cond[i], event=event))
+        end
+    elseif event == :isolate
+        if cnt == 0
+        else
+            # net addition to isolated; no change to any condition
+            # additem = isolatestat(cnt = cnt, locale=locale)  # defaults to isolated
+            push!(newstatq, (day=thisday, cnt=cnt, locale=locale, agegrp=agegrp, tocond=isolated, event=:isolate))
+        end
+    elseif event == :travel 
+        # TODO  we need a way to do this!
     else
-        # net addition to nil
-        additem = func(cnt = cnt, locale=locale)  # defaults to nil
-        push!(newstatq, (day=thisday, additem...))
-        # net subtraction from unexposed
-        additem = func(cnt = -cnt, tocond=unexposed, locale = locale)
-        push!(newstatq, (day=thisday, additem...))
+        @assert false "invalid event $event"
     end
 end
-
 
 # for isolation
-function queuestats(cnt, locale, func::typeof(isolatestat); case="open")
-    thisday = ctr[:day]
-    if cnt == 0
-    else
-        # net addition to isolated; no change to any condition
-        additem = func(cnt = cnt, locale=locale)  # defaults to isolated
-        push!(newstatq, (day=thisday, additem...))
-    end
-end
+# function queuestats(cnt, locale, event)
+#     thisday = ctr[:day]
+#     if cnt == 0
+#     else
+#         # net addition to isolated; no change to any condition
+#         additem = func(cnt = cnt, locale=locale)  # defaults to isolated
+#         push!(newstatq, (day=thisday, additem...))
+#     end
+# end
 
 
 # all locales
@@ -121,15 +157,28 @@ function queue_to_newseries!(newstatq, dseries, locales)
     # rowinit = Dict(:Unexposed => 0,  :Infectious => 0, :Recovered=> 0, :Dead=> 0, :Nil=> 0,
         # :Mild=> 0, :Sick=> 0, :Severe=> 0,  :Travelers=> 0, :Isolated=> 0)
 
-    agg = by(newstatq, [:locale, :tocond], cnt = :cnt => sum)
+    agg = by(newstatq, [:locale, :tocond], x->x)
+    println(typeof(agg))
+
     for l in locales
-        filt = agg[agg.locale .== l, :]
+
+        filt = agg[agg[:locale] .== l, :]
         # rowfill = copy(rowinit)
-        rowinit = zeros(10)
+        rowinit = zeros(55)
+
         for r in eachrow(filt)
-            # rowfill[series_colnames[r.tocond]] = r.cnt
-            rowinit[r.tocond] = r.cnt
+            if r.event == :spread
+                destcols = ((r.tocond * 10) + 1):((r.tocond * 10) + 5) # columns 51-55, 61-65, 71-75, 81-85
+                rowinit[!, destcols] = r.cnt  
+            elseif r.event == :transition
+                destcol = (r.tocond * 10) + r.agegrp
+                rowinit[!, destcol] = r.cnt
+            elseif r.event == :seed 
+                destcol = # TODO
+                rowinit[destcol] = r.cnt
+            end
         end
+
         # rowfill[:Infectious] = rowfill[:Nil] + rowfill[:Mild] + rowfill[:Sick] + rowfill[:Severe]
         rowinit[infectious] = sum(rowinit[nil:severe])
         # push!(dseries[l][:new], rowfill)
@@ -288,6 +337,8 @@ end
 
 function dayplot(spreadseries::DataFrame, plseries=[])
     pyplot()
+    theme(:ggplot2, foreground_color_border =:black)
+    
     plot(spreadseries[!,:day], spreadseries[!,:infected],label="Infected", dpi=200,lw=2,
          xlabel="Simulation Days", ylabel="People", title="Daily Spread of Covid",
          bg_legend=:white)

@@ -109,7 +109,7 @@ series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead,
     dseries = Dict{Int,Dict}()
     # columns = [series_colnames[i] => Int[] for i in 1:length(series_colnames)]
 
-    template = DataFrame([series_colnames[i] => Int[] for i in 1:length(series_colnames)]...)
+    template = DataFrame([series_colnames[i] => Int[] for i in keys(series_colnames)]...)
 
     # new = DataFrame(Travelers=Int[], Unexposed=Int[], Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
     #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[])

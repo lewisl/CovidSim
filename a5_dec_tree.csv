@@ -12,6 +12,3 @@ agegrp,node,start,fromcond,tocond,pr,next
 5,"(3,4)",14,severe,dead,0.125,"(0,5)"
 5,"(4,4)",19,severe,recovered,0.75,"(0,0)"
 5,"(4,4)",19,severe,dead,0.25,"(0,5)"
-# Dead probability:  0.03125
-# Rec probability:   0.96875
-# agegrp 5

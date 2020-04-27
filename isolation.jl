@@ -50,7 +50,7 @@ function _isolate!(cnt::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat
     update_infectious!(locale, dat=opendat)
     plus!(cnt, cond, agegrp, lag, locale, dat=isodat)  # move in
     update_infectious!(locale, dat=isodat)
-    cnt !== 0 && queuestats(cnt, locale, isolatestat)
+    cnt !== 0 && queuestats(cnt=cnt, locale=locale, conds=cond, agegrp=agegrp, event=:isolate)
     return nothing  # this one works!
 end
 
@@ -92,6 +92,6 @@ function _unisolate!(cnt::Int64, cond, agegrp, lag, locale; opendat=openmx, isod
     update_infectious!(locale, dat=isodat)
     plus!(cnt, cond, agegrp, lag, locale, dat=opendat)
     update_infectious!(locale, dat=opendat)
-    cnt !== 0 && queuestats(-cnt, locale, isolatestat)  # this doesn't work for unisolate
+    cnt !== 0 && queuestats(cnt=-cnt, locale=locale, conds=cond, agegrp=agegrp, event=:isolate)
     return nothing
 end
