@@ -102,29 +102,31 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     gui()
 end
 
-function newplot(dseries, locale, plseries=[:Infectious])
+function newplot(series, locale, plcols=[infectious]; days="all")
 
     pyplot()
     theme(:ggplot2, foreground_color_border =:black)
 
-    !(typeof(plseries) <: Array) && (plseries = [plseries])
+    !(typeof(plcols) <: Array) && (plcols = [plcols])
 
-    # the data
-    n = size(dseries[locale][:new],1)
-    newseries = Matrix([DataFrame(Day = 1:n) dseries[locale][:new][!,plseries]])
-    labels = string.(plseries)
+    # the data and labels
+    n = size(series[locale][:new],1)
+    days = days == "all" ? (1:n) : days
+    newseries = series[locale][:new][days, [map2series[i][total] for i in plcols]]
+    labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = dseries[locale][:cum][1,:Unexposed] + dseries[locale][:cum][1,:Infectious]
+    people = series[locale][:cum][1, map2series[unexposed][total]] + series[locale][:cum][1,map2series[infectious][total]]
 
     # the plot
-    groupedbar(    newseries[:,1], newseries[:,2:end], 
-            size = (700,500),
-            label = labels, 
-            lw=0,
-            title = "Covid Daily Change for $people people over $n days",
-            xlabel = "Simulation Days",
-            yaxis = ("People"),
-            reuse =false
+    groupedbar( days, newseries[days,1:end], 
+                size = (700,500),
+                label = labels, 
+                lw=0.2,
+                bar_width=1,
+                title = "Covid Daily Change for $people people over $n days",
+                xlabel = "Simulation Days",
+                yaxis = ("People"),
+                reuse =false
         )
     gui()
 end
@@ -148,21 +150,22 @@ function dayplot(spreadq, plseries=[])
 end
 
 function dayplot(spreadseries::DataFrame, plseries=[])
+    
     pyplot()
     theme(:ggplot2, foreground_color_border =:black)
     
-    plot(spreadseries[!,:day], spreadseries[!,:infected],label="Infected", dpi=200,lw=2,
-         xlabel="Simulation Days", ylabel="People", title="Daily Spread of Covid",
-         bg_legend=:white)
+    plot(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
+            dpi=200,lw=2,
+            xlabel="Simulation Days", 
+            ylabel="People", 
+            title="Daily Spread of Covid",
+            bg_legend=:white)
     
     for addlseries in plseries
         lbl = titlecase(string(addlseries))
         plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, dpi=200,lw=2)
-        # plot!(spreadseries[!,:day], spreadseries[!,:touched],label="Touched", dpi=200,lw=2)
-        # plot!(spreadseries[!,:day], spreadseries[!,:spreaders],label="Spreaders", dpi=200,lw=2)
     end
     gui()  # force instant plot window
-    # plot!(spreadseries[!,:day], spreadseries[!,:cuminfected],label="Cum Infected", dpi=200,lw=2)
 end
 
 

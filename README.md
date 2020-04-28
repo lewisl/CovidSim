@@ -22,9 +22,9 @@ The basic processes of the simulation are:
 
 	A person who is sick with the virus transitions through the stages from nil to either recovered or dead, based on user-defined decision trees that vary by age group.
 
-Basic tracking includes cumulative data series for each groups, new daily values each group, and detailed daily progression of spreading.  Charts are defined for cumulative data, daily data, and spreading progression.
+Basic tracking includes cumulative data series for each group, new daily values for each group, and detailed daily progression of spreading.  Charts are defined for cumulative data, daily data, and spreading progression.
 
-There are many input parameters that control the behavior of the simulation. Key parameters affect spreading:
+There are many input parameters that control the behavior of the simulation. Key parameters that affect spreading are:
 - contact_factors 
 
     Determine the number of people that infectious "spreaders" contact, on average, per day. These vary by age group and disease condition of the spreader.

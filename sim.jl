@@ -134,7 +134,7 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
 #=
     see cases.jl for runcases and spreadcases
 =#
-
+    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
     locales = locales   # force local scope to the loop
     alldict = setup(geofilename, n_days; dectreefilename=dtfilename, geolim=15)
     dt = alldict["dt"]  # decision trees for transition
@@ -153,7 +153,6 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
     reset!(ctr, :day)  # remove key :day leftover from prior runs
 
     starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
-    println(starting_unexposed)
     starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
         Dict(locales[i]=>starting_unexposed[i,:] for i in size(locales,1)))
 
