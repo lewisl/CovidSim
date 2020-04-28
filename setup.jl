@@ -5,7 +5,7 @@
 const mean_density = 3316  # see Excel for backup
 
 
-function setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=15)
+function setup(geofilename, n_days; dectreefilename="dec_tree_all.csv", geolim=15)
 
     # geodata
     geodata = readgeodata(geofilename)
@@ -21,9 +21,8 @@ function setup(geofilename; dectreefilename="dec_tree_all.csv", geolim=15)
 
 
     # simulation data matrix
-    datadict = build_data(numgeo)
-    openmx = datadict["openmx"]
-    isolatedmx = datadict["isolatedmx"]
+    datadict = build_data(numgeo, n_days)
+    openmx = datadict["openmx"]   # alias to make it easier to do initialization
     init_unexposed!(openmx, geodata, numgeo)
 
     # transition decision trees 
@@ -55,15 +54,16 @@ function init_unexposed!(dat, geodata, numgeo)
 end
 
 
-function build_data(numgeo)
+function build_data(numgeo, n_days)
     # openmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
     openmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
     isolatedmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
-    # openhistmx = zeros(Int, size(conditions,1), size(agegrps,1), numgeo, 1) # initialize for 1 day
+    cumhistmx = hist_dict(numgeo, n_days)
+    newhistmx = hist_dict(numgeo, n_days)
     # isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
-    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx)
+    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
 # one environment at a time
@@ -71,6 +71,15 @@ function data_dict(numgeo; lags=laglim, conds=8, agegrps=5)
     dat = Dict()
     for i = 1:numgeo
         dat[i] = zeros(Int, lags, conds, agegrps)
+    end
+    return dat       
+end
+
+
+function hist_dict(numgeo, n_days; conds=8, agegrps=5)
+    dat = Dict()
+    for i = 1:numgeo
+        dat[i] = zeros(Int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end

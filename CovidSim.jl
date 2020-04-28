@@ -65,7 +65,9 @@ export                  # functions for tracking
     cumplot,
     newplot,
     dayplot,
-    dayanimate2
+    dayanimate2,
+    review_history,
+    make_series
 
 export            # queues for tracking
     travelq,

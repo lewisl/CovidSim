@@ -58,8 +58,6 @@ const anchor = 9
 const restrict = 10
 const density_fac = 11
 
-
-
 # population centers sizecats
 const major = 1  # 20
 const large = 2  # 50
@@ -108,7 +106,6 @@ const ages = length(agegrps)
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 
-
 """
 Map a condition index from rows in the data matrix to
 indices for the transition probabilities:
@@ -138,13 +135,13 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
     see cases.jl for runcases and spreadcases
 =#
 
-    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
-
     locales = locales   # force local scope to the loop
-    alldict = setup(geofilename; dectreefilename=dtfilename, geolim=15)
+    alldict = setup(geofilename, n_days; dectreefilename=dtfilename, geolim=15)
     dt = alldict["dt"]  # decision trees for transition
     # get iso_pr here
     openmx = alldict["dat"]["openmx"]
+    cumhistmx = alldict["dat"]["cumhistmx"]
+    newhistmx = alldict["dat"]["newhistmx"]
     isolatedmx = alldict["dat"]["isolatedmx"]
     dseries = build_series(locales)   # should use numgeo here
     geodata = alldict["geo"]
@@ -156,10 +153,9 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
     reset!(ctr, :day)  # remove key :day leftover from prior runs
 
     starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
-    starting_unexposed = vcat(locales', starting_unexposed)
-
-    # spreadtime = 0
-    # trantime = 0
+    println(starting_unexposed)
+    starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
+        Dict(locales[i]=>starting_unexposed[i,:] for i in size(locales,1)))
 
     for i = 1:n_days
         inc!(ctr, :day)  # update the simulation day counter
@@ -178,16 +174,57 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
                 println("at day $(ctr[:day]) r0 = $current_r0")
             end
         end
-        queue_to_newseries!(newstatq, dseries, locales) # update tracking stats for the day
+        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, starting_unexposed=starting_unexposed)
     end
     println("Simulation completed for $(ctr[:day]) days.")
 
-    for locale in locales
-        new_to_cum!(dseries, locale, starting_unexposed)
-    end
+    series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
 
-    return alldict, dseries, env
+    return alldict, env, series
 end
+
+
+function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
+    thisday = ctr[:day]
+    if thisday == 1
+        for locale in locales
+            zerobase = zeros(Int, size(newhist[locale])[1:2])
+            zerobase[1,1:5] .+= starting_unexposed[locale]
+            zerobase[1,6] = sum(starting_unexposed[locale])
+
+            cumhist[locale][:, 1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
+            cumhist[locale][:, 6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
+            newhist[locale][:,:,thisday] = cumhist[locale][:,:, thisday] .- zerobase
+        end
+    else  # on all other days...
+        for locale in locales
+            cumhist[locale][:,1:5, thisday] = sum(opendat[locale],dims=1)[1,:,:]
+            cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
+            newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1]
+        end
+    end
+end
+
+
+function review_history(histmx)
+    for i in 1:size(histmx, 3)
+        println("   *** Day $i ***")
+        display(hcat(histmx[:,:,i], [:Unexposed, :Infectious, :Recovered, :Dead, :Nil, :Mild, :Sick, :Severe]))
+        print("Press enter or type q and enter to quit> "); resp = chomp(readline())
+        if resp == "q"; break; end
+    end
+end
+
+
+# a single locale, either cumulative or new matrix
+function make_series(histmx)
+    s = zeros(Int, size(histmx,3), prod(size(histmx)[1:2]))
+    for i in 1:size(histmx, 3)
+        s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
+    end
+    return s
+end
+
 
 
 function sim_r0(;env=env)
@@ -267,8 +304,6 @@ function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
                 input!.(cnt, cond, agegrps, lag, loc, dat=dat)
                 minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
                 update_infectious!(loc, dat = dat)
-                println("got here and cnt is: ", cnt)
-                queuestats(cnt=cnt, locale=locale, agegrp=agegrps, cond=conds, event=:seed)
             end
         end
     end
@@ -337,6 +372,7 @@ function distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; d
         return   # save some time if there is nothing to do
     end
     @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
+    # println("on day $(ctr[:day]) folks $folks lag $lag from $fromcond to $toprobs")
 
 
     map2pr = (unexposed = -1, infectious = -1, recovered = 1, dead = 6, nil = 2, mild = 3, sick = 4, severe = 5)
@@ -351,23 +387,11 @@ function distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; d
         "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
         end
 
-
-    # distribute to infectious cases,recovered, dead
-
-    @bp  # WHY ARE PEOPLE DISAPPEARING IN THE NEXT 4 LINES?
     lag != lastlag && (plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
     plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
     minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
-    # set the amounts and toconds for the queue of daily changes
-    leaveout = mapcond2tran[fromcond]
-    deleteat!(distvec, leaveout) # exclude the source condition
-    deleteat!(transition_cases, leaveout)
-    moveout = sum(distvec)
-
-    queuestats(cnt=distvec, cond=transition_cases, locale=locale, agegrp=agegrp, event=:transition)
-    queuestats(cnt=-moveout, cond=fromcond, locale=locale, agegrp=agegrp, event=:transition)
     return
 end
 

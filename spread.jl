@@ -69,7 +69,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
                 unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
                 infected=sum(newinfected)))
     # add to stats queue for today
-    queuestats(cnt=newinfected, cond=nil, locale=locale, agegrp=agegrps, event=:spread) # sum(5 agegroups), nil is the default, single locale
+    # queuestats(cnt=newinfected, cond=nil, locale=locale, agegrp=agegrps, event=:spread) # sum(5 agegroups), nil is the default, single locale
 
     return
 end
