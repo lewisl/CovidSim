@@ -5,16 +5,19 @@
 const series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead, 5=>:Nil, 6=>:Mild, 7=>:Sick,
         8=>:Severe,  9=>:Travelers, 10=>:Isolated,
         # columns by agegrp
-        11=>:Unexposed_1, 12=>:Unexposed_2, 13=>:Unexposed_3, 14=>:Unexposed_4, 15=>:Unexposed_5,
-        21=>:Infectious_1, 22=>:Infectious_2, 23=>:Infectious_3, 24=>:Infectious_4, 25=>:Infectious_5,
-        31=>:Recovered_1, 32=>:Recovered_2, 33=>:Recovered_3, 34=>:Recovered_4, 35=>:Recovered_5,
-        41=>:Dead_1, 42=>:Dead_2, 43=>:Dead_3, 44=>:Dead_4, 45=>:Dead_5,
-        51=>:Nil_1, 52=>:Nil_2, 53=>:Nil_3, 54=>:Nil_4, 55=>:Nil_5,
-        61=>:Mild_1, 62=>:Mild_2, 63=>:Mild_3, 64=>:Mild_4, 65=>:Mild_5,
-        71=>:Sick_1, 72=>:Sick_2, 73=>:Sick_3, 74=>:Sick_4, 75=>:Sick_5,
-        81=>:Severe_1, 82=>:Severe_2, 83=>:Severe_3, 84=>:Severe_4, 85=>:Severe_5,
-        101=>:Isolated_1, 102=>:Isolated_2, 103=>:Isolated_3, 104=>:Isolated_4, 105=>:Isolated_5
+        11=>:Unexposed_1, 12=>:Unexposed_2, 13=>:Unexposed_3, 14=>:Unexposed_4, 15=>:Unexposed_5,       # 11-15
+        16=>:Infectious_1, 17=>:Infectious_2, 18=>:Infectious_3, 19=>:Infectious_4, 20=>:Infectious_5,  # 16-20
+        21=>:Recovered_1, 22=>:Recovered_2, 23=>:Recovered_3, 24=>:Recovered_4, 25=>:Recovered_5,       # 21-25
+        26=>:Dead_1, 27=>:Dead_2, 28=>:Dead_3, 29=>:Dead_4, 30=>:Dead_5,                                # 26-30
+        31=>:Nil_1, 32=>:Nil_2, 33=>:Nil_3, 34=>:Nil_4, 35=>:Nil_5,                                     # 31-35
+        36=>:Mild_1, 37=>:Mild_2, 38=>:Mild_3, 39=>:Mild_4, 40=>:Mild_5,                                # 36-40
+        41=>:Sick_1, 42=>:Sick_2, 43=>:Sick_3, 44=>:Sick_4, 45=>:Sick_5,                                # 41-45
+        46=>:Severe_1, 47=>:Severe_2, 48=>:Severe_3, 49=>:Severe_4, 50=>:Severe_5,                      # 46-50
+        51=>:Isolated_1, 52=>:Isolated_2, 53=>:Isolated_3, 54=>:Isolated_4, 55=>:Isolated_5             # 51-55
         )
+
+const mapc2age = (unexposed=11:15, infectious=16:20, recovered=21:25, dead=26:30, 
+                      nil=31:35, mild=36:40, sick=41:45, severe=46:50)
 
 
 """
@@ -101,7 +104,8 @@ function queuestats(;cnt, cond, locale, agegrp, event)  # must supply values for
         else
             # net addition to nil
             # additem = spreadstat(cnt = cnt, locale=locale, tocond=tocond)  # defaults to tocond=nil, event=:spread
-            for i in length(cnt)
+            for i in eachindex(cnt)
+                if cnt[i] == 0 ; continue ; end
                 push!(newstatq, (day=thisday, cnt=cnt[i], locale=locale, agegrp=agegrp[i], tocond=cond, event=:spread))
                 # net subtraction from unexposed
                 # additem = spreadstat(cnt = -vals, locale = locale, tocond=unexposed, event=event)
@@ -109,8 +113,10 @@ function queuestats(;cnt, cond, locale, agegrp, event)  # must supply values for
             end
         end
     elseif event == :seed
+        println("got to queuestats seed and cnt is: ", cnt)
         @assert length(cnt) == length(agegrp) "lengths of cnt and agegrp must be equal: got $(length(cnt)) and $(length(agegrp))"
-        for i in length(cnt)
+        for i in eachindex(cnt)
+            println("got inside loop and cnt is: ", cnt[i])
             push!(newstatq, (day=thisday, cnt=cnt[i], locale=locale, agegrp=agegrp[i], tocond=cond, event=:spread)) 
         end
     elseif event == :transition
@@ -158,31 +164,40 @@ function queue_to_newseries!(newstatq, dseries, locales)
         # :Mild=> 0, :Sick=> 0, :Severe=> 0,  :Travelers=> 0, :Isolated=> 0)
 
     agg = by(newstatq, [:locale, :tocond], x->x)
-    println(typeof(agg))
 
     for l in locales
 
-        filt = agg[agg[:locale] .== l, :]
+        filt = agg[agg[: ,:locale] .== l, :]
         # rowfill = copy(rowinit)
         rowinit = zeros(55)
 
         for r in eachrow(filt)
+
+            println("in queue_to_newseries day $(r.day): cond: $(r.tocond), event: $(r.event), agegrp: $(r.agegrp), cnt: $(r.cnt)",  )
+
+            if r.cnt == 0
+                continue
+            end
+            agecol = mapc2age[r.tocond][r.agegrp]      
             if r.event == :spread
-                destcols = ((r.tocond * 10) + 1):((r.tocond * 10) + 5) # columns 51-55, 61-65, 71-75, 81-85
-                rowinit[!, destcols] = r.cnt  
+                rowinit[r.tocond] += r.cnt  
+                rowinit[agecol] += r.cnt
             elseif r.event == :transition
-                destcol = (r.tocond * 10) + r.agegrp
-                rowinit[!, destcol] = r.cnt
+                rowinit[r.tocond] += r.cnt
+                rowinit[agecol] += r.cnt
             elseif r.event == :seed 
-                destcol = # TODO
-                rowinit[destcol] = r.cnt
+                rowinit[r.tocond] += r.cnt
+                rowinit[agecol] += r.cnt
             end
         end
 
-        # rowfill[:Infectious] = rowfill[:Nil] + rowfill[:Mild] + rowfill[:Sick] + rowfill[:Severe]
         rowinit[infectious] = sum(rowinit[nil:severe])
-        # push!(dseries[l][:new], rowfill)
-
+        # total up infectious by agegrp
+        for i in agegrps
+            rowinit[mapc2age[infectious][i]] = (rowinit[mapc2age[nil][i]] + rowinit[mapc2age[mild][i]] + 
+                                                    rowinit[mapc2age[sick][i]] + rowinit[mapc2age[severe][i]])
+        end
+        println("  final result $(ctr[:day]): $rowinit")
         push!(dseries[l][:new], rowinit)
     end
     # purge the queue
@@ -202,7 +217,7 @@ function new_to_cum!(dseries, locale, starting_unexposed)
 
     # cum first row
     r1_new = collect(newseries[1,:])
-    r1_cum = zeros(10) .+ r1_new
+    r1_cum = zeros(55) .+ r1_new
     r1_cum[1] += startunexp
     # r1_cum[2] += sum(r1_new[nil:severe])
 

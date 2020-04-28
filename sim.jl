@@ -267,6 +267,7 @@ function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
                 input!.(cnt, cond, agegrps, lag, loc, dat=dat)
                 minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
                 update_infectious!(loc, dat = dat)
+                println("got here and cnt is: ", cnt)
                 queuestats(cnt=cnt, locale=locale, agegrp=agegrps, cond=conds, event=:seed)
             end
         end
