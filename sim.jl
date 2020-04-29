@@ -135,27 +135,29 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
     see cases.jl for runcases and spreadcases
 =#
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
-    locales = locales   # force local scope to the loop
-    alldict = setup(geofilename, n_days; dectreefilename=dtfilename, geolim=15)
-    dt = alldict["dt"]  # decision trees for transition
-    # get iso_pr here
-    openmx = alldict["dat"]["openmx"]
-    cumhistmx = alldict["dat"]["cumhistmx"]
-    newhistmx = alldict["dat"]["newhistmx"]
-    isolatedmx = alldict["dat"]["isolatedmx"]
-    dseries = build_series(locales)   # should use numgeo here
-    geodata = alldict["geo"]
 
-    # pre-allocate arrays and initialize parameters for spread!
+    # access input data and pre-allocate storage
+    alldict = setup(geofilename, n_days; dectreefilename=dtfilename, geolim=15)
+        dt = alldict["dt"]  # decision trees for transition
+        openmx = alldict["dat"]["openmx"]
+        cumhistmx = alldict["dat"]["cumhistmx"]
+        newhistmx = alldict["dat"]["newhistmx"]
+        isolatedmx = alldict["dat"]["isolatedmx"]
+        geodata = alldict["geo"]
+    dseries = build_series(locales)   # should use numgeo here?
+
+    # simulation environment: pre-allocate arrays and initialize parameters for spread!
     env = initialize_sim_env()
 
     # start the counter at zero
     reset!(ctr, :day)  # remove key :day leftover from prior runs
 
+    # initial data for building data series of simulation outcomes
     starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
     starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
         Dict(locales[i]=>starting_unexposed[i,:] for i in size(locales,1)))
 
+    locales = locales   # force local scope to be visible in the loop
     for i = 1:n_days
         inc!(ctr, :day)  # update the simulation day counter
         @debug "\n\n Start day $(ctr[:day])"
@@ -250,11 +252,6 @@ function sim_r0(;env=env)
     return current_r0
 end
 
-####################################################################################
-#   functions for simulation events
-####################################################################################
-# things that cause condition changes: travel, spread, transition, isolate
-
 
 function initialize_sim_env()
     @assert laglim >= 19 "laglim must be >= 19--got $laglim"
@@ -289,168 +286,6 @@ function initialize_sim_env()
                 sd_compliance = zeros(6,5))
     ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
     return ret
-end
-
-
-function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
-    @assert length(lag) == 1 "input only one lag value"
-    # @warn "Seeding is for testing and may result in case counts out of balance"
-    if day == ctr[:day]
-        println("*** seed day $(ctr[:day]) locale $locale....")
-        for loc in locale
-            for cond in conds
-                @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-                input!.(cnt, cond, agegrps, lag, loc, dat=dat)
-                minus!.(cnt, unexposed, agegrps, 1, loc, dat=dat)
-                update_infectious!(loc, dat = dat)
-            end
-        end
-    end
-end
-
-
-"""
-    transition!(dt, locale; case="open", dat=openmx)
-
-People who have become infectious transition through cases from
-nil (asymptomatic) to mild to sick to severe, depending on their
-agegroup, days of being exposed, and some probability. The final
-outcomes are recovered or dead.
-"""
-function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
-
-    for lag = laglim:-1:1
-        dec_tree_applied = false
-        for agegrp in agegrps
-            tree = dt[agegrp].tree
-            node_decpoints = dt[agegrp].dec_points
-            if lag in keys(node_decpoints) # check if a decision tree applies today
-                for node in node_decpoints[lag]  
-                    toprobs = zeros(6)
-                    for branch in tree[node]  # agegroup index in array, node key in agegroup dict
-                        toprobs[mapcond2tran[branch.tocond]] = branch.pr
-                    end
-                    fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
-                    @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
-                    distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, dat=dat)
-                end
-                dec_tree_applied = true
-            end
-        end
-
-        if lag == laglim  # there must be a node that starts on laglim and clears everyone left on the last lag!
-            if sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)) !== 0
-                @warn  "infectious conditions not zero at lag $laglim, day $(ctr[:day])--found $(sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)))"
-            end
-            if !dec_tree_applied # e.g., dec_tree was NOT applied for final lag
-                @warn "decision node not applied at last lag--probably wrong outcomes"
-            end
-        end
-
-        if dec_tree_applied
-            continue  # EITHER move people with a decision node OR by just bumping them up
-        end
-
-        # on a day with no decision tree, bump every infected person up one day within the same condition
-        input!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag+1, locale, dat=dat)
-        minus!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag,   locale, dat=dat)
-    end
-
-    # total of all people who are nil, mild, sick, or severe across all lag days
-    update_infectious!(locale, dat = dat)
-end
-
-
-function distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
-    @assert length(locale) == 1  "Assertion failed: length locale was not 1"
-    transition_cases = [recovered, nil,mild,sick,severe, dead]
-
-    # get the number of folks to be distributed
-    folks = grab(fromcond,agegrp,lag,locale, dat=dat) # scalar
-    if folks == 0
-        return   # save some time if there is nothing to do
-    end
-    @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
-    # println("on day $(ctr[:day]) folks $folks lag $lag from $fromcond to $toprobs")
-
-
-    map2pr = (unexposed = -1, infectious = -1, recovered = 1, dead = 6, nil = 2, mild = 3, sick = 4, severe = 5)
-
-    # get the distvect of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-    @assert isapprox(sum(toprobs), 1.0, atol=1e-3) "target vector must sum to 1.0; submitted $toprobs"
-    x = categorical_sample(toprobs, folks)
-    # println(x)
-    distvec = bucket(x, vals=1:length(toprobs))        # [count(x .== i) for i in 1:size(toprobs,1)]
-    @debug begin
-        cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
-        "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
-        end
-
-    lag != lastlag && (plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
-    plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-    plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-    minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
-
-    return
-end
-
-
-function update_infectious!(locale; dat=openmx) # by single locale
-    for agegrp in agegrps
-        tot = total!([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
-        input!(tot, infectious, agegrp, 1, locale, dat=dat) # update the infectious total for the locale and agegroup
-    end
-end
-
-
-"""
-For a locale, randomly choose the number of people from each agegroup with
-condition of {unexposed, infectious, recovered} who travel to each
-other locale. Add to the travelq.
-"""
-function travelout!(locale, numgeo, rules=[])
-    # 10.5 microseconds for 5 locales
-    # choose distribution of people traveling by age and condition:
-        # unexposed, infectious, recovered -> ignore lag for now
-    # TODO: more frequent travel to and from Major and Large cities
-    # TODO: should the caller do the loop across locales?   YES
-    locales =1:numgeo
-    travdests = collect(locales)
-    deleteat!(travdests,findfirst(isequal(locale), travdests))
-    bins = lim = length(travdests) + 1
-    for agegrp in agegrps
-        for cond in [unexposed, infectious, recovered]
-            name = condnames[cond]
-            for lag in lags
-                numfolks = sum(grab(cond, agegrp, lag, locale)) # this locale, all lags
-                travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
-                x = rand(travdests, travcnt)  # randomize across destinations
-                bydest = bucket(x, vals=1:length(travdests))
-                for dest in 1:length(bydest)
-                    isempty(bydest) && continue
-                    cnt = bydest[dest]
-                    iszero(cnt) && continue
-                    enqueue!(travelq, travitem(cnt, locale, dest, agegrp, lag, name))
-                end
-            end
-        end
-    end
-end
-
-
-"""
-Assuming a daily cycle, at the beginning of the day
-process the queue of travelers from the end of the previous day.
-Remove groups of travelers by agegrp, lag, and condition
-from where they departed.  Add them to their destination.
-"""
-function travelin!(dat=openmx)
-    while !isempty(travelq)
-        g = dequeue!(travelq)
-        cond = eval(Symbol(g.cond))
-        minus!(g.cnt, cond, g.agegrp, g.lag, g.from, dat=dat)
-        plus!(g.cnt, cond, g.agegrp, g.lag, g.to, dat=dat)
-    end
 end
 
 
