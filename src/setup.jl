@@ -5,7 +5,8 @@
 const mean_density = 3316  # see Excel for backup
 
 
-function setup(geofilename, n_days; dectreefilename="dec_tree_all.csv", geolim=15)
+function setup(n_days; geofilename="../data/geo2data.csv", geolim=15, 
+    dectreefilename="../parameters/dec_tree_all.csv")
 
     # geodata
     geodata = readgeodata(geofilename)

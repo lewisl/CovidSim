@@ -23,10 +23,9 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)
 seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
 
 # %% hide_input=true
-alldict, dseries, env = run_a_sim("geo2data.csv",180,11,
-       dtfilename="dec_tree_all_25.csv", 
-       silent=true,spreadcases=[],
-       runcases=[seed_1_6, seed_6_12]);
+alldict, dseries, env = run_a_sim(180,11,silent=true,
+            spreadcases=[],
+            runcases=[seed_1_6, seed_6_12]);
 geo = alldict["geo"];
 
 # %% hide_input=true
@@ -113,9 +112,8 @@ dayplot(spreadq)
 
 # %%
 str_60 = sd_gen(start=60, comply=.75, cf=(.3,1.2), tf=(.18,.4));
-alldict, dseries, env = run_a_sim("geo2data.csv",180,11,showr0=false,
-       dtfilename="dec_tree_all_25.csv", 
-       silent=true,spreadcases=[str_60],
+alldict, dseries, env = run_a_sim(180,11,showr0=false,silent=true,
+       spreadcases=[str_60],
        runcases=[seed_1_6, seed_6_12]);
 
 # %%
@@ -140,9 +138,8 @@ cumplot(dseries, 11, [:Infectious, :Dead],geo=geo)
 
 # %%
 str_50 = sd_gen(start=50, comply=.75, cf=(.2,1.2), tf=(.18,.4));
-alldict, dseries, env = run_a_sim("geo2data.csv",180,11,showr0=false,
-       dtfilename="dec_tree_all_25.csv", 
-       silent=true,spreadcases=[str_50],
+alldict, dseries, env = run_a_sim(180,11,showr0=false, silent=true,
+       spreadcases=[str_50],
        runcases=[seed_1_6, seed_6_12]);
 
 # %%
@@ -157,9 +154,8 @@ cumplot(dseries, 11, geo=geo)
 
 # %%
 open_all = sd_gen(start=80, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
-alldict, dseries, env = run_a_sim("geo2data.csv",180,11,showr0=false,
-       dtfilename="dec_tree_all_25.csv", 
-       silent=true,spreadcases=[str_50,open_all],  # strong social distancing, then open
+alldict, dseries, env = run_a_sim(180,11,showr0=false, silent=true,
+       spreadcases=[str_50,open_all],  # strong social distancing, then open
        runcases=[seed_1_6, seed_6_12]);
 
 # %%
@@ -183,9 +179,8 @@ cumplot(dseries, 11, geo=geo)
 # %%
 close = sd_gen(start=50, comply=.75, cf=(.2,1.0), tf=(.18,.4));
 open = sd_gen(start=90, comply=.75, cf=(.2,1.5), tf=(.18,.5));
-alldict, dseries, env = run_a_sim("geo2data.csv",180,10,showr0=false,
-       dtfilename="dec_tree_all_25.csv", 
-       silent=true,spreadcases=[close, open],
+alldict, dseries, env = run_a_sim(180,10,showr0=false, silent=true,
+       spreadcases=[close, open],
        runcases=[seed_1_6, seed_6_12]);
 
 # %%
@@ -215,8 +210,7 @@ cumplot(dseries, 10,[:Infectious, :Dead], geo=geo)
 # Finally, for comparison here is what Bismarck, ND could look like with no social distancing at all.
 
 # %%
-alldict, dseries, env = run_a_sim("geo2data.csv",180,10,
-       dtfilename="dec_tree_all_25.csv", showr0=false,
+alldict, dseries, env = run_a_sim(180,10, showr0=false,
        silent=true,spreadcases=[open_all],
        runcases=[seed_1_6, seed_6_12]);
 

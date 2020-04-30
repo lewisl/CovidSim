@@ -129,15 +129,15 @@ const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, m
 ####################################################################################
 
 
-function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
-                   dtfilename = "dec_tree_all.csv", showr0 = true, silent=true)
+function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, silent=true,
+    geofilename="../data/geo2data.csv", dtfilename="../parameters/dec_tree_all_25.csv")
 #=
     see cases.jl for runcases and spreadcases
 =#
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
 
     # access input data and pre-allocate storage
-    alldict = setup(geofilename, n_days; dectreefilename=dtfilename, geolim=15)
+    alldict = setup(n_days; geofilename=geofilename, dectreefilename=dtfilename, geolim=15)
         dt = alldict["dt"]  # decision trees for transition
         openmx = alldict["dat"]["openmx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
