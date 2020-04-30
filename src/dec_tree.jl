@@ -109,8 +109,7 @@ function walktree(dt, top)
 end
 
 
-function sanity_test_all(dtfname)
-    trees = setup_dt(dtfname)
+function sanity_test_all(trees)
     tbl = zeros(size(trees,1),4)
     for (i, it) in enumerate(trees)
         paths = walktree(it.tree,(1,1))
@@ -118,6 +117,11 @@ function sanity_test_all(dtfname)
         tbl[i, :] .= [i, res.total, res.recovered, res.dead]
     end
     return tbl
+end
+
+function sanity_test_all(dtfname::String)
+    trees = setup_dt(dtfname)
+    sanity_test_all(trees)
 end
 
 
