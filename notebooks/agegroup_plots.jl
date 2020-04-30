@@ -23,8 +23,7 @@ pyplot()
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, env, series = run_a_sim("geo2data.csv",180,10,
-       dtfilename="dec_tree_all_25.csv", showr0=false, 
+alldict, env, series = run_a_sim(180,10, showr0=false, 
        silent=true,spreadcases=[],
        runcases=[seed_1_6]);
 geo = alldict["geo"];
