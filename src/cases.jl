@@ -1,6 +1,10 @@
+####################################################################
+# cases.jl
+#       pass these cases to run_a_sim in kwarg runcases as a list
+#       cases = [CovidSim.<funcname>, CovidSim.<funcname>, ...]  
+#       then run_a_sim(geofilename, n_days, locales; runcases=cases)
+####################################################################
 
-# pass these cases to run_a_sim in kwarg runcases as a list
-# cases = [CovidSim.<funcname>, CovidSim.<funcname>, ...]  then run_a_sim(geofilename, n_days, locales; runcases=cases)
 
 """
 Generate seeding cases.

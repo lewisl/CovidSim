@@ -30,7 +30,7 @@ function run_report_1()
     println("Phoenix with no social distancing or isolation...")
     print("**********\n\n")
 
-    cumplot(dseries,11,geo=geo)
+    cumplot(series,11,geo=geo)
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -41,7 +41,7 @@ function run_report_1()
     println("Let's look more closely at the infectious and the dead...")
     print("**********\n\n")
 
-    cumplot(dseries,11,geo=geo, [:Infectious, :Dead])
+    cumplot(series,11,geo=geo, [infectious, dead])
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -75,7 +75,7 @@ function run_report_1()
     alldict, env, series = run_a_sim(180,11,
            silent=true,spreadcases=[str_60],
            runcases=[seed_1_6, seed_6_12]);
-    cumplot(dseries, 11, geo=geo)
+    cumplot(series, 11, geo=geo)
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -86,7 +86,7 @@ function run_report_1()
     println("Focus on infectious and dead...")
     print("**********\n\n")
 
-    cumplot(dseries, 11, [:Infectious, :Dead],geo=geo)
+    cumplot(series, 11, [infectious, dead], geo=geo)
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -104,7 +104,7 @@ function run_report_1()
     alldict, env, series = run_a_sim(180,11,
            silent=true,spreadcases=[str_50],
            runcases=[seed_1_6, seed_6_12]);
-    cumplot(dseries, 11, geo=geo)
+    cumplot(series, 11, geo=geo)
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -120,7 +120,7 @@ function run_report_1()
     alldict, env, series = run_a_sim(180,11,
            silent=true,spreadcases=[str_50,open_all],  # strong social distancing, then open
            runcases=[seed_1_6, seed_6_12]);
-    cumplot(dseries, 11, geo=geo)
+    cumplot(series, 11, geo=geo)
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -128,16 +128,16 @@ function run_report_1()
             end
 
     print("\n\n**********\n")
-    println("Phoenix is too big.  Let's go to Omaha...")
+    println("Phoenix is too big.  Let's go to Bismarck...")
     print("**********\n\n")
 
     close = sd_gen(start=50, comply=.75, cf=(.3,1.2), tf=(.18,.4));
     open = sd_gen(start=90, comply=.75, cf=(.2,1.5), tf=(.18,.5
             ));
-    alldict, env, series = run_a_sim(180,14,silent=true,
+    alldict, env, series = run_a_sim(180,10,silent=true,
             spreadcases=[close, open],
             runcases=[seed_1_6, seed_6_12]);
-    cumplot(dseries, 14,[:Infectious, :Dead, :Recovered], geo=geo)
+    cumplot(dseries, 10, [infectious, dead], geo=geo)
 
         print("press enter to continue or enter q to quit> "); resp = chomp(readline())
             if resp == "q"
@@ -145,11 +145,11 @@ function run_report_1()
             end
 
     print("\n\n**********\n")
-    println("Here's Omaha with no social distancing or isolation...")
+    println("Here's Bismarck with no social distancing or isolation...")
     print("**********\n\n")
 
-    alldict, env, series = run_a_sim(180,14,
+    alldict, env, series = run_a_sim(180,10,
            silent=true,spreadcases=[],
            runcases=[seed_1_6, seed_6_12]);
-    cumplot(dseries, 14,[:Infectious, :Dead, :Recovered], geo=geo)
+    cumplot(dseries, 10, [infectious, dead, recovered], geo=geo)
 end
