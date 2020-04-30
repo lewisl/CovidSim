@@ -21,7 +21,7 @@ function run_report_1()
     seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)
     seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
 
-    alldict, dseries, starting_unexposed = run_a_sim("geo2data.csv",180,11,
+    alldict, env, series = run_a_sim("geo2data.csv",180,11,
            dtfilename="dec_tree_all_25.csv", 
            silent=true,spreadcases=[],
            runcases=[seed_1_6, seed_6_12]);
@@ -73,7 +73,7 @@ function run_report_1()
     print("**********\n\n")
 
     str_60 = sd_gen(start=60, comply=.75, cf=(.3,1.2), tf=(.18,.4));
-    alldict, dseries, starting_unexposed = run_a_sim("geo2data.csv",180,11,
+    alldict, env, series = run_a_sim("geo2data.csv",180,11,
            dtfilename="dec_tree_all_25.csv", 
            silent=true,spreadcases=[str_60],
            runcases=[seed_1_6, seed_6_12]);
@@ -103,7 +103,7 @@ function run_report_1()
     print("**********\n\n")
 
     str_50 = sd_gen(start=50, comply=.75, cf=(.3,1.2), tf=(.18,.4));
-    alldict, dseries, starting_unexposed = run_a_sim("geo2data.csv",180,11,
+    alldict, env, series = run_a_sim("geo2data.csv",180,11,
            dtfilename="dec_tree_all_25.csv", 
            silent=true,spreadcases=[str_50],
            runcases=[seed_1_6, seed_6_12]);
@@ -120,7 +120,7 @@ function run_report_1()
 
     open_80 = sd_gen(start=80, comply=1.0, cf=(.2,1.8), tf=(.18,.62));
     open_all = sd_gen(start=80, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
-    alldict, dseries, starting_unexposed = run_a_sim("geo2data.csv",180,11,
+    alldict, env, series = run_a_sim("geo2data.csv",180,11,
            dtfilename="dec_tree_all_25.csv", 
            silent=true,spreadcases=[str_50,open_all],  # strong social distancing, then open
            runcases=[seed_1_6, seed_6_12]);
@@ -138,7 +138,7 @@ function run_report_1()
     close = sd_gen(start=50, comply=.75, cf=(.3,1.2), tf=(.18,.4));
     open = sd_gen(start=90, comply=.75, cf=(.2,1.5), tf=(.18,.5
             ));
-    alldict, dseries, starting_unexposed = run_a_sim("geo2data.csv",180,14,
+    alldict, env, series = run_a_sim("geo2data.csv",180,14,
            dtfilename="dec_tree_all_25.csv", 
            silent=true,spreadcases=[close, open],
            runcases=[seed_1_6, seed_6_12]);
@@ -153,7 +153,7 @@ function run_report_1()
     println("Here's Omaha with no social distancing or isolation...")
     print("**********\n\n")
 
-    alldict, dseries, starting_unexposed = run_a_sim("geo2data.csv",180,14,
+    alldict, env, series = run_a_sim("geo2data.csv",180,14,
            dtfilename="dec_tree_all_25.csv", 
            silent=true,spreadcases=[],
            runcases=[seed_1_6, seed_6_12]);

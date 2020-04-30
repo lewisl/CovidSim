@@ -144,13 +144,12 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
         newhistmx = alldict["dat"]["newhistmx"]
         isolatedmx = alldict["dat"]["isolatedmx"]
         geodata = alldict["geo"]
-    dseries = build_series(locales)   # should use numgeo here?
 
     # simulation environment: pre-allocate arrays and initialize parameters for spread!
     env = initialize_sim_env()
 
-    # start the counter at zero
-    reset!(ctr, :day)  # remove key :day leftover from prior runs
+    # start the day counter at zero
+    reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
     # initial data for building data series of simulation outcomes
     starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
@@ -159,14 +158,13 @@ function run_a_sim(geofilename, n_days, locales; runcases=[], spreadcases=[],
 
     locales = locales   # force local scope to be visible in the loop
     for i = 1:n_days
-        inc!(ctr, :day)  # update the simulation day counter
-        @debug "\n\n Start day $(ctr[:day])"
+        inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
         for locale in locales
             for case in runcases
                 case(locale, opendat=openmx, isodat=isolatedmx, env=env)
             end
-            density_factor = geodata[locale,density_fac]
+            density_factor = geodata[locale, density_fac]
             spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
             transition!(dt, locale, dat=openmx)   # transition all infectious cases "in the open"
             transition!(dt, locale, dat=isolatedmx)  # transition all infectious cases in isolation
@@ -186,6 +184,7 @@ end
 
 
 function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
+    # capture a snapshot of the end-of-day population matrix
     thisday = ctr[:day]
     if thisday == 1
         for locale in locales
@@ -199,7 +198,7 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
         end
     else  # on all other days...
         for locale in locales
-            cumhist[locale][:,1:5, thisday] = sum(opendat[locale],dims=1)[1,:,:]
+            cumhist[locale][:,1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
             cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
             newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1]
         end

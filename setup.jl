@@ -84,54 +84,6 @@ function hist_dict(numgeo, n_days; conds=8, agegrps=5)
     return dat       
 end
 
-"""
-    Build container for data series of simulation outcomes by day.
-    Top index is an integer that is the ID of a locale or 0 for total across locales.
-    2nd index is either :new or :cum.
-    Values at the leaf of :new is a DataFrame of new additions to a series.
-    Values at the leaf of :cum is a DataFrame of the cumulative values of a series.
-    Current series columns are:
-        Unexposed
-        Infectious
-        Recovered
-        Dead
-        Nil
-        Mild
-        Sick
-        Severe
-        Travelers
-        Isolated
-    Rows are days of the simulation.
-"""
-function build_series(locales)
-#=
-columnnames = ["x", "y", "z"]
-columns = [Symbol(col) => Float64[] for col in columnnames]
-df1 = DataFrame(columns...)
-df2 = DataFrame(columns...)
-series_colnames = Dict( 1=>:Unexposed,  2=>:Infectious, 3=>:Recovered, 4=>:Dead, 5=>:Nil, 6=>:Mild, 7=>:Sick,
-        8=>:Severe,  9=>:Travelers, 10=>:Isolated)
-
-=#
-
-
-    dseries = Dict{Int,Dict}()
-    # columns = [series_colnames[i] => Int[] for i in 1:length(series_colnames)]
-
-    template = DataFrame([series_colnames[i] => Int[] for i in keys(series_colnames)]...)
-
-    # new = DataFrame(Travelers=Int[], Unexposed=Int[], Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
-    #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[])
-    # cum = DataFrame(Travelers=Int[], Unexposed=Int[],Infected=Int[], Nil=Int[], Mild=Int[], Sick=Int[],
-    #     Severe=Int[], Dead=Int[], Recovered=Int[], Isolated=Int[]) # do by agegrp, total, by gender?
-    for i in [0, locales...]
-        dseries[i]=Dict{Symbol,DataFrame}()
-        dseries[i][:new] = deepcopy(template)
-        dseries[i][:cum] = deepcopy(template)
-    end
-    return dseries
-end
-
 
 function readgeodata(filename)
     geodata = readdlm(filename, ','; header=true)[1]
@@ -139,17 +91,6 @@ end
 
 
 # calculate density_factor in setup, per locale
-test_density = rand((5000:3_000_000),20)  # for real, use US Census data
-
-function minmax_norm(x)
-    x_max = maximum(x, dims=1)
-    x_min = minimum(x, dims=1)
-    minmax = (x .- x_min) ./ (x_max .- x_min .+ 1e-08)
-end
-
-function scale_minmax(x, newmin, newmax) 
-    round.(x .* (newmax - newmin) .+ newmin, digits=2)
-end
 
 shifter(x::Array,a,b,c,d) = c .+ (d-c)/(b-a) .* (x .- a)
 

@@ -74,7 +74,8 @@ export            # queues for tracking
     isolatedq,
     newstatq,
     spreadq,
-    day2df
+    day2df,
+    map2series
 
 export                  # functions for decision trees
     setup_dt,

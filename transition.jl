@@ -35,6 +35,8 @@ outcomes are recovered or dead.
 """
 function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
 
+    iszero(dat[locale]) && (return)
+
     for lag = laglim:-1:1
         dec_tree_applied = false
         for agegrp in agegrps
@@ -74,6 +76,7 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
 
     # total of all people who are nil, mild, sick, or severe across all lag days
     update_infectious!(locale, dat = dat)
+    return
 end
 
 
