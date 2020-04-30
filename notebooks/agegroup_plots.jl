@@ -15,7 +15,7 @@
 # %%
 using CovidSim
 
-# %%
+# %% jupyter={"outputs_hidden": true}
 using Plots
 pyplot()
 
@@ -30,6 +30,9 @@ geo = alldict["geo"];
 
 # %%
 cumplot(series,10,geo=geo)
+
+# %%
+761/62238
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
