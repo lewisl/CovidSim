@@ -56,7 +56,7 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
 
     iszero(dat[locale]) && (return)
 
-    toprobs = zeros()
+    toprobs = zeros(6)
     for lag = laglim:-1:1
         dec_tree_applied = false
         for agegrp in agegrps

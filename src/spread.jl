@@ -48,9 +48,10 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
         newinfected = spread_case_runner(density_factor, all_unexposed, env=env)
     end  # no active case or active case
 
+    lag1 = 1
+
     # test if newinfected > unexposed
     # this hasn't triggered for a long time
-    # lag1 = 1
     # for agegrp in agegrps
     #     if newinfected[agegrp] > grab(unexposed, agegrp, lag1, locale, dat=dat)
     #         @warn "big problem: infected exceeds unexposed in spread!"

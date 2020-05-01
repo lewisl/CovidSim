@@ -168,6 +168,9 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     println("Simulation completed for $(ctr[:day]) days.")
 
     series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
+    for loc in locales
+        add_totinfected_series!(series, loc)
+    end
 
     return alldict, env, series
 end
@@ -216,7 +219,7 @@ function make_series(histmx)
 end
 
 # a single locale that already has both new and cum series
-function add_totinfected_series(series, locale)
+function add_totinfected_series!(series, locale)
     if !(haskey(series[locale], :cum) && haskey(series[locale], :new))
         error("locale series must contain both :cum and :new series")
         return
