@@ -8,6 +8,25 @@
 ####################################################
 
 
+"""
+Map a condition index from rows in the data matrix to
+indices for the transition probabilities:
+
+```
+               unexposed  infectious  recovered  dead   nil  mild  sick  severe
+data rows         1          2            3        4     5     6     7     8
+transition pr    -1         -1            1        6     2     3     4     5
+```
+
+Tranition pr indices that return -1 are not used and will raise an error.
+
+- Use with text literal in code as map2pr.nil => 2
+- Use with variables that stand for the data rows as map2pr[nil] => 2
+"""
+const map2pr = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3, sick=4, severe=5)
+
+
+
 function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
     @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
@@ -37,6 +56,7 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
 
     iszero(dat[locale]) && (return)
 
+    toprobs = zeros()
     for lag = laglim:-1:1
         dec_tree_applied = false
         for agegrp in agegrps
@@ -44,34 +64,51 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
             node_decpoints = dt[agegrp].dec_points
             if lag in keys(node_decpoints) # check if a decision tree applies today
                 for node in node_decpoints[lag]  
-                    toprobs = zeros(6)
+                    toprobs[:] = zeros(6)
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
-                        toprobs[mapcond2tran[branch.tocond]] = branch.pr
+                        toprobs[map2pr[branch.tocond]] = branch.pr
                     end
+                    @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
                     @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
-                    distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale, dat=dat)
+                    folks = grab(fromcond,agegrp,lag,locale, dat=dat) # integer
+                    if folks == 0
+                        continue
+                    else
+                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, dat=dat)
+                    end
                 end
                 dec_tree_applied = true
             end
         end
 
-        if lag == laglim  # there must be a node that starts on laglim and clears everyone left on the last lag!
-            if sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)) !== 0
-                @warn  "infectious conditions not zero at lag $laglim, day $(ctr[:day])--found $(sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)))"
-            end
-            if !dec_tree_applied # e.g., dec_tree was NOT applied for final lag
-                @warn "decision node not applied at last lag--probably wrong outcomes"
-            end
-        end
+        # these haven't triggered for a long time
+        # if lag == laglim  # there must be a node that starts on laglim and clears everyone left on the last lag!
+        #     if sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)) !== 0
+        #         @warn  "infectious cases not zero at lag $laglim, day $(ctr[:day])--found $(sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)))"
+        #     end
+        #     if !dec_tree_applied # e.g., dec_tree was NOT applied for final lag
+        #         @warn "decision node not applied at last lag--probably wrong outcomes"
+        #     end
+        # end
 
         if dec_tree_applied
-            continue  # EITHER move people with a decision node OR by just bumping them up
+            to_bump = filter(x-> x > 0, ((toprobs .== 0)[2:5] .* infectious_cases))  
+        else
+            to_bump = infectious_cases
         end
-
-        # on a day with no decision tree, bump every infected person up one day within the same condition
-        input!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag+1, locale, dat=dat)
-        minus!(grab(nil:severe, agegrps, lag, locale, dat=dat), nil:severe, agegrps, lag,   locale, dat=dat)
+            # on a day with no decision tree, bump every infected person up one day within the same condition
+            bump = grab(to_bump, agegrps, lag, locale, dat=dat)
+            if sum(bump) == 0
+                continue   # there is nothing to do
+            end
+            bomb = grab(to_bump, agegrps, lag+1, locale, dat=dat)
+            if sum(bomb) > 0
+                @warn "walking on values $(bomb) at 5:8, 1:5, lag $(lag+1) day $(ctr[:day])"
+                @warn "with bump $(bump) at $to_bump"
+            end
+            plus!(bump, to_bump, agegrps, lag+1, locale, dat=dat)
+            minus!(bump, to_bump, agegrps, lag,   locale, dat=dat)
     end
 
     # total of all people who are nil, mild, sick, or severe across all lag days
@@ -80,35 +117,31 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
 end
 
 
-function distribute_to_new_conditions!(fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
-    @assert length(locale) == 1  "Assertion failed: length locale was not 1"
+function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
+    # @assert length(locale) == 1  "Assertion failed: length locale was not 1"
+
     transition_cases = [recovered, nil,mild,sick,severe, dead]
 
-    # get the number of folks to be distributed
-    folks = grab(fromcond,agegrp,lag,locale, dat=dat) # scalar
-    if folks == 0
-        return   # save some time if there is nothing to do
-    end
     @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
     # println("on day $(ctr[:day]) folks $folks lag $lag from $fromcond to $toprobs")
 
-
-    map2pr = (unexposed = -1, infectious = -1, recovered = 1, dead = 6, nil = 2, mild = 3, sick = 4, severe = 5)
-
     # get the distvect of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-    @assert isapprox(sum(toprobs), 1.0, atol=1e-3) "target vector must sum to 1.0; submitted $toprobs"
-    x = categorical_sample(toprobs, folks)
-    # println(x)
-    distvec = bucket(x, vals=1:length(toprobs))        # [count(x .== i) for i in 1:size(toprobs,1)]
+    @assert isapprox(sum(toprobs), 1.0, atol=1e-4) "target vector must sum to 1.0; submitted $toprobs"
+    x = categorical_sample(toprobs, folks)  # integer results
+    distvec = bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
+    @assert sum(distvec) == folks "someone got lost $res != $folks"
     @debug begin
-        cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
-        "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
-        end
+              cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
+              "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
+            end
 
     lag != lastlag && (plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
     plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-    minus!(sum(distvec), fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
+    minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
+
+    push!(transq, (day=ctr[:day], locale=locale, recovered=distvec[map2pr.recovered],
+                   dead=distvec[map2pr.dead]))
 
     return
 end

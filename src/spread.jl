@@ -49,12 +49,13 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     end  # no active case or active case
 
     # test if newinfected > unexposed
-    lag1 = 1
-    for agegrp in agegrps
-        if newinfected[agegrp] > grab(unexposed, agegrp, lag1, locale, dat=dat)
-            @warn "big problem: infected exceeds unexposed in spread!"
-        end
-    end
+    # this hasn't triggered for a long time
+    # lag1 = 1
+    # for agegrp in agegrps
+    #     if newinfected[agegrp] > grab(unexposed, agegrp, lag1, locale, dat=dat)
+    #         @warn "big problem: infected exceeds unexposed in spread!"
+    #     end
+    # end
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
     plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
@@ -68,8 +69,6 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
                 accessible = sum(all_accessible),
                 unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
                 infected=sum(newinfected)))
-    # add to stats queue for today
-    # queuestats(cnt=newinfected, cond=nil, locale=locale, agegrp=agegrps, event=:spread) # sum(5 agegroups), nil is the default, single locale
 
     return
 end

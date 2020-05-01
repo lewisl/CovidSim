@@ -72,10 +72,11 @@ export                  # functions for tracking
 export            # queues for tracking
     travelq,
     isolatedq,
-    newstatq,
     spreadq,
+    transq,
     day2df,
-    map2series
+    map2series,
+    ctr
 
 export                  # functions for decision trees
     setup_dt,
