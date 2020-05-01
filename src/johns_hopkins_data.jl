@@ -24,7 +24,7 @@ function get_real_data(;series="confirmed")
         @warn "Series must be \"confirmed\" or \"dead\", got $series. Returning empty array."
         return
     end
-    return dat.dat
+    return (dat = dat, first=first, last=last)
 end
 
 
