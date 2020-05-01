@@ -3,9 +3,6 @@
 #########################################################################################
 
 
-const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
-                    nil=25:30, mild=31:36, sick=37:42, severe=43:48)
-const total = 6
 
 """
 - use incr!(ctr, :day) for day of the simulation:  creates and adds 1
@@ -16,6 +13,7 @@ const ctr = counter(Symbol) # from package DataStructures
 
 # for debugging whole simulations
 const spreadq = []
+const transq = []
 
 
 

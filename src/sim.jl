@@ -75,8 +75,13 @@ const nil = 5
 const mild = 6
 const sick = 7
 const severe = 8
-const travelers = 9
-const isolated = 10
+const totinfected=9
+const travelers = 10
+const isolated = 11
+
+const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
+                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
+const total = 6
 
 const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
 const condnames = Dict(1=>"unexposed",2=>"infectious",3=>"recovered", 4=>"dead",
@@ -106,23 +111,6 @@ const ages = length(agegrps)
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 
-"""
-Map a condition index from rows in the data matrix to
-indices for the transition probabilities:
-
-```
-               unexposed  infectious  recovered  dead   nil  mild  sick  severe
-data rows         1          2            3        4     5     6     7     8
-transition pr    -1         -1            1        6     2     3     4     5
-```
-
-Tranition pr indices that return -1 are not used and will raise an error.
-
-- Use with text literal in code as mapcond2tran.nil => 2
-- Use with variables that stand for the data rows as mapcond2tran[nil] => 2
-"""
-const mapcond2tran = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3, sick=4, severe=5)
-
 
 ####################################################################################
 #   simulation runner
@@ -135,6 +123,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     see cases.jl for runcases and spreadcases
 =#
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
+    !isempty(transq) && (deleteat!(transq, 1:length(transq)))   # empty it
+
 
     # access input data and pre-allocate storage
     alldict = setup(n_days; geofilename=geofilename, dectreefilename=dtfilename, geolim=15)
@@ -216,13 +206,30 @@ function review_history(histmx)
 end
 
 
-# a single locale, either cumulative or new matrix
+# a single locale, either cumulative or new
 function make_series(histmx)
     s = zeros(Int, size(histmx,3), prod(size(histmx)[1:2]))
     for i in 1:size(histmx, 3)
         s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
     end
     return s
+end
+
+# a single locale that already has both new and cum series
+function add_totinfected_series(series, locale)
+    if !(haskey(series[locale], :cum) && haskey(series[locale], :new))
+        error("locale series must contain both :cum and :new series")
+        return
+    end
+    # for new
+    n = size(series[locale][:new],1)
+    series[locale][:new] = hcat(series[locale][:new], zeros(Int,n,6))
+    series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
+                                                      abs.(series[locale][:new][:,map2series.unexposed]) )
+    # for cum
+    series[locale][:cum] = hcat(series[locale][:cum], zeros(Int,n,6))
+    @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)
+    return
 end
 
 
@@ -359,6 +366,7 @@ end
 
 function input!(val, condition, agegrp, lag, locale; dat=openmx)
     @assert length(locale) == 1 "locale must be a scalar"
+    current = grab(condition, agegrp, lag, locale; dat=dat)
     dat[locale][lag, condition, agegrp] = val
 end
 
@@ -371,6 +379,8 @@ end
 
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
     @assert length(locale) == 1 "locale must be a scalar"
+    current = grab(condition, agegrp, lag, locale; dat=dat)
+    @assert sum(val) <= sum(current) "subtracting more than existing: loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
 end
 
