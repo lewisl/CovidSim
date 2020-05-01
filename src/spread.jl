@@ -25,7 +25,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     numcontacts =       env.numcontacts
     numtouched =        env.numtouched
 
-    # set function scope for variables modified in loop
+    # set function scope for variables modified in loop--> this is the result
     newinfected = zeros(Int, 5) # by agegrp
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition

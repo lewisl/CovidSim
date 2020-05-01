@@ -123,3 +123,12 @@ plotattr(:Subplot)
 plotattr(:Series)
 
 # %%
+plotattr(:Plot)
+
+# %%
+plotattr("size")
+
+# %%
+plotattr(:Axis)
+
+# %%

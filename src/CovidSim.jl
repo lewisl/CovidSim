@@ -53,7 +53,8 @@ export                  # functions for simulation
     seed_case_gen,
     case_setter,
     initialize_sim_env,
-    r0_sim
+    r0_sim,
+    sim_r0
 
 export                  # functions for setup
     build_data,
@@ -117,11 +118,12 @@ export              # constants for indices to data tables
     mild,
     sick,
     severe,
+    totinfected,
     conditions,
     condnames,
     infectious_cases,
     transition_cases,
-    mapcond2tran,
+    map2series,
     series_colnames,
     to_recovered,
     to_nil,

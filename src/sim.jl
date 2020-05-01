@@ -75,7 +75,7 @@ const nil = 5
 const mild = 6
 const sick = 7
 const severe = 8
-const totinfected=9
+const totinfected = 9
 const travelers = 10
 const isolated = 11
 
@@ -84,8 +84,8 @@ const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,
 const total = 6
 
 const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
-const condnames = Dict(1=>"unexposed",2=>"infectious",3=>"recovered", 4=>"dead",
-                       5=>"nil",6=>"mild",7=>"sick",8=>"severe")
+const condnames = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
+                       5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
 
@@ -236,7 +236,6 @@ function add_totinfected_series!(series, locale)
 end
 
 
-
 function sim_r0(;env=env)
     # captures current population condition 
     pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
@@ -282,7 +281,7 @@ function initialize_sim_env()
                 contact_factors =       [ 1    1.8    1.8     1.5    1;    # nil
                                           1    1.7    1.7     1.4   0.9;    # mild
                                         0.7    1.0    1.0     0.7   0.5;   # sick
-                                        0.5    0.8    0.8     0.5   0.2],  # severe
+                                        0.5    0.8    0.8     0.5   0.3],  # severe
                               # agegrp    1     2      3       4     5
                 touch_factors =         [.55    .62     .58     .4   .35;    # unexposed
                                          .55    .62     .58     .4   .35;    # recovered
