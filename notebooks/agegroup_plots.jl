@@ -34,15 +34,21 @@ geo = alldict["geo"];
 cumplot(series,10,geo=geo)
 
 # %%
-1312/62400
+1008/63036
 
-# %%
+# %% [markdown]
+# #### Death Percentage by Age Group
+
+# %% jupyter={"source_hidden": true}
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
 deadvals = series[10][:cum][end,[map2series.dead]...]
 pctvals = round.([deadvals[i] / deadvals[6] for i in 1:length(deadvals)], digits=3)
 deadtbl = hcat(agelabels, deadvals, pctvals)
 
-# %%
+# %% [markdown]
+# #### Recovered Percentage by Age Group
+
+# %% jupyter={"source_hidden": true}
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
 recovals = series[10][:cum][end,[map2series.recovered]...]
 pctvals = round.([recovals[i] / recovals[6] for i in 1:length(recovals)], digits=3)
@@ -77,14 +83,17 @@ newhistmx = alldict["dat"]["newhistmx"]
 openmx = alldict["dat"]["openmx"];
 
 # %%
-summary = (total_infected = series[10][:cum][1, 6] - series[10][:cum][180,6],
-total_pop = series[10][:cum][180,6] + series[10][:cum][180,54],
-whos_left = series[10][:cum][180,map2series.dead[6]] + series[10][:cum][180,map2series.recovered[6]]
-     + series[10][:cum][180,map2series.infectious[6]] + series[10][:cum][180,map2series.unexposed[6]],
-end_unexposed = series[10][:cum][180,map2series.unexposed[6]],
-end_infected = series[10][:cum][180,map2series.infectious[6]],
-end_recovered = series[10][:cum][180,map2series.recovered[6]],
-end_dead = series[10][:cum][180,map2series.dead[6]])
+
+summary = (
+           total_infected = series[10][:cum][1, 6] - series[10][:cum][180,6],
+           total_pop = series[10][:cum][180,6] + series[10][:cum][180,54],
+           whos_left = series[10][:cum][180,map2series.dead[6]] + series[10][:cum][180,map2series.recovered[6]]
+              + series[10][:cum][180,map2series.infectious[6]] + series[10][:cum][180,map2series.unexposed[6]],
+           end_unexposed = series[10][:cum][180,map2series.unexposed[6]],
+           end_infected = series[10][:cum][180,map2series.infectious[6]],
+           end_recovered = series[10][:cum][180,map2series.recovered[6]],
+           end_dead = series[10][:cum][180,map2series.dead[6]]
+       )
 
 # %%
 transeries = DataFrame(transq)
