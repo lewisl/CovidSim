@@ -299,12 +299,19 @@ function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
     end
 
     age_relative = round.(Int,age_dist ./ minimum(age_dist))
-    spreaders = ones(Int,laglim,4,5)
+    starting_spreaders = ones(Int,laglim,4,5)
     for i in 1:5
-        spreaders[:,:,i] .= age_relative[i]
+        starting_spreaders[:,:,i] .= age_relative[i]
     end
-    spreaders[1,:,:] .= 0;
-    r0env.spreaders = spreaders
+    if !isempty(dt)
+        # starting_spreaders[1, :, :] .=  0
+        starting_spreaders[2:laglim, :, :] .= 0
+        starting_spreaders .*= 20
+    else
+        starting_spreaders[1,:,:] .= 0;
+    end
+    r0env.spreaders = copy(starting_spreaders)
+    input!(starting_spreaders,infectious_cases,agegrps,lags,locale,dat=r0mx)
 
     # parameters that drive r0
     !isempty(cf) && (r0env.contact_factors = deepcopy(cf))
@@ -312,18 +319,29 @@ function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
     isempty(shift_contact)  || (r0env.contact_factors =shifter(r0env.contact_factors, shift_contact...))
     isempty(shift_touch) || (r0env.touch_factors = shifter(r0env.touch_factors, shift_touch...))
 
-    for i = 1:laglim
-        isempty(dt) || (transition!(dt, locale,dat=r0mx)) # optionally start with a transition
+    stopat = !isempty(dt) ? laglim : 1
+
+    for i = 1:stopat
+        println("test day = $i, spreaders = $(sum(r0env.spreaders))")
 
         how_many_contacts!(density_factor, env=r0env)
 
         how_many_touched!(env=r0env)
 
         track_infected .+= how_many_infected(all_unexposed, env=r0env)
+
+        if !isempty(dt)  # optionally transition
+            transition!(dt, locale, dat=r0mx) 
+            r0env.spreaders = copy(grab(infectious_cases,agegrps,lags,locale,dat=r0mx))
+        end
     end
 
     # for last iteration, but close across most of them
-    tot_spreaders = sum(r0env.spreaders)
+    if !isempty(dt)
+        tot_spreaders = sum(starting_spreaders)
+    else
+        tot_spreaders = sum(starting_spreaders) / 24
+    end
     tot_contacts = sum(r0env.numcontacts)
     tot_touched = sum(r0env.numtouched)
     tot_infected = sum(track_infected)

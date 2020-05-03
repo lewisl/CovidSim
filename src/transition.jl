@@ -49,71 +49,56 @@ end
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
-agegroup, days of being exposed, and some probability. The final
-outcomes are recovered or dead.
+agegroup, days of being exposed, and some probability; then to 
+recovered or dead.
 """
 function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
 
     iszero(dat[locale]) && (return)
 
+    all_decpoints = reduce(merge,dt[agegrp].dec_points for agegrp in agegrps)
     toprobs = zeros(6)
     for lag = laglim:-1:1
-        dec_tree_applied = false
-        for agegrp in agegrps
-            tree = dt[agegrp].tree
-            node_decpoints = dt[agegrp].dec_points
-            if lag in keys(node_decpoints) # check if a decision tree applies today
-                for node in node_decpoints[lag]  
+        to_bump = copy(infectious_cases)
+        if lag in keys(all_decpoints) # check if a decision tree applies to this lag
+            for agegrp in agegrps
+                tree = dt[agegrp].tree
+                age_decpoints = dt[agegrp].dec_points
+                for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
                     toprobs[:] = zeros(6)
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
                         toprobs[map2pr[branch.tocond]] = branch.pr
                     end
                     @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
+                    to_bump = filter(x->x!=fromcond,to_bump)   # remove the fromcond distributed to a new condition
                     @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
                     folks = grab(fromcond,agegrp,lag,locale, dat=dat) # integer
-                    if folks == 0
-                        continue
-                    else
+                    if folks > 0
                         distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, dat=dat)
                     end
+                end  
+                if !isempty(to_bump)  # bump up people who didn't get distributed to different condition
+                    bump_up!(to_bump, agegrp, lag, locale, dat=dat) 
                 end
-                dec_tree_applied = true
             end
+        else 
+            # for a lag with no decision tree, bump up every infected person one day within the same condition
+            bump_up!(to_bump, agegrps, lag, locale, dat=dat)
         end
-
-        # these haven't triggered for a long time
-        # if lag == laglim  # there must be a node that starts on laglim and clears everyone left on the last lag!
-        #     if sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)) !== 0
-        #         @warn  "infectious cases not zero at lag $laglim, day $(ctr[:day])--found $(sum(grab(infectious_cases, agegrps, laglim, locale, dat=dat)))"
-        #     end
-        #     if !dec_tree_applied # e.g., dec_tree was NOT applied for final lag
-        #         @warn "decision node not applied at last lag--probably wrong outcomes"
-        #     end
-        # end
-
-        if dec_tree_applied
-            to_bump = filter(x-> x > 0, ((toprobs .== 0)[2:5] .* infectious_cases))  
-        else
-            to_bump = infectious_cases
-        end
-            # on a day with no decision tree, bump every infected person up one day within the same condition
-            bump = grab(to_bump, agegrps, lag, locale, dat=dat)
-            if sum(bump) == 0
-                continue   # there is nothing to do
-            end
-            bomb = grab(to_bump, agegrps, lag+1, locale, dat=dat)
-            if sum(bomb) > 0
-                @warn "walking on values $(bomb) at 5:8, 1:5, lag $(lag+1) day $(ctr[:day])"
-                @warn "with bump $(bump) at $to_bump"
-            end
-            plus!(bump, to_bump, agegrps, lag+1, locale, dat=dat)
-            minus!(bump, to_bump, agegrps, lag,   locale, dat=dat)
     end
 
-    # total of all people who are nil, mild, sick, or severe across all lag days
-    update_infectious!(locale, dat = dat)
+    update_infectious!(locale, dat = dat) # total all people who are nil, mild, sick, severe across all lags
     return
+end
+
+
+function bump_up!(to_bump, agegrp, lag, locale; dat=openmx)
+    bump = grab(to_bump, agegrp, lag, locale, dat=dat)
+    if sum(bump) > 0
+        plus!(bump, to_bump, agegrp, lag+1, locale, dat=dat)
+        minus!(bump, to_bump, agegrp, lag,   locale, dat=dat)
+    end
 end
 
 
