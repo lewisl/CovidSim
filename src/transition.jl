@@ -59,11 +59,11 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
     all_decpoints = reduce(merge,dt[agegrp].dec_points for agegrp in agegrps)
     toprobs = zeros(6)
     for lag = laglim:-1:1
-        to_bump = copy(infectious_cases)
         if lag in keys(all_decpoints) # check if a decision tree applies to this lag
             for agegrp in agegrps
                 tree = dt[agegrp].tree
                 age_decpoints = dt[agegrp].dec_points
+                age_bump = copy(infectious_cases)
                 for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
                     toprobs[:] = zeros(6)
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
@@ -71,20 +71,21 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
                     end
                     @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
-                    to_bump = filter(x->x!=fromcond,to_bump)   # remove the fromcond distributed to a new condition
+                    age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
                     @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
                     folks = grab(fromcond,agegrp,lag,locale, dat=dat) # integer
                     if folks > 0
-                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, dat=dat)
+                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, 
+                                                      lag, locale, node, dat=dat)
                     end
                 end  
-                if !isempty(to_bump)  # bump up people who didn't get distributed to different condition
-                    bump_up!(to_bump, agegrp, lag, locale, dat=dat) 
+                if !isempty(age_bump)  # bump people in conds that didn't get distributed above
+                    bump_up!(age_bump, agegrp, lag, locale, dat=dat) 
                 end
             end
         else 
-            # for a lag with no decision tree, bump up every infected person one day within the same condition
-            bump_up!(to_bump, agegrps, lag, locale, dat=dat)
+            # when no decision tree, bump up every infected person one day within the same condition
+            bump_up!(infectious_cases, agegrps, lag, locale, dat=dat)
         end
     end
 
@@ -92,7 +93,11 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
     return
 end
 
+"""
+function bump-up!
 
+Bump people from one lag to lag + 1 in the same disease condition.
+"""
 function bump_up!(to_bump, agegrp, lag, locale; dat=openmx)
     bump = grab(to_bump, agegrp, lag, locale, dat=dat)
     if sum(bump) > 0
@@ -102,7 +107,13 @@ function bump_up!(to_bump, agegrp, lag, locale; dat=openmx)
 end
 
 
-function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale; dat=openmx, lastlag=laglim)
+"""
+function distribute_to_new_conditions!
+
+Based on decision trees for each age group, at specific decision points (in days), change
+people's disease condition, or move them to recovered or dead.
+"""
+function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node; dat=openmx, lastlag=laglim)
     # @assert length(locale) == 1  "Assertion failed: length locale was not 1"
 
     transition_cases = [recovered, nil,mild,sick,severe, dead]
@@ -125,8 +136,10 @@ function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, lo
     plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
     minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
-    push!(transq, (day=ctr[:day], locale=locale, recovered=distvec[map2pr.recovered],
-                   dead=distvec[map2pr.dead]))
+    push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # primarily for debugging; can do some cool plots
+                   newcond=distvec[map2pr.nil:map2pr.severe], 
+                   recovered=distvec[map2pr.recovered],
+                   dead=distvec[map2pr.dead], node=node, locale=locale))
 
     return
 end
