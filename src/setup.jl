@@ -2,37 +2,39 @@
 # setup and initialization functions
 ######################################################################################
 
-const mean_density = 3316  # see Excel for backup
 
-
-function setup(n_days; geofilename="../data/geo2data.csv", geolim=15, 
-    dectreefilename="../parameters/dec_tree_all.csv")
+function setup(n_days; geolim=15,  
+    geofilename="../data/geo2data.csv", 
+    dectreefilename="../parameters/dec_tree_all.csv",
+    spfilename="../parameters/spread_params.toml")
 
     # geodata
-    geodata = readgeodata(geofilename)
-    numgeo = size(geodata,1)
-    if geolim < numgeo
-        numgeo = geolim
-    end
-    density_factor = shifter(geodata[:, density],0.9,1.25)
-    geodata = [geodata density_factor]
-    # fix dates   
-    geodata[:, anchor] .= quickdate(geodata[:, anchor])
-    geodata[:, restrict] .= quickdate(geodata[:, restrict])
-
+        geodata = readgeodata(geofilename)
+        numgeo = size(geodata,1)
+        if geolim < numgeo
+            numgeo = geolim
+        end
+        density_factor = shifter(geodata[:, density],0.9,1.25)
+        geodata = [geodata density_factor]
+        # fix dates   
+        geodata[:, anchor] .= quickdate(geodata[:, anchor])
+        geodata[:, restrict] .= quickdate(geodata[:, restrict])
 
     # simulation data matrix
-    datadict = build_data(numgeo, n_days)
-    openmx = datadict["openmx"]   # alias to make it easier to do initialization
-    init_unexposed!(openmx, geodata, numgeo)
+        datadict = build_data(numgeo, n_days)
+        openmx = datadict["openmx"]   # alias to make it easier to do initialization
+        init_unexposed!(openmx, geodata, numgeo)
+
+    # small parameters
+        spread_params = read_spread_params(spfilename)
 
     # transition decision trees 
-    dt = setup_dt(dectreefilename)
+        dt = setup_dt(dectreefilename)
 
-    # # isolation probabilities: not sure we need this
-    # iso_pr = build_iso_probs()
+    # isolation probabilities: not sure we need this
+        # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt"=>dt, "geo"=>geodata)  # , "iso_pr"=>iso_pr
+    return Dict("dat"=>datadict, "dt"=>dt, "geo"=>geodata, "sp"=>spread_params)  # , "iso_pr"=>iso_pr
 end
 
 
@@ -88,6 +90,31 @@ end
 
 function readgeodata(filename)
     geodata = readdlm(filename, ','; header=true)[1]
+end
+
+
+function read_spread_params(spfilename)
+    spread_params = TOML.parsefile(spfilename)
+
+    required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors"]
+    has_all = true
+    missing = []
+    for p in required_params
+        if !haskey(spread_params, p)
+            push!(missing, p)
+            has_all = false
+        end
+    end
+    @assert has_all "required keys: $missing not in $(spfilename)"
+
+    # reshape and flip contact_factors
+        cf = copy(spread_params["contact_factors"])
+        spread_params["contact_factors"] = permutedims(reshape(cf,5,4), (2,1))
+    # reshape and flip touch_factors
+        tf = copy(spread_params["touch_factors"])
+        spread_params["touch_factors"] = permutedims(reshape(tf,5,6), (2,1))
+    # change keys to symbols--so we can use this as keyword arguments
+    return Dict(Symbol(k)=>v for (k,v) in spread_params)
 end
 
 

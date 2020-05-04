@@ -119,7 +119,9 @@ const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 
 function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, silent=true,
-    geofilename="../data/geo2data.csv", dtfilename="../parameters/dec_tree_all_25.csv")
+            geofilename="../data/geo2data.csv", 
+            dtfilename="../parameters/dec_tree_all_25.csv",
+            spfilename="../parameters/spread_params.toml")
 #=
     see cases.jl for runcases and spreadcases
 =#
@@ -128,16 +130,18 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
 
 
     # access input data and pre-allocate storage
-    alldict = setup(n_days; geofilename=geofilename, dectreefilename=dtfilename, geolim=15)
+    alldict = setup(n_days; geolim=15, geofilename=geofilename, 
+                    dectreefilename=dtfilename, spfilename=spfilename)
+
         dt = alldict["dt"]  # decision trees for transition
         openmx = alldict["dat"]["openmx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
         isolatedmx = alldict["dat"]["isolatedmx"]
         geodata = alldict["geo"]
+        spread_params = alldict["sp"]
 
-    # simulation environment: pre-allocate arrays and initialize parameters for spread!
-    env = initialize_sim_env()
+    env = initialize_sim_env(; spread_params...)
 
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
@@ -263,15 +267,9 @@ function sim_r0(;env=env)
 end
 
 
-function initialize_sim_env()
+function initialize_sim_env(;contact_factors, touch_factors, send_risk, recv_risk)
     @assert laglim >= 19 "laglim must be >= 19--got $laglim"
-    # expand send_risk_by_lag length to match laglim
-    filln = laglim - 18
-    mid = fill(0.3, filln)
-    last3 = [0.3,0.3,0.1]
-    first15 = [0.0, .3, .7, .8, .9, .9, .8, .7, .6, .5, .4, .3, .3, 0.3, 0.3]
-    send_risk = [first15..., mid..., last3...]
-
+ 
     # initialize the simulation Env
     ret =   Env(spreaders=zeros(Int64,laglim,4,5),
                 all_accessible=zeros(Int64,laglim,6,5),
@@ -280,21 +278,32 @@ function initialize_sim_env()
                 numtouched=zeros(Int64,laglim,5),
                 lag_contacts=zeros(Int64,laglim),
                 riskmx = zeros(Float64,laglim,5),
-                contact_factors =       [ 1    1.8    1.8     1.5    1;    # nil
-                                          1    1.7    1.7     1.4   0.9;    # mild
-                                        0.7    1.0    1.0     0.7   0.5;   # sick
-                                        0.5    0.8    0.8     0.5   0.3],  # severe
-                              # agegrp    1     2      3       4     5
-                touch_factors =         [.55    .62     .58     .4   .35;    # unexposed
-                                         .55    .62     .58     .4   .35;    # recovered
-                                         .55    .62     .58     .4   .35;    # nil
-                                         .55    .6      .5     .35   .28;    # mild
-                                         .28   .35     .28    .18  .18;    # sick
-                                         .18   .18     .18    .18  .18],   # severe
+                contact_factors = contact_factors,
+                touch_factors = touch_factors,
                 send_risk_by_lag = send_risk,
-                recv_risk_by_age = [.1, .4, .4, .50, .55],
+                recv_risk_by_age = recv_risk,
                 sd_compliance = zeros(6,5))
     ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
+
+    # contact_factors and touch_factors look like:
+    #=
+        contact_factors = 
+                [ 1    1.8    1.8     1.5     1.0;    # nil
+                  1    1.7    1.7     1.4     0.9;    # mild
+                0.7    1.0    1.0     0.7     0.5;   # sick
+                0.5    0.8    0.8     0.5     0.3]  # severe
+
+      # agegrp    1     2      3       4       5
+
+        touch_factors = 
+                [.55    .62     .58     .4    .35;    # unexposed
+                 .55    .62     .58     .4    .35;    # recovered
+                 .55    .62     .58     .4    .35;    # nil
+                 .55    .6      .5      .35   .28;    # mild
+                 .28   .35      .28     .18   .18;    # sick
+                 .18   .18      .18     .18   .18]   # severe
+    =#
+
     return ret
 end
 
