@@ -266,11 +266,12 @@ function cleanup_spread_stash()
 end
 
 
-function r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
+function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
                 compliance=[], shift_contact=(), shift_touch=(), pri=false)
     # factor_source must be one of: r0env, or env of current simulation
     # setup separate environment
-    r0env = initialize_sim_env();
+    r0env = initialize_sim_env(contact_factors=env.contact_factors, touch_factors=env.touch_factors,
+                               send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age);
     r0mx = data_dict(1)  # single locale
     locale = 1
     popsize = 1_000_000
