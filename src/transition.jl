@@ -72,11 +72,9 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
                     @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
                     age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
-                    @debug @sprintf("%12s %3f %3f %3f %3f %3f %3f",condnames[fromcond], toprobs...)
                     folks = grab(fromcond,agegrp,lag,locale, dat=dat) # integer
                     if folks > 0
-                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, 
-                                                      lag, locale, node, dat=dat)
+                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, dat=dat)
                     end
                 end  
                 if !isempty(age_bump)  # bump people in conds that didn't get distributed above
@@ -92,6 +90,7 @@ function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolat
     update_infectious!(locale, dat = dat) # total all people who are nil, mild, sick, severe across all lags
     return
 end
+
 
 """
 function bump-up!
@@ -114,33 +113,25 @@ Based on decision trees for each age group, at specific decision points (in days
 people's disease condition, or move them to recovered or dead.
 """
 function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node; dat=openmx, lastlag=laglim)
-    # @assert length(locale) == 1  "Assertion failed: length locale was not 1"
-
-    transition_cases = [recovered, nil,mild,sick,severe, dead]
 
     @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
-    # println("on day $(ctr[:day]) folks $folks lag $lag from $fromcond to $toprobs")
 
-    # get the distvect of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
+    # set vector of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
     @assert isapprox(sum(toprobs), 1.0, atol=1e-4) "target vector must sum to 1.0; submitted $toprobs"
     x = categorical_sample(toprobs, folks)  # integer results
     distvec = bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
     @assert sum(distvec) == folks "someone got lost $res != $folks"
-    @debug begin
-              cond = condnames[fromcond];rec=distvec[1]; ni=distvec[2]; mi=distvec[3]; si=distvec[4]; se=distvec[5]; de=distvec[6];
-              "distribute $cond age $agegrp lag $lag CNT $folks to $rec $nil $mi $si $se $dead"
-            end
 
-    lag != lastlag && (plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat)) # add to infectious cases for next lag
+    if lag != lastlag  # infectious cases to next lag
+        plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) 
+    end
     plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
     minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
     push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # primarily for debugging; can do some cool plots
-                   newcond=distvec[map2pr.nil:map2pr.severe], 
-                   recovered=distvec[map2pr.recovered],
+                   newcond=distvec[map2pr.nil:map2pr.severe], recovered=distvec[map2pr.recovered],
                    dead=distvec[map2pr.dead], node=node, locale=locale))
-
     return
 end
 

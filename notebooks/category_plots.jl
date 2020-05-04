@@ -50,7 +50,7 @@ pctvals = round.([deadvals[i] / deadvals[6] for i in 1:length(deadvals)], digits
 deadtbl = hcat(agelabels, deadvals, pctvals)
 
 # %% [markdown]
-# #### Recovered Percentage by Age Group
+# ### Recovered Percentage by Age Group
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]

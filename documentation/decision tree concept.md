@@ -1,10 +1,12 @@
+#### Decision Tree Concept
+
 In an SEIR simulation of the COVID-19 outbreak (Susceptible, Exposed, Infected, Removed (Recovery or Death), I use a decision tree to transition people who have gotten infected from nil (asymptomatic), to mild, to sick, to severe, to recovered, (sadly) to dead. The simulated folks don't go through all conditions.  After a number of days of being infectious they reach decision nodes every few days that probabilistically send them to a different condition over the course of 25 days. The leaf nodes of the tree are outcomes of either dead or recovered.  It's essential that all the probabilities of all leaves total to 1.0.  Each age group has its own tree so I sanity check all of them.
 
 I thought I *should* be able to do this recursively, but my brain is more loopy than recursive.  I had done the text book recursion cases of factorial and following the branches of a binary tree, with the classic paths down left and right branches. But, the illness transition decision trees are more ragged.  They can have any number of branches (though always 1 to 3) and each branch can have different depths (longest is 6).  For 2 days I beat myself up, got impatient, and gave up.  I built the paths by hand (the human brain can see the paths almost immediately) and then fed the paths as input to the sanity check. I put the problem down to get more important stuff done.
 
 Tonight, I took it on again.  In half an hour in < 20 lines of code I solved it. It's not recursive, but it is conceptually recursive (I did learn something...).  The trickiest thing wasn't the recursive-lite approach. I realized I need to append to the current path without modifying the current path. In ML-like languages we'd do this with "cons", which creates a pair.  In ML, one abhors mutating a variable so you can only call with a new value (the argument) or return a new value. And recursion performs the loop. In Julia, we love to mutate data structures in place for efficiency.  There is append!, but not append. But, it's easy to use an array literal to create a new value that is an append--or "cons" of the old array (the head) and its new tail. A while loop is a bit like recursion:  we stop when the conditions have been met that we are done, not by a fixed number of iterations. The while loop runs 17 times for a tree with 22 leaves--and thus 22 branches. Each time through we finish at least one branch of a given depth.
 
-```
+```julia
 function walktree(dt, top)
     done = []
     todo = [[top]]
@@ -23,6 +25,7 @@ function walktree(dt, top)
     return done
 end
 ```
+
 Instead of pushing things onto the stack, I push them onto the todo list. I pop an item from the todo list and there are 2 outcomes: either the next node down a branch is a leaf and that path is done; or the next node will lead to another and the path is one more node longer and gets pushed onto the todo list.
 
 This is conceptually like recursion. Each addition to a path is tested:  In one case, the end condition is met and we push it onto done (in recursion we'd return a static result up the call chain and NOT make another recursive call). In the other case, we have not reached a leaf and we push the path extended by one node onto todo (in recursion, we'd call ourself again with the extended, incomplete branch).
@@ -30,6 +33,7 @@ This is conceptually like recursion. Each addition to a path is tested:  In one 
 It's sort of inverted recursion because I extend the path by a node before deciding what to do with it. In recursion, the completion of the paths comes up as the recursive function returns static results instead of making another call. But, it's short, simple and relatively obvious because at each step there are only 2 choices.  I am sure it's not very efficient and there are lots of allocations, but recursion wouldn't be that efficient and there would be lots of allocations pushed onto the stack. But, the trees are small--see the one below.
 
 It's a bit tricky because a tree is a bit of a gnarly nested data structure: 
+
 - a tree is a dict of nodes;
 - each node is an array of branches (largest number of branches is 3);
 - a branch is a struct, which includes the next node or a sentinel node that says "leaf"
@@ -38,6 +42,7 @@ It's a bit tricky because a tree is a bit of a gnarly nested data structure:
 Now, I can quickly tell for all the trees if the branch endpoints all add up to 1 and get the expected value proportions for recovering or dying.  This was really satisfying, if slightly morbid.
 
 Here is what a tree looks like:
+
 ```julia
 #=
 (1, 1)  # node and indented array of branches

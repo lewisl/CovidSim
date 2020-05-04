@@ -79,6 +79,7 @@ const totinfected = 9
 const travelers = 10
 const isolated = 11
 
+# columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
 const total = 6
@@ -167,6 +168,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     end
     println("Simulation completed for $(ctr[:day]) days.")
 
+    # "history" series for plotting: NOT dataframes, but arrays
     series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
     for loc in locales
         add_totinfected_series!(series, loc)

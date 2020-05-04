@@ -14,12 +14,16 @@ The inputs below are judgment inputs that are "sanity checked" to produce R0 val
 
 While R0 is very hard to "observe" in the wild, it is a useful diagnostic to interpret how aggressive a model is in spreading the disease. The model provides an R0 simulator, which calculates the R0 from a stage 1 cohort of spreaders; traces the spreaders through all 25 days of their disease; and simply adds up how many people get the virus from this stage 1 cohort.  Those infected "disappear" out of the simulations so that their spreading is not added to the spreading of the initial cohort. Why a cohort?  Why not just 1 person? We want to have a dispersion of people across age groups and disease conditions because we don't know what the characteristics of a single "patient 0" would be. Thus, we calculate an average across the entire range of characteristics in roughly the distribution that they occur.
 
+herd immunity threshhold, ip = (r0 - 1)/r0
+ip = observed immunity pct when infected cases begin to decline
+r0 = 1 / (1 - ip)
+
 
 
 
 Here are the probabilities input to a binomial sample
 for the defaults in the model.
-
+```
 rows: age group of the recipients
 columns: lag of the spreaders
 
@@ -48,3 +52,4 @@ columns: lag of the spreaders
  0.03  0.12  0.12  0.15  0.165
  0.03  0.12  0.12  0.15  0.165
  0.01  0.04  0.04  0.05  0.055
+```
