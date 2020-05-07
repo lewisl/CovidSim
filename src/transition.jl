@@ -18,7 +18,7 @@ data rows         1          2            3        4     5     6     7     8
 transition pr    -1         -1            1        6     2     3     4     5
 ```
 
-Tranition pr indices that return -1 are not used and will raise an error.
+Transition probability indices that return -1 are not used and will raise an error.
 
 - Use with text literal in code as map2pr.nil => 2
 - Use with variables that stand for the data rows as map2pr[nil] => 2
@@ -283,6 +283,5 @@ function _unisolate!(cnt::Int64, cond, agegrp, lag, locale; opendat=openmx, isod
     update_infectious!(locale, dat=isodat)
     plus!(cnt, cond, agegrp, lag, locale, dat=opendat)
     update_infectious!(locale, dat=opendat)
-    cnt !== 0 && queuestats(cnt=-cnt, locale=locale, conds=cond, agegrp=agegrp, event=:isolate)
     return nothing
 end

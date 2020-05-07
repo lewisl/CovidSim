@@ -49,13 +49,17 @@ export                  # functions for simulation
     minus!,
     total!,
     Env,
+    initialize_sim_env,
+    r0_sim,
+    sim_r0
+
+export
+    test_and_trace,     # functions for cases
     Spreadcase,
     sd_gen,
     seed_case_gen,
     case_setter,
-    initialize_sim_env,
-    r0_sim,
-    sim_r0
+    bayes
 
 export                  # functions for setup
     build_data,
@@ -140,7 +144,6 @@ export              # constants for indices to data tables
     agegrps,
     ages,
     recv_risk_by_age
-
 
 
 end # module CovidSim
