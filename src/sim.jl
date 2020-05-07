@@ -32,13 +32,8 @@ mutable struct Env
                    numtouched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
     end
-
 end
 
-#  stash for temporary values changed during simulation cases
-#      to change just once and then get the originals back
-#      it is the users responsibility to get rid of stuff
-const stash = Dict{Symbol, Array}()
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
@@ -110,7 +105,6 @@ const ages = length(agegrps)
 
 # traveling constants
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
-
 
 
 ####################################################################################
