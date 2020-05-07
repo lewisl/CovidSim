@@ -3,7 +3,6 @@
 #########################################################################################
 
 
-
 """
 - use incr!(ctr, :day) for day of the simulation:  creates and adds 1
 - use reset!(ctr, :day) to remove :day and return its current value, set it to 0
@@ -16,13 +15,11 @@ const spreadq = []
 const transq = []
 
 
-
 # for Johns Hopkins US actual data
 struct Col_ref
     date::String
     col::Int64
 end
-
 
 
 # tracking statistics
