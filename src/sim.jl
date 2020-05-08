@@ -40,18 +40,17 @@ const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
 const laglim = 25
 const lags = 1:laglim   # rows
 
-# geo data: id,fips,county,city,state,sizecat,pop,density
-const id = 1
-const fips = 2
-const county = 3
-const city = 4
-const state = 5
-const sizecat = 6
-const popsize = 7
-const density = 8
-const anchor = 9
-const restrict = 10
-const density_fac = 11
+# geo data: fips,county,city,state,sizecat,pop,density
+const fips = 1
+const county = 2
+const city = 3
+const state = 4
+const sizecat = 5
+const popsize = 6
+const density = 7
+const anchor = 8
+const restrict = 9
+const density_fac = 10
 
 # population centers sizecats
 const major = 1  # 20
@@ -124,7 +123,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
 
 
     # access input data and pre-allocate storage
-    alldict = setup(n_days; geolim=15, geofilename=geofilename, 
+    alldict = setup(n_days; geofilename=geofilename, 
                     dectreefilename=dtfilename, spfilename=spfilename)
 
         dt = alldict["dt"]  # decision trees for transition
@@ -134,6 +133,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
         isolatedmx = alldict["dat"]["isolatedmx"]
         geodata = alldict["geo"]
         spread_params = alldict["sp"]
+        fips_locs = alldict["fips_locs"]
 
     env = initialize_sim_env(; spread_params...)
 
@@ -141,22 +141,22 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
     # initial data for building data series of simulation outcomes
-    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, i, dat=openmx) for i in locales])
+    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, dat=openmx) for loc in locales])
     starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
-        Dict(locales[i]=>starting_unexposed[i,:] for i in size(locales,1)))
+        Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
 
     locales = locales   # force local scope to be visible in the loop
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
-        for locale in locales
+        for loc in locales
             for case in runcases
-                case(locale, opendat=openmx, isodat=isolatedmx, env=env)
+                case(loc, opendat=openmx, isodat=isolatedmx, env=env)
             end
-            density_factor = geodata[locale, density_fac]
-            spread!(locale, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
-            transition!(dt, locale, dat=openmx)   # transition all infectious cases "in the open"
-            transition!(dt, locale, dat=isolatedmx)  # transition all infectious cases in isolation
+            density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
+            spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
+            transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
+            transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
             if showr0 && (mod(ctr[:day],10) == 0)
                 current_r0 = sim_r0(env=env)
                 println("at day $(ctr[:day]) r0 = $current_r0")

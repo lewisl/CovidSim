@@ -51,9 +51,12 @@ People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability; then to 
 recovered or dead.
+
+Works for a single locale.
 """
 function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
 
+    @assert length(locale) == 1 "locale must be a single integer value for a valid locale"
     iszero(dat[locale]) && (return)
 
     all_decpoints = reduce(merge,dt[agegrp].dec_points for agegrp in agegrps)
@@ -149,21 +152,20 @@ For a locale, randomly choose the number of people from each agegroup with
 condition of {unexposed, infectious, recovered} who travel to each
 other locale. Add to the travelq.
 """
-function travelout!(locale, numgeo, rules=[])
+function travelout!(fromloc, locales, rules=[])
     # 10.5 microseconds for 5 locales
     # choose distribution of people traveling by age and condition:
         # unexposed, infectious, recovered -> ignore lag for now
     # TODO: more frequent travel to and from Major and Large cities
     # TODO: should the caller do the loop across locales?   YES
-    locales =1:numgeo
     travdests = collect(locales)
-    deleteat!(travdests,findfirst(isequal(locale), travdests))
+    deleteat!(travdests,findfirst(isequal(fromloc), travdests))
     bins = lim = length(travdests) + 1
     for agegrp in agegrps
         for cond in [unexposed, infectious, recovered]
             name = condnames[cond]
             for lag in lags
-                numfolks = sum(grab(cond, agegrp, lag, locale)) # this locale, all lags
+                numfolks = sum(grab(cond, agegrp, lag, fromloc)) # the from locale, all lags
                 travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
                 x = rand(travdests, travcnt)  # randomize across destinations
                 bydest = bucket(x, vals=1:length(travdests))
@@ -171,7 +173,7 @@ function travelout!(locale, numgeo, rules=[])
                     isempty(bydest) && continue
                     cnt = bydest[dest]
                     iszero(cnt) && continue
-                    enqueue!(travelq, travitem(cnt, locale, dest, agegrp, lag, name))
+                    enqueue!(travelq, travitem(cnt, fromloc, dest, agegrp, lag, name))
                 end
             end
         end
@@ -196,7 +198,7 @@ end
 
 
 """
-Place people who are isolating into the isolated queue: isolatedq
+Place people into isolation.
 
 You can enter a percentage (as a fraction in [0.0, 1.0]), an array
 of percentages, a number, or an array of numbers.
@@ -217,6 +219,7 @@ function isolate!(pct::Float64,cond,agegrp,lag,locale; opendat=openmx, isodat=is
     end
 end
 
+
 function isolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat=openmx, isodat=isolatedmx)
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
@@ -229,6 +232,10 @@ end
 
 function isolate_by!(num::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat=isolatedmx)
     @assert num > 0 "num must be greater than zero"
+    if !haskey(isodat, locale)
+        # make a new population matrix for isolating in test and trace
+        isodat[locale] = zeros(Int, lags, conds, agegrps)
+    end
     available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     cnt = clamp(num, 0, available)  # limit to max
     cnt < num && (@warn "You tried to isolate more people than were in the category: proceeding with available.")
@@ -237,7 +244,7 @@ function isolate_by!(num::Int64, cond, agegrp, lag, locale; opendat=openmx, isod
 end  # this one works
 
 
-function _isolate!(cnt::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat=isolatedmx)
+function _isolate!(cnt::Int64, cond, agegrp, lag, locale::Int; opendat=openmx, isodat=isolatedmx)
     minus!(cnt, cond, agegrp, lag, locale, dat=opendat)  # move out 
     update_infectious!(locale, dat=opendat)
     plus!(cnt, cond, agegrp, lag, locale, dat=isodat)  # move in
@@ -245,6 +252,14 @@ function _isolate!(cnt::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat
     return nothing  # this one works!
 end
 
+# for test and trace or any isolate that records the day of isolation
+function _isolate!(cnt::Int64, cond, agegrp, lag, locday::NamedTuple; opendat=openmx, isodat=isolatedmx)
+    minus!(cnt, cond, agegrp, lag, locday.locale, dat=opendat)  # move out 
+    update_infectious!(locday.locale, dat=opendat)
+    plus!(cnt, cond, agegrp, lag, locday, dat=isodat)  # move in
+    update_infectious!(locday, dat=isodat)
+    return nothing  # this one works!
+end
 
 function unisolate!(pct::Float64,cond,agegrp,lag,locale; opendat=openmx, isodat=isolatedmx)
     for c in cond

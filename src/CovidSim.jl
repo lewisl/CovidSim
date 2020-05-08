@@ -77,7 +77,6 @@ export                  # functions for tracking
 
 export            # queues for tracking
     travelq,
-    isolatedq,
     spreadq,
     transq,
     day2df,
@@ -103,7 +102,7 @@ export                  # control constants
 
 
 export      # constants for geo data
-    id,
+    fips,
     state,
     size_cat,
     popsize,

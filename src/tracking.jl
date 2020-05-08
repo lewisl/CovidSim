@@ -75,7 +75,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
     people = series[locale][:cum][1, map2series[unexposed][total]] + series[locale][:cum][1,map2series[infectious][total]]
-    cityname = !isempty(geo) ? geo[locale, city] : ""
+    cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
     died = series[locale][:cum][end, map2series[dead][total]]
     infected = series[locale][:cum][1,map2series[unexposed][total]] - series[locale][:cum][end,map2series[unexposed][total]]
     firstseries = plcols[1]
