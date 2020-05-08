@@ -3,17 +3,14 @@
 ######################################################################################
 
 
-function setup(n_days; geolim=15,  
+function setup(n_days;   
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/dec_tree_all.csv",
     spfilename="../parameters/spread_params.toml")
 
     # geodata
         geodata = readgeodata(geofilename)
-        numgeo = size(geodata,1)
-        if geolim < numgeo
-            numgeo = geolim
-        end
+        fips_locs = geodata[:, fips]  # fips code
         density_factor = shifter(geodata[:, density],0.9,1.25)
         geodata = [geodata density_factor]
         # fix dates   
@@ -21,9 +18,9 @@ function setup(n_days; geolim=15,
         geodata[:, restrict] .= quickdate(geodata[:, restrict])
 
     # simulation data matrix
-        datadict = build_data(numgeo, n_days)
+        datadict = build_data(fips_locs, n_days)
         openmx = datadict["openmx"]   # alias to make it easier to do initialization
-        init_unexposed!(openmx, geodata, numgeo)
+        init_unexposed!(openmx, geodata, fips_locs)
 
     # small parameters
         spread_params = read_spread_params(spfilename)
@@ -34,7 +31,7 @@ function setup(n_days; geolim=15,
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt"=>dt, "geo"=>geodata, "sp"=>spread_params)  # , "iso_pr"=>iso_pr
+    return Dict("dat"=>datadict, "fips_locs"=>fips_locs, "dt"=>dt, "geo"=>geodata, "sp"=>spread_params)  # , "iso_pr"=>iso_pr
 end
 
 
@@ -48,41 +45,40 @@ function quickdate(strdates)  # 20x faster than the built-in date parsing, e.g.-
 end
 
 
-function init_unexposed!(dat, geodata, numgeo)
-    for locale in 1:numgeo
+function init_unexposed!(dat, geodata, locales)
+    for loc in locales
         for agegrp in agegrps
-            dat[locale][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * geodata[locale, popsize])
+            dat[loc][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * geodata[geodata[:, fips] .== loc, popsize][1])
         end
     end
 end
 
 
-function build_data(numgeo, n_days)
-    # openmx = zeros(Int, size(lags,1), size(conditions,1),  size(agegrps,1), numgeo)
-    openmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
-    isolatedmx = data_dict(numgeo, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
+function build_data(locales, n_days)
+    openmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
+    isolatedmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
-    cumhistmx = hist_dict(numgeo, n_days)
-    newhistmx = hist_dict(numgeo, n_days)
-    # isolatedhistmx = zeros(Int, size(conditions,1),  size(agegrps,1), numgeo, 1) # initialize for 1 day
+    cumhistmx = hist_dict(locales, n_days)
+    newhistmx = hist_dict(locales, n_days)
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
     return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
+
 # one environment at a time
-function data_dict(numgeo; lags=laglim, conds=8, agegrps=5)
+function data_dict(locales; lags=laglim, conds=8, agegrps=5)
     dat = Dict()
-    for i = 1:numgeo
-        dat[i] = zeros(Int, lags, conds, agegrps)
+    for loc in locales
+        dat[loc] = zeros(Int, lags, conds, agegrps)
     end
     return dat       
 end
 
 
-function hist_dict(numgeo, n_days; conds=8, agegrps=5)
+function hist_dict(locales, n_days; conds=8, agegrps=5)
     dat = Dict()
-    for i = 1:numgeo
-        dat[i] = zeros(Int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+    for loc in locales
+        dat[loc] = zeros(Int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end
