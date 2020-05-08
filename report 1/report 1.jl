@@ -122,9 +122,6 @@ cumplot(series, 11, geo=geo)
 # %%
 cumplot(series, 11, [infectious, dead], geo=geo)
 
-# %%
-76670/2605750
-
 # %% [markdown]
 # That is rather dramatic. That cut the total infections to about 14% of what it had been; and the number of deaths to about 12% of what they were.
 #
@@ -153,7 +150,7 @@ cumplot(series, 11, geo=geo)
 # Let's see what happens if we open up to where we were before after 30 days of social distancing.
 
 # %%
-open_all = sd_gen(start=80, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
+open_all = sd_gen(start=110, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
 alldict, env, series = run_a_sim(180,11,showr0=false, silent=true,
        spreadcases=[str_50,open_all],  # strong social distancing, then open
        runcases=[seed_1_6, seed_6_12]);
@@ -166,6 +163,8 @@ cumplot(series, 11, geo=geo)
 # We ended up in nearly the same place, except everything started later and the simulation ends before
 # the infection curve burns itself out.
 #
+# NEED TO UPDATE
+#
 # |              | Infections | Deaths|
 # |--------------|---------|----------|
 # |No restrictions | 2,924,674 | 30,808 |
@@ -177,8 +176,17 @@ cumplot(series, 11, geo=geo)
 # to what looks like no social distancing at all.
 
 # %%
-close = sd_gen(start=50, comply=.75, cf=(.2,1.0), tf=(.18,.4));
-open = sd_gen(start=90, comply=.75, cf=(.2,1.5), tf=(.18,.5));
+open_all = sd_gen(start=150, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
+alldict, env, series = run_a_sim(180,11,showr0=false, silent=true,
+       spreadcases=[str_50,open_all],  # strong social distancing, then open
+       runcases=[seed_1_6, seed_6_12]);
+
+# %%
+cumplot(series, 11, geo=geo)
+
+# %%
+close = sd_gen(start=30, comply=.75, cf=(.2,1.0), tf=(.18,.4));
+open = sd_gen(start=90, comply=.75, cf=(.2,1.5), tf=(.18,.55));
 alldict, env, series = run_a_sim(180,10,showr0=false, silent=true,
        spreadcases=[close, open],
        runcases=[seed_1_6, seed_6_12]);
@@ -215,4 +223,6 @@ alldict, env, series = run_a_sim(180,10, showr0=false,
        runcases=[seed_1_6, seed_6_12]);
 
 # %%
-cumplot(series, 10,[infectious, dead, recovered], geo=geo)
+cumplot(series, 10, geo=geo)
+
+# %%

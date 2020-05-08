@@ -106,7 +106,8 @@ function spread_case_setter(cases=[]; env=env)
             # after the case--it's already in effect--nothing to change
             if iszero(c.compliance)  # signal to shutdown cases and restore defaults
                 # restore defaults for spread!  
-                default_env = initialize_sim_env()
+                default_env = initialize_sim_env(;touch_factors=env.touch_factors, contact_factors=env.contact_factors,
+                                                 send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age)
                 env.sd_compliance = default_env.sd_compliance
                 env.contact_factors = default_env.contact_factors
                 env.touch_factors = default_env.touch_factors

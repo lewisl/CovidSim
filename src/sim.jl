@@ -158,7 +158,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
             transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
             transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
             if showr0 && (mod(ctr[:day],10) == 0)
-                current_r0 = sim_r0(env=env)
+                current_r0 = sim_r0(env=env, dt=dt)
                 println("at day $(ctr[:day]) r0 = $current_r0")
             end
         end
@@ -236,7 +236,7 @@ function add_totinfected_series!(series, locale)
 end
 
 
-function sim_r0(;env=env)
+function sim_r0(;env=env, dt=dt)
     # captures current population condition 
     pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
     sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
@@ -255,7 +255,7 @@ function sim_r0(;env=env)
     else
         cf =  env.contact_factors
         tf = env.touch_factors     
-        current_r0 = round(r0_sim(cf=cf, tf=tf, sa_pct=sa_pct).r0, digits=2)   
+        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, sa_pct=sa_pct, env=env).r0, digits=2)   
     end
     return current_r0
 end
