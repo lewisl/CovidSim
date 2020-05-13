@@ -76,8 +76,11 @@ Perform the 3 fundamental steps that spread the virus to unexposed people.
 Returns newinfected.
 """
 function spreadsteps(density_factor, all_unexposed; env=env)
-    how_many_contacts!(density_factor, env=env) # how many people are contacted based on spreader? updates env.numcontacts
-    how_many_touched!(env=env)   # lag x agegrp # how many are touched based on recipient and contacts?
+
+    how_many_contacts!(density_factor, env=env)
+
+    how_many_touched!(;env=env)
+
     newinfected = how_many_infected(all_unexposed, env=env)    # (5,)  # how many people become infected?
 end
 
@@ -87,22 +90,30 @@ How many contacts do spreaders attempt to reach?  This is based on the character
 spreaders.
 """
 function how_many_contacts!(density_factor=1.0; env=env)
+
+    # variables from env
+    spreaders = env.spreaders  # laglim,4,5
+    numcontacts = env.numcontacts  # the result
+    simple_accessible = env.simple_accessible
+    contact_factors = env.contact_factors
+
+    how_many_contacts!(numcontacts, spreaders, contact_factors, density_factor; env=env)
+end
+
+
+function how_many_contacts!(numcontacts, spreaders, contact_factors, density_factor; env=env)
     #=  This originally ignores the conditions of the touched--assumes they are all equally likely to be touched
         how_many_touched corrects this.
         We assume spreaders is small compared to all_accessible. At some point this might not be true:
         how_many_touched also handles this.
     =#
 
-    # variables from env
-    spreaders = env.spreaders  # laglim,4,5
-    numcontacts = env.numcontacts  # the result
-    contact_factors = env.contact_factors
-    all_accessible = env.all_accessible
-
     if sum(env.simple_accessible) == 0   # this can happen with a social distancing case with 100% compliance
         numcontacts[:] .= 0
         return
     end
+
+    all_accessible = env.all_accessible
 
     sp_lags, sp_conds, sp_ages = size(spreaders)
 
@@ -131,6 +142,23 @@ function how_many_contacts!(density_factor=1.0; env=env)
         println(ctr[:day],"warning: overcontact ratio ", oc_ratio)
         numcontacts[:] = round.(1.0/oc_ratio .* numcontacts)
     end
+
+    return numcontacts
+end
+
+
+function how_many_touched!(;env=env)
+    map2touch = (unexposed= 1, infectious=3, recovered=2, dead=-1, 
+                 nil= -1, mild= -1, sick= -1, severe= -1)
+    env.lag_contacts[:] = sum(env.numcontacts,dims=(2,3))[:,:,1] # (laglim, ) contacts by lag after sum by cond, agegrp
+    numtouched = env.numtouched
+    numtouched[:] = zeros(Int, size(numtouched))
+        # sum accessible to unexposed, recovered, infectious by agegrps (don't use nil, mild, sick, severe conditions)
+            # unexposed, recovered, sum of(nil, mild, sick, severe) = infectious  6,5 with last 3 rows all zeros
+    target_accessible = [env.simple_accessible[1:2,:]; sum(env.simple_accessible[3:6,:],dims=1)];  # (3, 5)
+    target_tf = view(env.touch_factors, map2touch.unexposed, :)
+    how_many_touched!(numtouched, reshape(env.lag_contacts,25,1,1), target_accessible,
+                      [], target_tf, env=env)
 end
 
 
@@ -139,7 +167,8 @@ For potential contacts by spreaders reaching out, how many of the accessible (su
 are consequentially "touched" by a spreader? This is based on the characteristics of the
 recipient. This also splits the recipients by the characteristics of the spreaders and the recipients.
 """
-function how_many_touched!(; env=env)
+function how_many_touched!(numtouched, contacts, target_accessible, target_conds,
+                           target_tf; env=env, kind=:spread)
 #=
     - who is accessible: start with all to capture effect of "herd immunity", when it arises
     - all_accessible laglim x 6 x 5  lag x cond x agegrp, includes unexposed, recovered, nil, mild, sick, severe
@@ -147,43 +176,39 @@ function how_many_touched!(; env=env)
 
     There is a lot of setup before we get to business here.
 =#
-    # variables from simulation environment
-    numcontacts =       env.numcontacts         # outcome from how_many_contacts!
-    simple_accessible = env.simple_accessible
-    lag_contacts =      env.lag_contacts
-    touch_factors =     env.touch_factors
-    numtouched =        env.numtouched          # result by lag of spreader and agegrp or recipient
 
-    if sum(simple_accessible) == 0   # this can happen with a social distancing case with 100% compliance
+    totaccessible = sum(target_accessible)
+
+    if totaccessible == 0   # this can happen with a social distancing case with 100% compliance
         numtouched[:] .= 0
-        return
+        return numtouched
     end
 
     # map to access maps conditions to the rows of simple_accessible and touch_factors
-    map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, nil= 3, mild=  4, sick= 5, severe= 6)
+    map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1,
+                  nil= 3, mild=  4, sick= 5, severe= 6)
+    # map to top 3 rows of simple_accessible
+    map2touch = (unexposed= 1, infectious=3, recovered=2, dead=-1,
+                 nil= -1, mild= -1, sick= -1, severe= -1)
 
-    lag_contacts[:] = sum(numcontacts,dims=(2,3))[:,:,1] # (laglim, ) contacts by lag after sum by cond, agegrp
-    totaccessible = sum(simple_accessible)
-
-    # sum accessible to unexposed, recovered, infectious by agegrps (don't use nil, mild, sick, severe conditions)
-            # unexposed, recovered, sum of(nil, mild, sick, severe) = infectious  6,5 with last 3 rows all zeros
-    simple_accessible[:] = [simple_accessible[1:2,:]; sum(simple_accessible[3:6,:],dims=1); zeros(Int,3,5)];  # (6, 5)
-    # s_a_pct is dist. of accessible by agegrp and uexposed, recovered, infectious (15,)
-    s_a_pct = round.(reshape(simple_accessible[1:3,:] ./ totaccessible, 15), digits=5) # % for each cell
-    if !isapprox(sum(s_a_pct), 1.0)
-        s_a_pct = s_a_pct ./ sum(s_a_pct) # normalize so sums to 1.0
+    # t_a_pct is dist. of accessible by agegrp and target conds (15,)
+    t_a_pct = round.(reshape(target_accessible ./ totaccessible, length(target_accessible)), digits=5) # % for each cell
+    if !isapprox(sum(t_a_pct), 1.0)
+        t_a_pct = t_a_pct ./ sum(t_a_pct) # normalize so sums to 1.0
     end
 
     # we only use this to makes sure we don't touch more people than there are
-    unexp_by_contact_lag = zeros(Int, laglim,5) # lags, agegrps
-    lagpct = zeros(laglim)
-    lagpct[:] = lag_contacts ./ (sum(lag_contacts) + 1e-8)
-    if sum(lagpct) == 0.0
-        lagpct[:] = fill(1.0/laglim, laglim)
-    end
-    @assert isapprox(sum(lagpct), 1.0) "pct must sum to 1.0; got $(sum(lagpct))"
-    for i in agegrps, j in lags
-          unexp_by_contact_lag[j,i] = round(Int,simple_accessible[map2access.unexposed, i] * lagpct[j])
+    if kind == :spread
+        target_unexp = zeros(Int, laglim, 5) # lags, agegrps
+        lagpct = zeros(laglim)
+        lagpct[:] = contacts ./ (sum(contacts) + 1e-8)
+        if sum(lagpct) == 0.0
+            lagpct[:] = fill(1.0/laglim, laglim)
+        end
+        @assert isapprox(sum(lagpct), 1.0) "pct must sum to 1.0; got $(sum(lagpct))"
+        for i in agegrps, j in lags
+              target_unexp[j,i] = round(Int,target_accessible[map2access.unexposed, i] * lagpct[j])
+        end
     end
 
     # now to business: who gets touched in unexposed by agegrp?
@@ -197,26 +222,38 @@ function how_many_touched!(; env=env)
         - env.touch_factors is (5,6): agegrps by unexposed, recovered, nil, sick, mild, severe
     =#
 
-    # map to top 3 rows of simple_accessible
-    mapi = (unexposed= 1, infectious=3, recovered=2, dead=-1, nil= -1, mild= -1, sick= -1, severe= -1)
+    dcat = Categorical(t_a_pct) # categorical distribution by agegrp and unexposed, recovered, infectious
 
-    dcat = Categorical(s_a_pct) # categorical distribution by agegrp and unexposed, recovered, infectious
-    numtouched[:] = zeros(Int, laglim, length(agegrps)) # (laglim,5)
-
-    # loop over numcontacts lag vector
-    for lag in lags
-        lc = lag_contacts[lag]
-        if lc == 0
-            numtouched[lag,:] .= 0
-            continue
+    # loop over contacts
+    if isempty(target_conds)
+        for l in lags
+            subgroup = contacts[l]
+            if subgroup == 0
+                numtouched[l,:] .= 0
+            else
+                x = rand(dcat, subgroup) # (length(lc),) probabistically distribute contacts for a lag across accessible by unexposed|recovered|infectious, agegrp
+                peeps = reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible)...)  # (5,) distribute across all 3 groups, but only take unexposed
+                # for a in agegrps # probabilistically see who of the accessible is significantly touched
+                cnt = binomial_one_sample.(peeps[map2touch.unexposed,:], target_tf)
+                numtouched[l,:] .+= clamp.(cnt, 0, target_unexp[l,:])
+            end
         end
-        x = rand(dcat, lc) # (length(lc),) probabistically distribute contacts for a lag across accessible by unexposed|recovered|infectious, agegrp
-        peeps = reshape([count(x .== i) for i in 1:15], 3,5)[1,:]  # (5,) distribute across all 3 groups, but only take unexposed
-        for a in agegrps # probabilistically see who of the accessible is significantly touched
-            cnt = binomial_one_sample(peeps[a], touch_factors[mapi.unexposed, a])
-            numtouched[lag, a] = clamp(cnt, 0, unexp_by_contact_lag[lag, a])
-        end
+    else
+        for cond in target_conds
+            for a in agegrps 
+                subgroup = contacts[map2access[cond],a]
+                if subgroup == 0
+                    numtouched[cond, a] = 0
+                else   # probabistically distribute contacts by age across unexposed|recovered|nil|mild
+                    x = rand(dcat, subgroup)
+                    peeps = reshape([count(x .== i) for i in 1:20], 4,5)
+                    cnt = binomial_one_sample.(peeps, target_tf) 
+                    numtouched .+= clamp.(cnt, 0, target_accessible)
+                end
+            end
+        end 
     end
+    return numtouched
 end
 
 
@@ -332,7 +369,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[]
         track_infected .+= how_many_infected(all_unexposed, env=r0env)
 
         if !isempty(dt)  # optionally transition
-            transition!(dt, locale, dat=r0mx) 
+            transition!(dt, locale, dat=r0mx)
             r0env.spreaders = copy(grab(infectious_cases,agegrps,lags,locale,dat=r0mx))
         end
     end
@@ -357,7 +394,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[]
             print("contact_factors ")
             display(contact_factors)
             print("touch_factors ")
-            display(touch_factors) 
+            display(touch_factors)
     end
     return(r0=r0,spreaders=tot_spreaders,contacts=tot_contacts,touched=tot_touched,infected=tot_infected)
 end
@@ -380,7 +417,7 @@ function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; env=env, dt=dt)
 end
 
 #=
-approximate r0 values from model 
+approximate r0 values from model
 using default age distribution
 model selects a c_f based on age and infectious case
 model selects a t_f based on age and condition (includes unexposed and recovered)
@@ -403,4 +440,3 @@ Note: simulation uses samples so generated values will vary
 
 
 =#|
-

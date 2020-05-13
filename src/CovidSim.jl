@@ -31,6 +31,7 @@ include("transition.jl")
 include("spread.jl")
 include("cases.jl")
 include("johns_hopkins_data.jl")
+include("test_and_trace.jl")
 
 
 export                  # functions for simulation
