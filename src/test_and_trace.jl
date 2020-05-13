@@ -177,56 +177,56 @@ end
 # end
 
 
-function pos_touched(numtouched, poscontacts; env=env)
-#=
-    - who has been touched by those who tested positive? 
-    - poscontacts (4, 5)  cond x agegrp: unexposed, recovered, nil, mild
-=#
-    # map to access maps conditions to the rows of simple_accessible and touch_factors
-    map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, 
-                  nil= 3, mild=  4, sick= 5, severe= 6)
+# function pos_touched(numtouched, poscontacts; env=env)
+# #=
+#     - who has been touched by those who tested positive? 
+#     - poscontacts (4, 5)  cond x agegrp: unexposed, recovered, nil, mild
+# =#
+#     # map to access maps conditions to the rows of simple_accessible and touch_factors
+#     map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, 
+#                   nil= 3, mild=  4, sick= 5, severe= 6)
 
-    simple_accessible = env.simple_accessible
-    target_tf =     view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
-    # numtouched =        zeros(Int, 4,5)         # result 
+#     simple_accessible = env.simple_accessible
+#     target_tf =     view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
+#     # numtouched =        zeros(Int, 4,5)         # result 
 
-    # println("apply_tf = ")
-    # display(apply_tf)
+#     # println("apply_tf = ")
+#     # display(apply_tf)
 
-    if sum(simple_accessible) == 0   
-        numtouched[:] .= 0
-        return
-    end
+#     if sum(simple_accessible) == 0   
+#         numtouched[:] .= 0
+#         return
+#     end
 
-    track_accessible = view(simple_accessible, map2access.unexposed:map2access.mild, :)  # (4, 5)
+#     track_accessible = view(simple_accessible, map2access.unexposed:map2access.mild, :)  # (4, 5)
 
-    # s_a_pct is dist. of accessible by agegrp and uexposed, recovered, nil, mild  (4,5)
-    t_a_pct = round.(reshape(track_accessible ./ sum(track_accessible), 20), digits=5) # % per cell
-    if !isapprox(sum(t_a_pct), 1.0)
-        t_a_pct = t_a_pct ./ sum(t_a_pct) # normalize so sums to 1.0
-    end
+#     # s_a_pct is dist. of accessible by agegrp and uexposed, recovered, nil, mild  (4,5)
+#     t_a_pct = round.(reshape(track_accessible ./ sum(track_accessible), 20), digits=5) # % per cell
+#     if !isapprox(sum(t_a_pct), 1.0)
+#         t_a_pct = t_a_pct ./ sum(t_a_pct) # normalize so sums to 1.0
+#     end
 
-    # println("size(t_a_pct) = ", size(t_a_pct))
-    # println("t_a_pct = ", t_a_pct)
+#     # println("size(t_a_pct) = ", size(t_a_pct))
+#     # println("t_a_pct = ", t_a_pct)
 
 
-    dcat = Categorical(t_a_pct) # categorical dist. by agegrp and unexposed, recovered, nil, mild
+#     dcat = Categorical(t_a_pct) # categorical dist. by agegrp and unexposed, recovered, nil, mild
 
-    for cond in [unexposed, recovered, nil, mild]
-        for a in agegrps 
-            cond_age = poscontacts[map2access[cond],a]
-            if cond_age == 0
-                numtouched[cond, a] = 0
-            else   # probabistically distribute contacts by age across unexposed|recovered|nil|mild
-                x = rand(dcat, cond_age)
-                peeps = reshape([count(x .== i) for i in 1:20], 4,5)
-                cnt = binomial_one_sample.(peeps, target_tf) 
-                numtouched .+= clamp.(cnt, 0, track_accessible)
-            end
-        end
-    end
-    return numtouched
-end
+#     for cond in [unexposed, recovered, nil, mild]
+#         for a in agegrps 
+#             cond_age = poscontacts[map2access[cond],a]
+#             if cond_age == 0
+#                 numtouched[cond, a] = 0
+#             else   # probabistically distribute contacts by age across unexposed|recovered|nil|mild
+#                 x = rand(dcat, cond_age)
+#                 peeps = reshape([count(x .== i) for i in 1:20], 4,5)
+#                 cnt = binomial_one_sample.(peeps, target_tf) 
+#                 numtouched .+= clamp.(cnt, 0, track_accessible)
+#             end
+#         end
+#     end
+#     return numtouched
+# end
 
 
 function t_n_t_unquarantine(loc, start_date, opendat, isodat, env)
