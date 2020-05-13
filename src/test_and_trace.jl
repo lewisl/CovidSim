@@ -75,7 +75,7 @@ function test_and_trace(start_date, end_date; env, opendat, isodat, locale,   # 
                                  specificity=specificity, infect_prior=0.5)
 
             # trace   # note: reshape is a view so no need to reshape back to original shape
-            how_many_contacts!(reshape(poscontacts[gen],1,4,5), reshape(postests[gen],1,4,5), 
+            poscontacts[gen] = how_many_contacts!(reshape(poscontacts[gen],1,4,5), reshape(postests[gen],1,4,5), 
                                repeat(view(env.contact_factors,1,:)',4,1), density_factor, env=env)  
 
             # target_accessible  (4, 5)
@@ -133,100 +133,6 @@ function bayes(sensitivity, specificity, pr_pop)
     )
 end
 
-
-# function pos_contacts(numcontacts, pos_tests, density_factor; env=env)   
-
-#     # TODO go back and do 7 previous days and keep track of lag
-#     # TODO we need locale to retrieve density_factor
-
-#     all_accessible = env.all_accessible
-#     contactcnt = copy(env.contact_factors[1,:])  # we want only the row for the nil condition
-#     contact_factors = repeat(contactcnt',4,1)
-#     numcontacts = zeros(Int, 4,5)
-
-#     if sum(env.simple_accessible) == 0  # can happen with a social distancing case with 100% compl.
-#         numcontacts[:] .= 0
-#         return
-#     end
-
-#     pos_conds, pos_ages = size(pos_tests)
-
-
-#     for agegrp in 1:pos_ages
-#         for cond in 1:pos_conds
-#             scale = contact_factors[cond, agegrp]
-#             poscount = pos_tests[cond, agegrp]
-#             if poscount == 0
-#                 numcontacts[cond, agegrp] = 0
-#                 continue
-#             end
-#             dgamma = Gamma(1.0, density_factor * scale)  #shape, scale
-#             x = rand(dgamma,poscount)
-#             numcontacts[cond, agegrp] = round(Int,sum(x))
-#         end
-#     end
-
-#     # correct over contacting: this can happen with high scale towards the high point of infection
-#     oc_ratio = sum(numcontacts) / sum(all_accessible)
-#     if oc_ratio > 1.0
-#         println(ctr[:day],"warning: overcontact ratio ", oc_ratio)
-#         numcontacts[:] = round.(1.0/oc_ratio .* numcontacts)
-#     end
-
-#     return numcontacts
-# end
-
-
-# function pos_touched(numtouched, poscontacts; env=env)
-# #=
-#     - who has been touched by those who tested positive? 
-#     - poscontacts (4, 5)  cond x agegrp: unexposed, recovered, nil, mild
-# =#
-#     # map to access maps conditions to the rows of simple_accessible and touch_factors
-#     map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, 
-#                   nil= 3, mild=  4, sick= 5, severe= 6)
-
-#     simple_accessible = env.simple_accessible
-#     target_tf =     view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
-#     # numtouched =        zeros(Int, 4,5)         # result 
-
-#     # println("apply_tf = ")
-#     # display(apply_tf)
-
-#     if sum(simple_accessible) == 0   
-#         numtouched[:] .= 0
-#         return
-#     end
-
-#     track_accessible = view(simple_accessible, map2access.unexposed:map2access.mild, :)  # (4, 5)
-
-#     # s_a_pct is dist. of accessible by agegrp and uexposed, recovered, nil, mild  (4,5)
-#     t_a_pct = round.(reshape(track_accessible ./ sum(track_accessible), 20), digits=5) # % per cell
-#     if !isapprox(sum(t_a_pct), 1.0)
-#         t_a_pct = t_a_pct ./ sum(t_a_pct) # normalize so sums to 1.0
-#     end
-
-#     # println("size(t_a_pct) = ", size(t_a_pct))
-#     # println("t_a_pct = ", t_a_pct)
-
-
-#     dcat = Categorical(t_a_pct) # categorical dist. by agegrp and unexposed, recovered, nil, mild
-
-#     for cond in [unexposed, recovered, nil, mild]
-#         for a in agegrps 
-#             cond_age = poscontacts[map2access[cond],a]
-#             if cond_age == 0
-#                 numtouched[cond, a] = 0
-#             else   # probabistically distribute contacts by age across unexposed|recovered|nil|mild
-#                 x = rand(dcat, cond_age)
-#                 peeps = reshape([count(x .== i) for i in 1:20], 4,5)
-#                 cnt = binomial_one_sample.(peeps, target_tf) 
-#                 numtouched .+= clamp.(cnt, 0, track_accessible)
-#             end
-#         end
-#     end
-#     return numtouched
-# end
 
 
 function t_n_t_unquarantine(loc, start_date, opendat, isodat, env)
