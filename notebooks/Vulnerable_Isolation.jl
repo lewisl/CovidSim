@@ -144,7 +144,7 @@ end
 alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
-       runcases=[seed_1_6]);
+       runcases=[]);
 laglim=25
 
 # %%

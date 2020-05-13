@@ -2,6 +2,7 @@
 # pre-allocate large arrays, accessed and modified frequently
 # hold complex parameter sets
 mutable struct Env
+    geodata::Array{Any, 2}
     spreaders::Array{Int64,3} # laglim,4,5
     all_accessible::Array{Int64,3} # laglim,6,5
     numcontacts::Array{Int64,3} # laglim,4,5
@@ -16,7 +17,8 @@ mutable struct Env
     sd_compliance::Array{Float64,2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
-    function Env(;          spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
+    function Env(;          geodata=[0 "" ], # geodata
+                            spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
                             all_accessible=zeros(Int,0,0,0),
                             numcontacts=zeros(Int,0,0,0),
                             simple_accessible=zeros(Int,0,0),
@@ -28,12 +30,14 @@ mutable struct Env
                             send_risk_by_lag=zeros(Float64,laglim),
                             recv_risk_by_age=zeros(Float64,5),
                             sd_compliance=ones(Float64,6,5)        )
-        return new(spreaders, all_accessible, numcontacts, simple_accessible,
+        return new(geodata, spreaders, all_accessible, numcontacts, simple_accessible,
                    numtouched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
     end
 end
 
+# switches and values used to control cases that run during simulation
+const RunControl = Dict{Symbol,Any}()
 
 # control constants
 const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
@@ -135,7 +139,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
         spread_params = alldict["sp"]
         fips_locs = alldict["fips_locs"]
 
-    env = initialize_sim_env(; spread_params...)
+    env = initialize_sim_env(geodata; spread_params...)
 
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
@@ -150,10 +154,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
         for loc in locales
-            for case in runcases
-                case(loc, opendat=openmx, isodat=isolatedmx, env=env)
-            end
             density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
+            for case in runcases
+                case(loc; opendat=openmx, isodat=isolatedmx, env=env)
+            end
             spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
             transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
             transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
@@ -261,11 +265,11 @@ function sim_r0(;env=env, dt=dt)
 end
 
 
-function initialize_sim_env(;contact_factors, touch_factors, send_risk, recv_risk)
-    @assert laglim >= 19 "laglim must be >= 19--got $laglim"
+function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
  
     # initialize the simulation Env
-    ret =   Env(spreaders=zeros(Int64,laglim,4,5),
+    ret =   Env(geodata=geodata,
+                spreaders=zeros(Int64,laglim,4,5),
                 all_accessible=zeros(Int64,laglim,6,5),
                 numcontacts=zeros(Int64,laglim,4,5),
                 simple_accessible=zeros(Int64,6,5),
@@ -387,7 +391,7 @@ end
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
     @assert length(locale) == 1 "locale must be a scalar"
     current = grab(condition, agegrp, lag, locale; dat=dat)
-    @assert sum(val) <= sum(current) "subtracting more than existing: loc $locale lag $lag cond $condition agegrp $agegrp"
+    @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
 end
 
