@@ -10,9 +10,10 @@
 """
 const ctr = counter(Symbol) # from package DataStructures
 
-# for debugging whole simulations
+# for debugging simulations
 const spreadq = []
 const transq = []
+const tntq = []
 
 
 # for Johns Hopkins US actual data

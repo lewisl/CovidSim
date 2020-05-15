@@ -44,6 +44,14 @@ function seed!(day, cnt, lag, conds, agegrps, locale; dat=openmx)
 end
 
 
+# method to run through all existing locales in isolation
+function transition!(dt; dat)
+    for locale in keys(dat)
+        transition!(dt, locale, dat=dat)
+    end
+end
+
+
 """
     transition!(dt, locale; case="open", dat=openmx)
 
@@ -54,9 +62,9 @@ recovered or dead.
 
 Works for a single locale.
 """
-function transition!(dt, locale; dat=openmx)  # TODO also need to run for isolatedmx
+function transition!(dt, locale; dat)  
 
-    @assert length(locale) == 1 "locale must be a single integer value for a valid locale"
+    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     iszero(dat[locale]) && (return)
 
     all_decpoints = reduce(merge,dt[agegrp].dec_points for agegrp in agegrps)
@@ -126,13 +134,13 @@ function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, lo
     @assert sum(distvec) == folks "someone got lost $res != $folks"
 
     if lag != lastlag  # infectious cases to next lag
-        plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) 
+        @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) 
     end
     plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
     plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
     minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
-    push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # primarily for debugging; can do some cool plots
+    @views push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # primarily for debugging; can do some cool plots
                    newcond=distvec[map2pr.nil:map2pr.severe], recovered=distvec[map2pr.recovered],
                    dead=distvec[map2pr.dead], node=node, locale=locale))
     return
@@ -141,7 +149,7 @@ end
 
 function update_infectious!(locale; dat=openmx) # by single locale
     for agegrp in agegrps
-        tot = total!([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
+        tot = total([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
         input!(tot, infectious, agegrp, 1, locale, dat=dat) # update the infectious total for the locale and agegroup
     end
 end
@@ -225,39 +233,39 @@ function isolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat=openmx, isodat
     available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
     cnt = clamp(scnt, 0, available)  # limit to max
-    cnt < scnt && (@warn "You tried to isolate more people than were in the category: proceeding with available.")
+    cnt < scnt && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
 end
 
 
-function isolate_by!(num::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat=isolatedmx)
-    @assert num > 0 "num must be greater than zero"
-    if !haskey(isodat, locale)
-        # make a new population matrix for isolating in test and trace
-        isodat[locale] = zeros(Int, lags, conds, agegrps)
+function isolate_by!(num, cond, agegrp, lag, locale; opendat=openmx, isodat=isolatedmx)
+    @assert sum(num) >= 0 "num must be greater than zero"
+    if typeof(locale) <: Quar_Loc
+        available = grab(cond, agegrp, lag, locale.locale, dat=opendat)  # max
+    else
+        available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     end
-    available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
-    cnt = clamp(num, 0, available)  # limit to max
-    cnt < num && (@warn "You tried to isolate more people than were in the category: proceeding with available.")
+    cnt = clamp.(num, 0, available)  # limit to max
+    sum(cnt) < sum(num) && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
     return nothing
 end  # this one works
 
 
-function _isolate!(cnt::Int64, cond, agegrp, lag, locale::Int; opendat=openmx, isodat=isolatedmx)
-    minus!(cnt, cond, agegrp, lag, locale, dat=opendat)  # move out 
+function _isolate!(cnt, cond, agegrp, lag, locale::Int; opendat=openmx, isodat=isolatedmx)
+    minus!.(cnt, cond, agegrp, lag, locale, dat=opendat)  # move out 
     update_infectious!(locale, dat=opendat)
-    plus!(cnt, cond, agegrp, lag, locale, dat=isodat)  # move in
+    plus!.(cnt, cond, agegrp, lag, locale, dat=isodat)  # move in
     update_infectious!(locale, dat=isodat)
     return nothing  # this one works!
 end
 
 # for test and trace or any isolate that records the day of isolation
-function _isolate!(cnt::Int64, cond, agegrp, lag, locday::NamedTuple; opendat=openmx, isodat=isolatedmx)
-    minus!(cnt, cond, agegrp, lag, locday.locale, dat=opendat)  # move out 
-    update_infectious!(locday.locale, dat=opendat)
-    plus!(cnt, cond, agegrp, lag, locday, dat=isodat)  # move in
-    update_infectious!(locday, dat=isodat)
+function _isolate!(cnt, cond, agegrp, lag, qloc::Quar_Loc; opendat=openmx, isodat=isolatedmx)
+    minus!(cnt, cond, agegrp, lag, qloc.locale, dat=opendat)  # move out 
+    update_infectious!(qloc.locale, dat=opendat)
+    plus!(cnt, cond, agegrp, lag, qloc, dat=isodat)  # move in
+    update_infectious!(qloc, dat=isodat)
     return nothing  # this one works!
 end
 
@@ -277,26 +285,41 @@ function unisolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat = openmx, is
     available = grab(cond, agegrp, lag, locale, dat=isodat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
     cnt = clamp(scnt, 0, available)  # limit to max
-    cnt < scnt && (@warn "You tried to isolate more people than were in the category: proceeding with available.")
+    cnt < scnt && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
     return nothing  # this one works!
 end
 
 
-function unisolate_by!(num::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat=isolatedmx)
-    @assert num > 0 "num must be greater than zero"
+function unisolate_by!(num, cond, agegrp, lag, locale; mode=:both, opendat=openmx, isodat=isolatedmx)
+    @assert sum(num) >= 0 "sum(num) must be greater than zero"
+
     available = grab(cond, agegrp, lag, locale, dat=isodat)  # max
-    cnt = clamp(num, 0, available)  # limit to max
-    cnt < num && (@warn "You tried to isolate more people than were in the category: proceeding with available.")
-    _unisolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
+
+    println("day $(ctr[:day]) request to unisolate   ", sum(num))
+    println("day $(ctr[:day]) available to unisolate ", sum(available))
+
+    cnt = clamp.(num, 0, available)  # limit to max
+    sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
+    _unisolate!(cnt, cond, agegrp, lag, locale; mode=:both, opendat=opendat, isodat=isodat)
     return nothing
 end  # this one works
 
 
-function _unisolate!(cnt::Int64, cond, agegrp, lag, locale; opendat=openmx, isodat=isolatedmx)
-    minus!(cnt, cond, agegrp, lag, locale, dat=isodat)
-    update_infectious!(locale, dat=isodat)
-    plus!(cnt, cond, agegrp, lag, locale, dat=opendat)
-    update_infectious!(locale, dat=opendat)
-    return nothing
+function _unisolate!(cnt, cond, agegrp, lag, locale; mode=:both, opendat=openmx, isodat=isolatedmx)
+    if mode != :plus  # this is when mode = :minus or :both
+        minus!(cnt, cond, agegrp, lag, locale, dat=isodat)
+        update_infectious!(locale, dat=isodat)
+    end
+    if mode != :minus  # this is when mode = :plus or :both
+        if typeof(locale) <: Quar_Loc
+            locale = locale.locale
+        end
+
+        println("day $(ctr[:day])  unquarantine is unisolating this many ", sum(cnt))
+
+        plus!(cnt, cond, agegrp, lag, locale, dat=opendat)
+        update_infectious!(locale, dat=opendat)
+    end
+    return 
 end
