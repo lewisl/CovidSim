@@ -1,17 +1,36 @@
 """
+Quar_Loc is a type alias for 
+
+```NamedTuple{(:locale, :start_date),Tuple{Int64,Int64}}```
+
+example:  (locale=53038, start_date=50)
+
+Used as a locale in an isolatedmx 3-d array. Quar_Loc locale provides
+the geographic locale and the date that a cohort of infected folks
+entered quarantine. Locale values are US Census FIPS codes at the county level.
+"""
+const Quar_Loc = NamedTuple{(:locale, :start_date),Tuple{Int64,Int64}}
+
+
+const map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, 
+                  nil= 3, mild=  4, sick= -1, severe= -1)
+
+
+"""
 Generate test_and_trace case.
 required inputs: policyday
 keyword arguments: tc_perday, sensitivity, specificity, infect_prior, test_pct, test_delay
 required keywork arguments: env, opendat, isodat, locale
 
-Returns a function that can be used in runcases input to run_a_sim.
+Returns a function to use in runcases input to run_a_sim.
 """
 function t_n_t_case_gen(start_day, end_day;         # these args go into the returned t_n_t_case
-    tc_perday=400, sensitivity=.90, specificity=0.90, infect_prior=0.5, test_pct=.70,  # optional
+    tc_perday=400, sensitivity=.90, specificity=0.90, infect_prior=0.5, test_pct=.95,  # optional
     test_delay=1, generations=3, qdays=15) 
     # args match runcases loop in run_a_sim
     function scase(locale; opendat, isodat, env)  # case loop in run_a_sim provides required args
-        t_n_t_case(start_day, end_day; env=env, opendat=opendat, isodat=isodat, locale=locale,
+        t_n_t_case(start_day, end_day; 
+                   env=env, opendat=opendat, isodat=isodat, locale=locale,  # from case loop
                    tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, 
                    infect_prior=infect_prior, test_pct=test_pct,  
                    test_delay=test_delay, generations=generations, qdays=qdays)
@@ -19,132 +38,172 @@ function t_n_t_case_gen(start_day, end_day;         # these args go into the ret
 end
 
 
-function t_n_t_case(start_date, end_date; env, opendat, isodat, locale,     # required keyword args
-    tc_perday=400, sensitivity=.95, specificity=0.90, infect_prior=0.5, test_pct=.70,  # optional
-    test_delay=1, generations=3, qdays=15)
+function t_n_t_case(start_date, end_date; 
+                env, opendat, isodat, locale,     # from case loop
+                tc_perday=1000, sensitivity=.95, specificity=0.90, infect_prior=0.5, test_pct=.95,  
+                test_delay=1, generations=3, qdays=15)
 
-    # do we need to unquarantine anyone today?  this finds all dated isodats until they are gone
+    # do we need to UNquarantine anyone today?  this finds all dated quarantines until they are gone
     for k in keys(isodat)
-        if typeof(k) <: NamedTumple
+        if typeof(k) <: Quar_Loc # then k is a Quar_Loc = (locale=locale, start_date=thisday)
             if k.locale == locale
                 if k.start_date + qdays == ctr[:day] # end of quarantine is today
-                   t_n_t_unquarantine(locale, k.start_date, opendat=opendat, isodat=isodat, env=env)
-                   delete!(isodat, (locale=locale, start_date=k.start_date))
+                   allout = t_n_t_unquarantine(k, opendat=opendat, isodat=isodat, env=env)
+                   delete!(isodat, k)  
+                   push!(tntq, (day=ctr[:day], unq=sum(allout)))
                 end
             end
         end
     end
 
-    # time to test again   # first line of args are all required
-    test_and_trace(start_date, end_date; env=env, opendat=opendat, isodat=isodat, locale=locale,   
-        tc_perday=400, sensitivity=.98, specificity=0.95, infect_prior=0.5, test_pct=.70, # optional
-        test_delay=1, generations=3, qdays=15)
-
+    test_and_trace(start_date, end_date; 
+        env=env, opendat=opendat, isodat=isodat, locale=locale,   # from case loop
+        tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, # optional
+        infect_prior=infect_prior, test_pct=test_pct, test_delay=test_delay, 
+        generations=generations, qdays=qdays)
 end
 
 
-function test_and_trace(start_date, end_date; env, opendat, isodat, locale,   # required keyword args
-    tc_perday=400, sensitivity=.98, specificity=0.95, infect_prior=0.5, test_pct=.70, # optional
-    test_delay=1, generations = 3, qdays = 15)
+function test_and_trace(start_date, end_date; 
+    env, opendat, isodat, locale,  # from case loop
+    tc_perday=1000, sensitivity=.95, specificity=0.95, infect_prior=0.5, test_pct=.95, # optional
+    test_delay=1, generations=3, qdays=15)
     
     thisday = ctr[:day]
-    map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1, 
-                  nil= 3, mild=  4, sick= -1, severe= -1)
+    test_conds = [unexposed, recovered, nil, mild]
 
     if start_date <= thisday < end_date
 
-        to_test = Dict(i=>zeros(Int, 4, 5) for i in 1:generations)
-        postests = Dict(i=>zeros(Int, 4, 5) for i in 1:generations)
-        poscontacts = Dict(i=>zeros(Int, 4, 5) for i in 1:generations)
-        postouched = Dict(i=>zeros(Int, 4, 5) for i in 1:generations)
+        # who gets tested?  # (25,4,5)
+        avail_to_test = grab(test_conds, agegrps, lags, locale, dat=opendat)
 
-        # who gets tested?  #  before sum (24,4,5); after (4,5)
-        avail_to_test = sum(grab([unexposed, recovered, nil, mild], agegrps, 
-                                 lags, locale, dat=dat), dims=1)[1,:,:] 
+        if sum(avail_to_test) == 0
+            println("on $thisday no one to test")
+            return
+        end
+
+        to_test = Dict(i=>zeros(Int, laglim, 4, 5) for i in 1:generations) # TODO put these in a struct
+        postests = Dict(i=>zeros(Int, laglim, 4, 5) for i in 1:generations)
+        poscontacts = Dict(i=>zeros(Int, laglim, 4, 5) for i in 1:generations)
+        postouched = Dict(i=>zeros(Int, laglim, 4, 5) for i in 1:generations)
+
+        # create new tracking locale if doesn't exist
+        qloc = (locale=locale, start_date=thisday)
+        if !haskey(isodat, qloc)
+            isodat[qloc] = zeros(Int, laglim, length(conditions), length(agegrps))
+        end
         
-        density_factor = geodata[geodata[fips, :] .== locale, density_fac]
+        density_factor = env.geodata[env.geodata[:, fips] .== locale, density_fac][1]
+        conducted = 0 # per gen
+        perday_conducted = 0 # per day
 
-        for gen in 1:3
+        for gen in 1:generations
             if gen == 1
                 to_test[gen] = avail_to_test
             else
                 to_test[gen] = postouched[gen-1]
+                tc_perday -= conducted
             end
 
-            postests[gen] = simtests(to_test[gen]; tc_perday=tc_perday, sensitivity=sensitivity, 
-                                 specificity=specificity, infect_prior=0.5)
+            # test
+            postests[gen], conducted = simtests(to_test[gen]; tc_perday=tc_perday, sensitivity=sensitivity, 
+                            specificity=specificity, infect_prior=0.05, test_pct=test_pct, env=env)
+            perday_conducted += conducted
 
-            # trace   # note: reshape is a view so no need to reshape back to original shape
-            poscontacts[gen] = how_many_contacts!(reshape(poscontacts[gen],1,4,5), reshape(postests[gen],1,4,5), 
-                               repeat(view(env.contact_factors,1,:)',4,1), density_factor, env=env)  
-
-            # target_accessible  (4, 5)
+            # trace  
+            # contacts
+                target_cf = repeat(view(env.contact_factors,1,:)',4,1) # use unexposed for all rows
+            poscontacts[gen] = how_many_contacts!(poscontacts[gen], 
+                                    postests[gen],  # equivalent to spreaders in spread
+                                    avail_to_test,
+                                    target_cf, 
+                                    density_factor, env=env)  
+            # touched--consquential contact that we count
                 target_tf = view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
-                target_accessible = view(env.simple_accessible, map2access.unexposed:map2access.mild, :)  # (4, 5)
-            postouched[gen] = how_many_touched!(postouched[gen], reshape(poscontacts[gen],1,4,5), 
-                                        target_accessible, [unexposed, recovered, nil, mild], 
+            postouched[gen] = how_many_touched!(postouched[gen], poscontacts[gen], 
+                                        avail_to_test, test_conds, 
                                         target_tf, env=env, kind=:trace)
+            # isolate
+            t_n_t_quarantine(postests[gen], qloc::Quar_Loc; opendat=opendat, isodat=isodat, env=env)
 
-            # isolate the initial positives and their positive contacts
-                # repeat for 2 more generations or stop if touches exhausted
-            lag = 5
-            for a in agegrps
-                for cond in [unexposed, recovered, nil, mild]
-                    isolate_by!(postest[gen][map2access[cond],a], cond, a, lag, 
-                        (locale=locale, start_date=thisday), opendat=dat, isodat=isolatedmx )
-                end
-            end
-            # what to do about lag?  we assume that the person and the tester don't know how long
-                # the person has had the disease. Simulation knows, but we dropped the 
-                # information because the testers can't know it and the required quarantine 
-                # will be the same.  TODO--go back and keep the lag information. 
-                # When we isolate, we still need to transition people.  
-                # For now, assume lag = 5 because 14 days gets to a decision point.
         end  # for gen 
+
+        push!(tntq,(day=thisday, avail=reduce(+, map(sum,values(to_test))), 
+                    conducted=perday_conducted, postests=reduce(+, map(sum,values(postests))), 
+                    poscontacts=reduce(+, map(sum,values(poscontacts))), 
+                    postouched=reduce(+, map(sum,values(postouched)))))
+
     end  # if start_day
 end
 
 
-function simtests(to_test; tc_perday, sensitivity, specificity, infect_prior, env=env)
+function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infect_prior=.05, 
+    test_pct=.95, env=env)
 
-    # randomly distribute the tests across disease conditions by age group and condition
-    avail_by_age = sum(to_test,dims=1)    #(1,5)
-    avail_by_age_pct = vec(avail_by_age ./ sum(avail_by_age))
-    avail_by_cond_pct = to_test ./ avail_by_age
-    x = categorical_sample(avail_by_age_pct, tc_perday)
-    dist_tests = [count(x .== i) for i in agegrps]
-    apply_tests = round.(Int, avail_by_cond_pct .* reshape(dist_tests, 1, agegrps))
+    # distribute the tests across disease conditions by age group and condition
+           # we could do probabilistically but the probs are very small and the whole thing
+           # is somewhat artificial: we can capture "randomness" by randomly ignoring x% of the results
 
-    # test results  # Bayesian probs. better but public tests don't use Bayes interpretation
+    if tc_perday <= 0
+        println("got here")
+        return zeros(Int,laglim, 4, length(agegrps)), 0
+    end
+
+    today_tests = rand(Binomial(tc_perday, test_pct), 1)[1]
+
+    # println("today $(ctr[:day]) tc_perday $tc_perday  today tests $today_tests")
+
+    tst_pct = to_test ./ sum(to_test)
+    tst_pct[isnan.(tst_pct)] .= 0.0  # eliminate NaNs
+
+    dist_tests = round.(Int, (tst_pct .- 1e-5) .* today_tests) # tst_pct .- 1e-5
+
+    # test results  
+
         # specificity tests apply to actual true not-infected: unexposed recovered
-        false_pos = rand.(Binomial.(apply_tests[1:2,:], 1.0 - specificity))
-        # sensitivity tests apply to actual true infected: nil mild
-        true_pos = rand.(Binomial.(apply_tests[3:4,:], sensitivity))
-        false_neg = apply_tests[3:4,:] - true_pos   # TODO should report this for curiosity
+        @views false_pos = rand.(Binomial.(dist_tests[:, 1:2, :], 1.0 - specificity))
 
-    test_results = [false_pos; true_pos]  # (4,5)
+        # sensitivity tests apply to actual true infected: nil, mild
+        @views true_pos = rand.(Binomial.(dist_tests[:, 3:4, :], sensitivity))
+        false_neg = dist_tests[:, 3:4,:] - true_pos   # TODO should report this for curiosity
+
+        pos_results = cat(false_pos,true_pos,dims=2)  # (25,4,5)
+
+        # println(" day $(ctr[:day])  ")
+        # println(" False Pos  quarantined even though not sick: ", sum(false_pos) ,", ", 
+        #         round(sum(false_pos) / sum(dist_tests[:, 1:2, :]), digits=4))
+        # println(" True Pos  quarantined because actually sick: ", sum(true_pos) ,", ", 
+        #         round(sum(true_pos) / sum(dist_tests[:, 3:4, :]), digits=4))
+        # println(" False Neg  not quarantined even though sick: ", sum(false_neg) ,", ",
+        #         round(sum(false_neg) / sum(dist_tests[:, 3:4,:]), digits=4))
+        # println(" Total positive results, total tests conducted ", sum(pos_results), ", ", 
+            # sum(dist_tests))
+
+    return pos_results, sum(dist_tests)
 end
 
 
-function bayes(sensitivity, specificity, pr_pop)
+function bayes(sensitivity, specificity, pr_pop) 
     pr_pos_given_pos_test = (
                        sensitivity * pr_pop /
        (sensitivity * pr_pop + (1.0 - specificity) * (1.0 - pr_pop))
-    )
+    ) # Bayesian probs. better but public tests don't use Bayes interpretation!
 end
 
 
+function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, env)
+    test_conds = [unexposed, recovered, nil, mild] 
+    isolate_by!(postests, test_conds, agegrps, lags, qloc, opendat=opendat, isodat=isodat)
+end
 
-function t_n_t_unquarantine(loc, start_date, opendat, isodat, env)
-    getconds = [unexposed, recovered, nil, mild, sick, severe] # last 2 will turn up zero
-    getfrom = (locale=loc, start_date=start_date)
-    allin = grab(getconds, agegrps, lags, getfrom, dat=isodat)
 
-    # only need to do plus! becasuse we delete this isolatedmx value
-    for a in agegrps
-        for cond in [unexposed, recovered, nil, mild]
-            unisolate_by!(num, cond, a, lag, (locale=loc, start_date=start_date);
-                         opendat=opendat, isodat=isodat)
-        end
-    end
+function t_n_t_unquarantine(qloc::Quar_Loc; opendat, isodat, env)
+    ret_conds = [unexposed, recovered, dead, nil, mild, sick, severe] 
+    allout = grab(ret_conds, agegrps, lags, qloc, dat=isodat)
+
+    # println("day $(ctr[:day]) unquaranting this many ", sum(allout))
+
+    unisolate_by!(allout, ret_conds, agegrps, lags, qloc; 
+                  opendat=opendat, isodat=isodat, mode=:plus) # do plus! becasuse we delete the qloc
+    return allout
 end

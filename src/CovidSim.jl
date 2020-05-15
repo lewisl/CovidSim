@@ -48,7 +48,7 @@ export                  # functions for simulation
     input!,
     plus!,
     minus!,
-    total!,
+    total,
     Env,
     initialize_sim_env,
     r0_sim,

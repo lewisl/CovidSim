@@ -124,6 +124,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
 =#
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
     !isempty(transq) && (deleteat!(transq, 1:length(transq)))   # empty it
+    !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   # empty it
+
 
 
     # access input data and pre-allocate storage
@@ -159,13 +161,21 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
                 case(loc; opendat=openmx, isodat=isolatedmx, env=env)
             end
             spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
-            transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
-            transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
-            if showr0 && (mod(ctr[:day],10) == 0)
-                current_r0 = sim_r0(env=env, dt=dt)
-                println("at day $(ctr[:day]) r0 = $current_r0")
-            end
+            # transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
+            # transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
+            # if showr0 && (mod(ctr[:day],10) == 0)
+            #     current_r0 = sim_r0(env=env, dt=dt)
+            #     println("at day $(ctr[:day]) r0 = $current_r0")
+            # end
         end
+        transition!(dt, dat=openmx)   # transition all infectious cases / locales "in the open"
+        transition!(dt, dat=isolatedmx)  # transition all infectious cases / locales in isolation
+        if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+            current_r0 = sim_r0(env=env, dt=dt)
+            println("at day $(ctr[:day]) r0 = $current_r0")
+        end
+
+        # println("day $(ctr[:day]) all locales ", keys(isolatedmx))
         do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, starting_unexposed=starting_unexposed)
     end
     println("Simulation completed for $(ctr[:day]) days.")
@@ -196,8 +206,8 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     else  # on all other days...
         for locale in locales
             cumhist[locale][:,1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
-            cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
-            newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1]
+            @views cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
+            @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1]
         end
     end
 end
@@ -231,7 +241,7 @@ function add_totinfected_series!(series, locale)
     # for new
     n = size(series[locale][:new],1)
     series[locale][:new] = hcat(series[locale][:new], zeros(Int,n,6))
-    series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
+    @views series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
                                                       abs.(series[locale][:new][:,map2series.unexposed]) )
     # for cum
     series[locale][:cum] = hcat(series[locale][:cum], zeros(Int,n,6))
@@ -370,34 +380,34 @@ end
 
 
 function grab(condition, agegrp, lag, locale; dat=openmx)
-    @assert length(locale) == 1 "locale must be a scalar"
+    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     return dat[locale][lag, condition, agegrp]
 end
 
 
 function input!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert length(locale) == 1 "locale must be a scalar"
+    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale; dat=dat)
     dat[locale][lag, condition, agegrp] = val
 end
 
 
 function plus!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert length(locale) == 1 "locale must be a scalar"
+    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     dat[locale][lag, condition, agegrp] += val
 end
 
 
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert length(locale) == 1 "locale must be a scalar"
+    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale; dat=dat)
     @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
 end
 
 
-function total!(condition, agegrp, lag, locale; dat=openmx)
-    @assert length(locale) == 1 "locale must be a scalar"
+function total(condition, agegrp, lag, locale; dat=openmx)
+    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     sum(dat[locale][lag, condition, agegrp])
 end
 
