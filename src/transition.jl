@@ -64,7 +64,7 @@ Works for a single locale.
 """
 function transition!(dt, locale; dat)  
 
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     iszero(dat[locale]) && (return)
 
     all_decpoints = reduce(merge,dt[agegrp].dec_points for agegrp in agegrps)
@@ -134,13 +134,13 @@ function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, lo
     @assert sum(distvec) == folks "someone got lost $res != $folks"
 
     if lag != lastlag  # infectious cases to next lag
-        @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) 
+        @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) # @views 
     end
-    plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-    plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-    minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
+    @views plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
+    @views plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
+    @views minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
-    @views push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # primarily for debugging; can do some cool plots
+    @views push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # @views primarily for debugging; can do some cool plots
                    newcond=distvec[map2pr.nil:map2pr.severe], recovered=distvec[map2pr.recovered],
                    dead=distvec[map2pr.dead], node=node, locale=locale))
     return
@@ -149,7 +149,7 @@ end
 
 function update_infectious!(locale; dat=openmx) # by single locale
     for agegrp in agegrps
-        tot = total([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
+        tot = sum([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
         input!(tot, infectious, agegrp, 1, locale, dat=dat) # update the infectious total for the locale and agegroup
     end
 end
