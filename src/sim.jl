@@ -126,8 +126,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     !isempty(transq) && (deleteat!(transq, 1:length(transq)))   # empty it
     !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   # empty it
 
-
-
     # access input data and pre-allocate storage
     alldict = setup(n_days; geofilename=geofilename, 
                     dectreefilename=dtfilename, spfilename=spfilename)
@@ -161,14 +159,13 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
                 case(loc; opendat=openmx, isodat=isolatedmx, env=env)
             end
             spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
-            # transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
+            transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
             # transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
             # if showr0 && (mod(ctr[:day],10) == 0)
             #     current_r0 = sim_r0(env=env, dt=dt)
             #     println("at day $(ctr[:day]) r0 = $current_r0")
             # end
         end
-        transition!(dt, dat=openmx)   # transition all infectious cases / locales "in the open"
         transition!(dt, dat=isolatedmx)  # transition all infectious cases / locales in isolation
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
             current_r0 = sim_r0(env=env, dt=dt)
@@ -206,8 +203,8 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     else  # on all other days...
         for locale in locales
             cumhist[locale][:,1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
-            @views cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
-            @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1]
+            @views cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2) # @views 
+            @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1] # @views 
         end
     end
 end
@@ -241,11 +238,11 @@ function add_totinfected_series!(series, locale)
     # for new
     n = size(series[locale][:new],1)
     series[locale][:new] = hcat(series[locale][:new], zeros(Int,n,6))
-    @views series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
-                                                      abs.(series[locale][:new][:,map2series.unexposed]) )
+    series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
+                                                      abs.(series[locale][:new][:,map2series.unexposed]) ) # @views 
     # for cum
     series[locale][:cum] = hcat(series[locale][:cum], zeros(Int,n,6))
-    @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)
+    cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1) # @views 
     return
 end
 
@@ -378,13 +375,31 @@ end
 #                in the simulation data matrices
 ####################################################################################
 
+"""
+    function grab(condition, agegrp, lag, locale; dat=openmx)
 
+Inputs condition, agegrp and lag can be single or multiple (array or range).
+Only one locale can be accessed. Caller should loop over locales to retrieve
+data from multiple locales.
+
+The returned array has dimensions (lag, condition, agegrp).
+"""
 function grab(condition, agegrp, lag, locale; dat=openmx)
     @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     return dat[locale][lag, condition, agegrp]
 end
 
 
+"""
+    function input!(val, condition, agegrp, lag, locale; dat=openmx)
+
+Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
+Only one locale can be provided.
+
+ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
+
+Inputs overwrite existing data at the referenced location of the target population matrix dat.
+"""
 function input!(val, condition, agegrp, lag, locale; dat=openmx)
     @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale; dat=dat)
@@ -392,12 +407,33 @@ function input!(val, condition, agegrp, lag, locale; dat=openmx)
 end
 
 
+"""
+    function plus!(val, condition, agegrp, lag, locale; dat=openmx)
+
+Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
+Only one locale can be provided.
+
+ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
+
+Inputs are added to the existing data at the referenced location of the target population matrix dat.
+"""
 function plus!(val, condition, agegrp, lag, locale; dat=openmx)
     @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     dat[locale][lag, condition, agegrp] += val
 end
 
 
+"""
+    function minus!(val, condition, agegrp, lag, locale; dat=openmx)
+
+Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
+Only one locale can be provided.
+
+ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
+
+If subtraction from the existing data would result in negative values at the referenced locations of the target population matrix dat,
+an error will be raised. The population matrix must contain positive integer values.
+"""
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
     @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale; dat=dat)
@@ -406,7 +442,16 @@ function minus!(val, condition, agegrp, lag, locale; dat=openmx)
 end
 
 
-function total(condition, agegrp, lag, locale; dat=openmx)
+"""
+    function sum(condition, agegrp, lag, locale; dat=openmx)
+
+Inputs condition, agegrp and lag can be single or multiple (array or range).
+Only one locale can be accessed. Caller should loop over locales to sum
+data from multiple locales.
+
+Returns an array with dimensions lag, condition, agegrp.
+"""
+function sum(condition, agegrp, lag, locale; dat=openmx)
     @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     sum(dat[locale][lag, condition, agegrp])
 end

@@ -23,15 +23,16 @@ using Debugger
 using Dates
 using Pkg.TOML
 
+# order matters for these includes!
 include("dec_tree.jl")
 include("setup.jl")
 include("sim.jl")
 include("tracking.jl")
+include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
 include("cases.jl")
 include("johns_hopkins_data.jl")
-include("test_and_trace.jl")
 
 
 export                  # functions for simulation
@@ -48,7 +49,7 @@ export                  # functions for simulation
     input!,
     plus!,
     minus!,
-    total,
+    sumit,
     Env,
     initialize_sim_env,
     r0_sim,

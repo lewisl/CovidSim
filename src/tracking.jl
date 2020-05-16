@@ -98,6 +98,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     gui()
 end
 
+
 function newplot(series, locale, plcols=[infectious]; days="all")
 
     pyplot()
@@ -144,6 +145,7 @@ end
 function dayplot(spreadq, plseries=[])
     dayplot(DataFrame(spreadq), plseries)
 end
+
 
 function dayplot(spreadseries::DataFrame, plseries=[])
     

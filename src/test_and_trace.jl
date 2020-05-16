@@ -161,10 +161,10 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
     # test results  
 
         # specificity tests apply to actual true not-infected: unexposed recovered
-        @views false_pos = rand.(Binomial.(dist_tests[:, 1:2, :], 1.0 - specificity))
+        false_pos = rand.(Binomial.(dist_tests[:, 1:2, :], 1.0 - specificity)) # @views 
 
         # sensitivity tests apply to actual true infected: nil, mild
-        @views true_pos = rand.(Binomial.(dist_tests[:, 3:4, :], sensitivity))
+        true_pos = rand.(Binomial.(dist_tests[:, 3:4, :], sensitivity))  # @views 
         false_neg = dist_tests[:, 3:4,:] - true_pos   # TODO should report this for curiosity
 
         pos_results = cat(false_pos,true_pos,dims=2)  # (25,4,5)
