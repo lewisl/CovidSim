@@ -7,9 +7,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.1
 #   kernelspec:
-#     display_name: Julia 1.3.0
+#     display_name: Julia 1.4.0
 #     language: julia
-#     name: julia-1.3
+#     name: julia-1.4
 # ---
 
 # %%
@@ -30,7 +30,6 @@ println(mean(x))
 println(x)
 pyplot()
 histogram(x, bins=10)
-# barhist(x)
 gui()
 
 # bin the data
@@ -60,7 +59,7 @@ gui()
 # ### The long tail of (some) gamma distributions.
 
 # %%
-dgamma = Gamma(1.2, 0.5)  #shape, scale
+dgamma = Gamma(1.0, 2.0 )  #shape, scale
 x = rand(dgamma,100);
 println(mean(x))
 println(round(sum((x))))
@@ -132,6 +131,22 @@ l = @layout([a1 a2 a3 a4 a5 a6;
 plot(p..., layout=l, legend=false, yaxis=false, tickfontsize=6)
 gui()
         
+
+# %% [markdown]
+# #### The pdf is a static characteristic of the distribution
+# So it is always the same result.
+
+# %%
+dgamma = Gamma(1.2,1.6)
+startpoint = 0.5
+endpoint = 10
+display(pdf.(dgamma,startpoint:endpoint))
+println(sum(pdf.(dgamma,startpoint:endpoint)))
+
+# %%
+dgamma = Gamma(0.5,1.0)
+x = rand(0.1:0.1:1.5,6)
+rand(dgamma,6)
 
 # %%
 nilprobs = [.6, 0.0, .3, .1, 0.0, 0.0]

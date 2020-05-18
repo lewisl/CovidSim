@@ -6,16 +6,16 @@ send_risk = [0.0, 0.3, 0.7, 0.8, 0.9, 0.9, 0.8, 0.8, 0.7, 0.6,
 # recv_risk must have 5 entries between 0.0 and 1.0
 recv_risk = [0.1, 0.5, 0.5, 0.55, 0.60]
 
-# contact_factors and touch_factors reshaped after read 
-# to look like the arrangement below
+# contact_factors and touch_factors reshaped after loaded 
+# to look like the arrangements below
 	# size(contact_factors) to (4,5)
 	# size(touch_factors) to (6,5)
 
 contact_factors =       [ 1.0,    1.8,    1.8,     1.5,   1.0,    # nil
                           1.0,    1.7,    1.7,     1.4,   0.9,    # mild
                           0.7,    1.0,    1.0,     0.7,   0.5,    # sick
-                          0.5,    0.8,    0.8,     0.5,   0.3]    # severe
-              # agegrp    1         2      3        4       5
+                          0.5,    0.5,    0.5,     0.5,   0.5]    # severe
+#              # agegrp    1       2       3        4       5
 touch_factors =         [0.55,   0.62,    0.58,    0.4,   0.35,   # unexposed
                          0.55,   0.62,    0.58,    0.4,   0.35,   # recovered
                          0.55,   0.62,    0.58,    0.4,   0.35,   # nil

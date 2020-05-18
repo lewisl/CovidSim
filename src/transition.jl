@@ -296,8 +296,8 @@ function unisolate_by!(num, cond, agegrp, lag, locale; mode=:both, opendat=openm
 
     available = grab(cond, agegrp, lag, locale, dat=isodat)  # max
 
-    println("day $(ctr[:day]) request to unisolate   ", sum(num))
-    println("day $(ctr[:day]) available to unisolate ", sum(available))
+    # println("day $(ctr[:day]) request to unisolate   ", sum(num))
+    # println("day $(ctr[:day]) available to unisolate ", sum(available))
 
     cnt = clamp.(num, 0, available)  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
@@ -316,7 +316,7 @@ function _unisolate!(cnt, cond, agegrp, lag, locale; mode=:both, opendat=openmx,
             locale = locale.locale
         end
 
-        println("day $(ctr[:day])  unquarantine is unisolating this many ", sum(cnt))
+        # println("day $(ctr[:day])  unquarantine is unisolating this many ", sum(cnt))
 
         plus!(cnt, cond, agegrp, lag, locale, dat=opendat)
         update_infectious!(locale, dat=opendat)

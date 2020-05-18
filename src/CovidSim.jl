@@ -60,6 +60,7 @@ export
     Spreadcase,
     sd_gen,
     seed_case_gen,
+    t_n_t_case_gen,
     case_setter,
     bayes
 
