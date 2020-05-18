@@ -17,7 +17,7 @@ previously unexposed people, by agegrp?  For a single locale...
 function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env=env)
 
     if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
-        cleanup_spread_stash()
+        cleanup_stash(spread_stash)
     end
 
     # variables from env
@@ -237,7 +237,7 @@ function how_many_touched!(numtouched, contacts, target_accessible, target_conds
                 numtouched[l,:] .= 0
             else
                 x = rand(dcat, subgroup) # (length(lc),) probabistically distribute contacts for a lag across accessible by unexposed|recovered|infectious, agegrp
-                peeps = reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible)...)  # (5,) distribute across all 3 groups, but only take unexposed
+                peeps = reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))  # (5,) distribute across all 3 groups, but only take unexposed
                 # for a in agegrps # probabilistically see who of the accessible is significantly touched
                 @views cnt = binomial_one_sample.(peeps[map2touch.unexposed,:], target_tf) # @views 
                 @views numtouched[l,:] .+= clamp.(cnt, 0, target_unexp[l,:]) # @views 
@@ -309,9 +309,9 @@ function send_risk_by_recv_risk(send_risk, recv_risk)
 end
 
 
-function cleanup_spread_stash()
-    for k in keys(spread_stash)
-        delete!(spread_stash, k)
+function cleanup_stash(stash)
+    for k in keys(stash)
+        delete!(stash, k)
     end
 end
 
