@@ -149,7 +149,7 @@ end
 
 function update_infectious!(locale; dat=openmx) # by single locale
     for agegrp in agegrps
-        tot = sum([nil, mild, sick, severe],agegrp,:,locale,dat=dat) # sum across cases and lags per locale and agegroup
+        tot = sum(grab([nil, mild, sick, severe],agegrp,:,locale,dat=dat)) # sum across cases and lags per locale and agegroup
         input!(tot, infectious, agegrp, 1, locale, dat=dat) # update the infectious total for the locale and agegroup
     end
 end
@@ -160,7 +160,7 @@ For a locale, randomly choose the number of people from each agegroup with
 condition of {unexposed, infectious, recovered} who travel to each
 other locale. Add to the travelq.
 """
-function travelout!(fromloc, locales, rules=[])
+function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MORE!
     # 10.5 microseconds for 5 locales
     # choose distribution of people traveling by age and condition:
         # unexposed, infectious, recovered -> ignore lag for now

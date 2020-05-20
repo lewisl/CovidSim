@@ -135,6 +135,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
         isolatedmx = alldict["dat"]["isolatedmx"]
+        testmx = alldict["dat"]["testmx"]
         geodata = alldict["geo"]
         spread_params = alldict["sp"]
         fips_locs = alldict["fips_locs"]
@@ -156,7 +157,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
         for loc in locales
             density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
             for case in runcases
-                case(loc; opendat=openmx, isodat=isolatedmx, env=env)
+                case(loc; opendat=openmx, isodat=isolatedmx, testdat=testmx, env=env)
             end
             spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
             transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
@@ -167,6 +168,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
             # end
         end
         transition!(dt, dat=isolatedmx)  # transition all infectious cases / locales in isolation
+        transition!(dt, dat=testmx) # transition tracked test to stay in sync with openmx
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
             current_r0 = sim_r0(env=env, dt=dt)
             println("at day $(ctr[:day]) r0 = $current_r0")
@@ -439,21 +441,6 @@ function minus!(val, condition, agegrp, lag, locale; dat=openmx)
     current = grab(condition, agegrp, lag, locale; dat=dat)
     @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
-end
-
-
-"""
-    function sum(condition, agegrp, lag, locale; dat=openmx)
-
-Inputs condition, agegrp and lag can be single or multiple (array or range).
-Only one locale can be accessed. Caller should loop over locales to sum
-data from multiple locales.
-
-Returns an array with dimensions lag, condition, agegrp.
-"""
-function sum(condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    sum(dat[locale][lag, condition, agegrp])
 end
 
 

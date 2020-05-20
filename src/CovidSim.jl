@@ -3,8 +3,7 @@
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
         # UW virology, expansion of deaths by state on log chart
-    # probably need to raise effective death rate for people in 60-80 and 80+  per Vox article
-
+    # fix all the travel functions to latest APIs
 # Done
 
 
@@ -22,6 +21,7 @@ using StatsPlots
 using Debugger
 using Dates
 using Pkg.TOML
+
 
 # order matters for these includes!
 include("dec_tree.jl")

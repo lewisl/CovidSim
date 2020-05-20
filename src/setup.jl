@@ -57,11 +57,12 @@ end
 function build_data(locales, n_days)
     openmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
     isolatedmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
+    testmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "openhistmx"=>openhistmx, "isolatedhistmx"=>isolatedhistmx)
-    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
+    return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
 

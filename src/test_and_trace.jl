@@ -1,15 +1,17 @@
 """
 Quar_Loc is a type alias for 
 
-```NamedTuple{(:locale, :start_date),Tuple{Int64,Int64}}```
+```NamedTuple{(:locale, :quar_date),Tuple{Int64,Int64}}```
 
-example:  (locale=53038, start_date=50)
+example:  (locale=53038, quar_date=50)
 
 Used as a locale in an isolatedmx 3-d array. Quar_Loc locale provides
 the geographic locale and the simulation ordinal date that a cohort of infected folks
 entered quarantine. Locale values are US Census FIPS codes at the county level.
 """
-const Quar_Loc = NamedTuple{(:locale, :start_date),Tuple{Int64,Int64}}
+const Quar_Loc = NamedTuple{(:locale, :quar_date),Tuple{Int64,Int64}}
+
+const Test_loc = NamedTuple{(:locale, :test_date),Tuple{Int64,Int64}}
 
 
 const map2access = (unexposed= 1, infectious=-1, recovered=2, dead=-1, 
@@ -29,22 +31,25 @@ Returns a function to use in runcases input to function ```run_a_sim```.
 """
 function t_n_t_case_gen(start_day, end_day;         # these args go into the returned t_n_t_case
     tc_perday=400, sensitivity=.90, specificity=0.90, infect_prior=0.5, test_pct=.95,  # optional
-    q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=1, generations=3, qdays=15) 
+    q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=1, generations=3, qdays=15,
+    past_contacts=false) 
     # args match runcases loop in run_a_sim
-    function scase(locale; opendat, isodat, env)  # case loop in run_a_sim provides required args
+    function scase(locale; opendat, isodat, testdat, env)  # case loop in run_a_sim provides required args
         t_n_t_case(start_day, end_day; 
-                   env=env, opendat=opendat, isodat=isodat, locale=locale,  # from case loop
+                   env=env, opendat=opendat, isodat=isodat, testdat=testdat, locale=locale,  # from case loop
                    tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, 
                    infect_prior=infect_prior, test_pct=test_pct, q_comply=q_comply, c_comply=c_comply,
-				   breakout_pct=breakout_pct, test_delay=test_delay, generations=generations, qdays=qdays)
+				   breakout_pct=breakout_pct, test_delay=test_delay, generations=generations, qdays=qdays,
+                   past_contacts=past_contacts)
     end
 end
 
 
 function t_n_t_case(start_date, end_date; 
-                env, opendat, isodat, locale,     # from case loop
+                env, opendat, isodat, testdat, locale,     # from case loop
                 tc_perday=1000, sensitivity=.95, specificity=0.90, infect_prior=0.5, test_pct=.95,  
-                q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=1, generations=3, qdays=15)
+                q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=1, generations=3, qdays=15,
+                past_contacts=false)
 
     thisday = ctr[:day]
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
@@ -53,10 +58,10 @@ function t_n_t_case(start_date, end_date;
         # finds each dated quarantines until they are gone
         # check for breakouts from quarantine
     for k in keys(isodat)
-        if typeof(k) <: Quar_Loc # then k is a Quar_Loc = (locale=locale, start_date=thisday)
+        if typeof(k) <: Quar_Loc # then k is a Quar_Loc = (locale=locale, quar_date=thisday)
             if k.locale == locale
-                if k.start_date < thisday < k.start_date + qdays
-                    day_of_q = thisday - k.start_date
+                if k.quar_date < thisday < k.quar_date + qdays
+                    day_of_q = thisday - k.quar_date
                     cnt = get(tnt_stash[k], day_of_q, 0) # are there breakouts?
                     if cnt > 0
                         # println("  GOT HERE:  unquarantine breakouts  $cnt ")
@@ -65,7 +70,7 @@ function t_n_t_case(start_date, end_date;
                         push!(tntq, (day=thisday, breakout=cnt))
                     end
                     # end
-                elseif k.start_date + qdays == thisday # end of quarantine is today
+                elseif k.quar_date + qdays == thisday # end of quarantine is today
                     cnt = grab(ret_conds, agegrps, lags, k, dat=isodat)
                     t_n_t_unquarantine(cnt, k, opendat=opendat, isodat=isodat, env=env)
                     push!(tntq, (day=ctr[:day], unquarantine=sum(cnt)))
@@ -77,17 +82,19 @@ function t_n_t_case(start_date, end_date;
     end
 
     test_and_trace(start_date, end_date; 
-        env=env, opendat=opendat, isodat=isodat, locale=locale,   # from case loop
+        env=env, opendat=opendat, isodat=isodat, testdat=testdat, locale=locale,   # from case loop
         tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, # optional
         infect_prior=infect_prior, test_pct=test_pct, q_comply=q_comply, c_comply=c_comply, 
-		breakout_pct=breakout_pct, test_delay=test_delay, generations=generations, qdays=qdays)
+		breakout_pct=breakout_pct, test_delay=test_delay, generations=generations, qdays=qdays,
+        past_contacts=past_contacts)
 end
 
 
 function test_and_trace(start_date, end_date; 
-    env, opendat, isodat, locale,  # from case loop
+    env, opendat, isodat, testdat, locale,  # from case loop
     tc_perday=1000, sensitivity=.95, specificity=0.95, infect_prior=0.5, test_pct=.95, # optional
-    q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=1, generations=3, qdays=15)
+    q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=1, generations=3, qdays=15,
+    past_contacts=false)
     
     thisday = ctr[:day]
     test_conds = [unexposed, recovered, nil, mild]
@@ -112,13 +119,17 @@ function test_and_trace(start_date, end_date;
         poscontacts = Dict(i=>zeros(Int, laglim, 4, 5) for i in 1:generations)
         postouched = Dict(i=>zeros(Int, laglim, 4, 5) for i in 1:generations)
 
-        # create new tracking locale and stash if doesn't exist
-        qloc = (locale=locale, start_date=thisday)
+        # create new tracking locales and stash if doesn't exist
+        qloc = (locale=locale, quar_date=thisday)
+        tstloc = (locale=locale, test_date=thisday)
         if !haskey(isodat, qloc)
             isodat[qloc] = zeros(Int, laglim, length(conditions), length(agegrps))
         end
         if !haskey(tnt_stash, qloc)
             tnt_stash[qloc] = zeros(Int, qdays-1)  # there is no breakout on the last day--everyone's out
+        end
+        if !haskey(testdat, tstloc)
+            testdat[tstloc] = zeros(Int, laglim, length(conditions), length(agegrps))
         end
         
         density_factor = env.geodata[env.geodata[:, fips] .== locale, density_fac][1]
@@ -134,24 +145,32 @@ function test_and_trace(start_date, end_date;
             end
 
             # test
-            postests[gen], conducted = simtests(to_test[gen]; tc_perday=tc_perday, sensitivity=sensitivity, 
+            postests[gen][:], all_tests = simtests(to_test[gen]; tc_perday=tc_perday, sensitivity=sensitivity, 
                             specificity=specificity, infect_prior=0.05, test_pct=test_pct, env=env)
+            conducted = sum(all_tests)
             perday_conducted += conducted
+            plus!(all_tests, test_conds, agegrps, lags, tstloc, dat=testdat)  # track the test cases
+            
 
             # trace contacts
                 target_cf = repeat(view(env.contact_factors,1,:)',4,1) # use unexposed for all rows
-            poscontacts[gen] = how_many_contacts!(poscontacts[gen], 
+            poscontacts[gen][:] = how_many_contacts!(poscontacts[gen], 
                                     postests[gen],  # equivalent to spreaders in spread
                                     avail_to_test,
                                     target_cf, 
                                     density_factor, env=env)  								
-			poscontacts[gen] = round.(Int, c_comply .* poscontacts[gen])
+			poscontacts[gen][:] = round.(Int, c_comply .* poscontacts[gen])
 
             # contacts lead to consquential touches that we count
                 target_tf = view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
-            postouched[gen] = how_many_touched!(postouched[gen], poscontacts[gen], 
+            postouched[gen][:] = how_many_touched!(postouched[gen], poscontacts[gen], 
                                         avail_to_test, test_conds, 
                                         target_tf, env=env, kind=:trace)
+            if past_contacts
+                up_multiple = floor(sum(shifter(rand(5),0.4, 1.3)))
+                postouched[gen][:] = postouched[gen] .* up_multiple
+            end
+
 
             # isolate positives and cache breakout
             put_in = round.(Int, q_comply .* postests[gen])
@@ -165,9 +184,13 @@ function test_and_trace(start_date, end_date;
             end
         end  # for gen 
 
+        avail = reduce(+, map(sum,values(to_test)))
+        pstests = reduce(+, map(sum,values(postests)))
+        tc_perday > avail && (@warn "Happy Day $(ctr[:day]): more tests available than people to test")
+
         # statistics
-        push!(tntq,(day=thisday, avail=reduce(+, map(sum,values(to_test))), 
-                    conducted=perday_conducted, postests=reduce(+, map(sum,values(postests))), 
+        push!(tntq,(day=thisday, avail=avail, 
+                    conducted=perday_conducted, postests=postests, 
                     poscontacts=reduce(+, map(sum,values(poscontacts))), 
                     postouched=reduce(+, map(sum,values(postouched)))))
 
@@ -201,8 +224,6 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
     dist_tests[:] = reshape([count(x .== i) for i in 1:length(dcat.p)], size(dist_tests))
     dist_tests[:] = clamp.(dist_tests, 0, to_test)
 
-    sum(dist_tests) > sum(to_test) && (@warn "Happy Day: more tests than people to test")
-
     # test results  
 
         # specificity tests apply to actual true not-infected: unexposed recovered
@@ -224,7 +245,7 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
         # println(" Total positive results, total tests conducted ", sum(pos_results), ", ", 
             # sum(dist_tests))
 
-    return pos_results, sum(dist_tests)
+    return pos_results, dist_tests
 end
 
 

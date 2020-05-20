@@ -2,6 +2,8 @@
 # tracking.jl
 #########################################################################################
 
+pyplot()   # initialize plotting backend for Plots
+
 
 """
 - use incr!(ctr, :day) for day of the simulation:  creates and adds 1
@@ -62,7 +64,7 @@ end
 
 function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; days="all",geo=[])
 
-    pyplot()
+    # pyplot()
     theme(:ggplot2, foreground_color_border =:black, reuse = false)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
@@ -101,7 +103,7 @@ end
 
 function newplot(series, locale, plcols=[infectious]; days="all")
 
-    pyplot()
+    # pyplot()
     theme(:ggplot2, foreground_color_border =:black)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
