@@ -3,7 +3,7 @@
 
 
 
-![png](output_4_0.png)
+![](./output_4_0.png)
 
 
 What you see above is a plot of the arrival of the novel Coronavirus in Phoenix, AZ--actually, all of Maricopa county. This simulation starts on February 1, 2020 and runs for 180 days until roughly August 1, 2020. With no social distancing, isolation, or other practices meant to reduce transmission of the virus, almost 61% of Phoenix contracts Covid-19 and, of those, slightly more than 1% die of the disease. This plot starts with the arrival of 6 people who are asymptomatic on day 1, followed by 12 more one week later. Each of these *seeds* are on the 3rd day of their illness when infectiousness begins to increase significantly.
@@ -21,14 +21,13 @@ These results are much worse than any we have seen around the world as people ha
 Because the unexposed start out as such a large group, let's just focus on the infectious and dead.
 
 
-![png](output_6_0.png)
+![](./output_6_0.png)
 
 
 
 Now this is something you rarely see although most behavioral simulations of epidemics have something like this going on.
 
-
-![png](output_7_0.png)
+<img src="output_7_0.png"  width="600"/>
 
 - The orange line consists of the "spreaders" who have the disease and who are out and about interacting with other people. They interact with people who are unexposed, and thus susceptible, other people who are infected, and people who have recovered. We assume, though the evidence is not entirely clear, that people who have recovered will not get the virus again *during the short time* of the simulation period. 
 
@@ -47,7 +46,7 @@ That blue line looks like a little hill compared to the charts you may have seen
 (Note on the immunity of recovery: The partial and temporary immunity conveyed by having recovered and having developed antibodies to the virus probably protects against re-infection from casual encounters. This simulation does not model "viral load"--the  effects of repeated exposure to lots of virus such as a front-line healthcare worker may experience. No one knows how much protection antibodies from recovery provide so our healthcare workers must protect themselves with PPE--personal protective equipment.)
 
 
-![png](output_9_0.png)
+<img src="output_9_0.png"  width="600"/>
 
 
 Whoa!  That's more like it. Except this is worse than reality. This is the daily new infections. At the peak, there are over 60,000 new cases. That doesn't happen with typical degrees of social isolation.  Let's now put some social distancing in place.
@@ -69,12 +68,12 @@ Let's keep it simple because that makes the results clearer. What is the effect 
 Here is a case when social distancing starts on day 60 with 75% compliance and is rather strong in terms of contacts and touches. That is rather dramatic. That cut the total infections to less that 5% of what it had been; and the number of deaths to 4.4% of what they were.
 
 
-![png](output_15_0.png)
+![](./output_15_0.png)
 
 
 
 
-![png](output_16_0.png)
+![](./output_16_0.png)
 
 But, what's with the infectious trajectory:  it doesn't seem to go down very quickly.  Having run quite a few of these, the effects are sometimes counter-intuitive.  First, the timing of social distancing is *very* important. 
 
@@ -89,7 +88,7 @@ It turns out that if we started just a little bit earlier on the curve of rising
 
 
 
-![png](output_20_0.png)
+![](./output_20_0.png)
 
 
 We cut not more than 60% of infections compared to starting isolation 10 days later.  With exponential growth, when you start mitigation practices makes a big difference. 
@@ -99,7 +98,7 @@ Looking at this the authorities could say, "We are in great shape; we have this 
 Let's see what happens if we open up to where we were before after 30 days of social distancing.
 
 
-![png](output_23_0.png)
+![](./output_23_0.png)
 
 
 It's kind of like nothing happened because of social distancing. We stopped the rise early; then we started the rise. We ended up in nearly the same place, except everything started later and the simulation ends before the infection curve burns itself out.
@@ -114,7 +113,7 @@ Because Maricopa County has a large population of over 4 million, 18 people comi
 Let's see what happens in a smaller place like Bismarck, North Dakota and we won't open up totally, which does get us back to what looks like no social distancing at all.
 
 
-![png](output_26_0.png)
+![](./output_26_0.png)
 
 
 With Bismarck's population of just a little bit over 2% of Phoenix, the 18 "seed" people start the curve growing sooner. Social distancing flattens it, but with less "herd immunity" from fewer recovered folks the decline is slow but noticeable.  Then, letting off social distancing even partially and the rise resumes and goes to a higher level. This almost makes it seem like there is no point and "we," whoever "we" are, should just let the disease run its course. But, that would come at a high cost in deaths, especially among those just a bit beyond middle age and up.
@@ -139,5 +138,5 @@ The new normal will not be the old normal until a vaccine is not only available,
 Finally, for comparison here is what Bismarck, ND could look like with no social distancing at all.
 
 
-![png](output_30_0.png)
+![](./output_30_0.png)
 
