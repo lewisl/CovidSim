@@ -64,7 +64,7 @@ end
 
 function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; days="all",geo=[])
 
-    # pyplot()
+    pyplot()
     theme(:ggplot2, foreground_color_border =:black, reuse = false)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
