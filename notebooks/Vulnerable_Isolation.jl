@@ -18,7 +18,7 @@ using CovidSim
 # %%
 seattle = (fips=53033, id=2); nyc=(fips=36061, id=3); bismarck=(fips=38015,id=10)
 
-# %% jupyter={"outputs_hidden": true}
+# %%
 geo = CovidSim.readgeodata("../data/geo2data.csv")
 geo[:,1:7]
 
@@ -26,22 +26,22 @@ geo[:,1:7]
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle.id,geo=geo)
+cumplot(series,seattle.fips,geo=geo)
 
 # %% [markdown]
 # ### Strong Social Distancing
 
-# %%
-Reset the model to defaults.
+# %% [markdown]
+# Reset the model to defaults.
 
 # %%
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -50,13 +50,13 @@ alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
 str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.3), tf=(.18,.45))
 
 # %%
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle.id,[recovered, infectious, dead],geo=geo)
+cumplot(series,seattle.fips,[recovered, infectious, dead],geo=geo)
 
 # %% [markdown]
 # ### Open Totally (which won't happen...)
@@ -64,7 +64,7 @@ cumplot(series,seattle.id,[recovered, infectious, dead],geo=geo)
 
 # %%
 # Reset to defaults
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -73,17 +73,17 @@ alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
 open = sd_gen(start=105, comply=0.0, cf=(.3,1.8), tf=(.18,.62))
 
 # %%
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle.id,[infectious, dead],geo=geo)
+cumplot(series,seattle.fips,[infectious, dead],geo=geo)
 
 # %%
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
-                compliance=[1.0], shift_contact=(.2,1.8), shift_touch=(.18,.62), pri=false)
+                compliance=[1.0], shift_contact=(.2,1.8), shift_touch=(.18,.62), pri=false, env=env)
 
 # %% [markdown]
 # The preceding estimates R0 based on equal representation in all demographic groups of the simulation.  But, the groups are not equally respresented so this is a slight underestimate of the socially determined R0.
@@ -93,7 +93,7 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
 
 # %%
 # reset the model to defaults
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -106,13 +106,13 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
                 compliance=[.75], shift_contact=(.2,1.45), shift_touch=(.18,.5), pri=false)
 
 # %%
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, mod_105],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle.id,[recovered,infectious, dead],geo=geo)
+cumplot(series,seattle.fips,[recovered,infectious, dead],geo=geo)
 
 # %% [markdown]
 # Even with meaningful easing or restrictions, this moderate opening is very effective because it comes on the base of a lower curve that resulted from earlier strict social distancing.
@@ -132,7 +132,7 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[], tf=[],
                 compliance=[.65], shift_contact=(.2,1.55), shift_touch=(.18,.55), pri=false)
 
 # %%
-function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx, env=env)
+function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx,testdat=openmx, env=env)
     if ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:laglim, locale; opendat=opendat, isodat=isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:laglim, locale; opendat=opendat, isodat=isodat)
@@ -141,20 +141,20 @@ end
 
 # %%
 # reset the model to defaults
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[]);
 laglim=25
 
 # %%
-alldict, env, series = run_a_sim(180,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(180,seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, mod_less_105],
        runcases=[seed_1_6, isolate_vulnerable]);
 
 # %%
-cumplot(series,seattle.id,[recovered,infectious, dead],geo=geo)
+cumplot(series,seattle.fips,[recovered,infectious, dead],geo=geo)
 
 # %% [markdown]
 # **Assessment:**
