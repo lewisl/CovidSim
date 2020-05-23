@@ -155,7 +155,8 @@ function dayplot(spreadseries::DataFrame, plseries=[])
     theme(:ggplot2, foreground_color_border =:black)
     
     plot(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
-            dpi=200,lw=2,
+            lw=2,
+            size = (700,500),
             xlabel="Simulation Days", 
             ylabel="People", 
             title="Daily Spread of Covid",
@@ -163,7 +164,7 @@ function dayplot(spreadseries::DataFrame, plseries=[])
     
     for addlseries in plseries
         lbl = titlecase(string(addlseries))
-        plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, dpi=200,lw=2)
+        plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, lw=2)
     end
     gui()  # force instant plot window
 end

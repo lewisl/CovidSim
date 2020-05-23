@@ -53,7 +53,6 @@ function t_n_t_case(start_date, end_date;
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
 
     
-
     # Actions that can occur after or during the case:
         # do we need to UNquarantine anyone today?  
         for q in keys(isodat)
