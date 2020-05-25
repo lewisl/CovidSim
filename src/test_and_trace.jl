@@ -6,11 +6,22 @@ Quar_Loc is a type alias for
 example:  (locale=53038, quar_date=50)
 
 Used as a locale in an isolatedmx 3-d array. Quar_Loc locale provides
-the geographic locale and the simulation ordinal date that a cohort of infected folks
+the geographical locale and the simulation ordinal date that a cohort of infected folks
 entered quarantine. Locale values are US Census FIPS codes at the county level.
 """
 const Quar_Loc = NamedTuple{(:locale, :quar_date),Tuple{Int64,Int64}}
 
+"""
+Test_Loc is a type alias for 
+
+```NamedTuple{(:locale, :test_date),Tuple{Int64,Int64}}```
+
+example:  (locale=53038, test_date=50)
+
+Used as a locale in an population matrix 3-d array for tracking tests conducted by locale. 
+Provides the geographical locale and the simulation ordinal date that of the test.
+Locale values are US Census FIPS codes at the county level.
+"""
 const Test_Loc = NamedTuple{(:locale, :test_date),Tuple{Int64,Int64}}
 
 const map2access = (unexposed= 1, infectious=-1, recovered=2, dead=-1, 
@@ -75,18 +86,19 @@ function t_n_t_case(start_date, end_date;
                         t_n_t_unquarantine(cnt, q, opendat=opendat, isodat=isodat, env=env)
                         push!(tntq, (day=ctr[:day], unquarantine=sum(cnt)))
                         delete!(isodat, q)  # remove dated locale
-                        delete!(tnt_stash, q)  # remove stash for dated locale
+                        delete!(tnt_stash, q)  # remove dated locale from stash
                     end
                 end
             end
         end
-        # are any delayed test results coming back today?
+
+        # are any delayed test results coming back today, which will lead to quarantines?
         if test_delay != 0
             for t in keys(tnt_stash)
                 if typeof(t) <: Test_Loc
                     if t.locale == locale
                         if t.test_date + test_delay == thisday
-                            # quarantine
+                            # quarantine folks with positive test results
                             qloc = (locale=locale, quar_date=thisday)
                             put_in = tnt_stash[t]
                             if breakout_pct != 0.0  # future breakouts from this quarantine cohort
@@ -128,7 +140,7 @@ function test_and_trace(start_date, end_date;
 
     if start_date <= thisday < end_date
 
-        # who gets tested?  # (25,4,5)
+        # who gets tested?  
         avail_to_test = zeros(25,4,5)
         if target_test
             sel_age = get_next!(nxt) # circular cycle through 1:4
@@ -143,9 +155,7 @@ function test_and_trace(start_date, end_date;
             return
         end
 
-        # TODO fix all the matrix dimensions throughout and check called functions!  CAN WE USE VIEWS?
-
-        to_test = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations) # TODO put these in a struct
+        to_test = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations) # TODO pre-allocate?
         postests = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations)
         poscontacts = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations)
         postouched = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations)
@@ -179,8 +189,8 @@ function test_and_trace(start_date, end_date;
                             specificity=specificity, infect_prior=0.05, test_pct=test_pct, env=env)
             conducted = sum(all_tests)
             perday_conducted += conducted
-            if sum(all_tests) != 0
-                plus!(all_tests, test_conds, agegrps, lags, tstloc, dat=testdat)  # track the test cases
+            if sum(all_tests) != 0  # track the test cases
+                plus!(all_tests, test_conds, agegrps, lags, tstloc, dat=testdat)  
             end
             
 
@@ -194,16 +204,16 @@ function test_and_trace(start_date, end_date;
 			poscontacts[gen][:] = round.(Int, c_comply .* poscontacts[gen])
 
             # contacts lead to consquential touches that we count
-                target_tf = view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
+            target_tf = view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
             postouched[gen][:] = how_many_touched!(postouched[gen], poscontacts[gen], 
                                         avail_to_test, test_conds, 
                                         target_tf, env=env, kind=:trace)
-            if past_contacts
+            if past_contacts # going back "5" pretend days
                 up_multiple = floor(sum(shifter(rand(5),0.4, 1.3)))
                 postouched[gen][:] = postouched[gen] .* up_multiple
             end
 
-            # isolate positives and cache breakout
+            # isolate positives and stash breakout
             put_in = round.(Int, q_comply .* postests[gen])
             if test_delay > 0 # delay positives into quarantine. (all results delayed, only pos matter)
                 tnt_stash[tstloc] .+= put_in
@@ -216,13 +226,12 @@ function test_and_trace(start_date, end_date;
             end
         end  # for gen 
 
-        avail = reduce(+, map(sum,values(to_test)))
-        pstests = reduce(+, map(sum,values(postests)))
-        tc_perday > avail && (@warn "Happy Day $(ctr[:day]): more tests available than people to test")
-
         # statistics
+        avail = reduce(+, map(sum,values(to_test)))
+        sumtests = reduce(+, map(sum,values(postests)))
+        tc_perday > avail && (@warn "Happy Day $(ctr[:day]): more tests available than people to test")
         push!(tntq,(day=thisday, avail=avail, 
-                    conducted=perday_conducted, postests=postests, 
+                    conducted=perday_conducted, postests=sumtests, 
                     poscontacts=reduce(+, map(sum,values(poscontacts))), 
                     postouched=reduce(+, map(sum,values(postouched)))))
 
@@ -286,10 +295,11 @@ end
 
 
 function bayes(sensitivity, specificity, pr_pop) 
+    # Bayesian probs. better but public tests don't use Bayes interpretation!
     pr_pos_given_pos_test = (
                        sensitivity * pr_pop /
        (sensitivity * pr_pop + (1.0 - specificity) * (1.0 - pr_pop))
-    ) # Bayesian probs. better but public tests don't use Bayes interpretation!
+    ) 
 end
 
 
@@ -352,7 +362,7 @@ function cnt_2_array(cnt, pop_mat; ret_conds=[nil, mild, sick, severe, unexposed
 end
 
 
-const nxt = [1] # a ref to an integer
+const nxt = [1] # a ref to an integer used as a circular counter
 
 function get_next!(cval) # update the ref value
     cval[] = cval[] < 4 ? cval[] + 1 : 1

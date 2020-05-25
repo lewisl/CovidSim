@@ -6,6 +6,10 @@
 ####################################################################
 
 
+####################################################################
+# seeding cases
+####################################################################
+
 """
 Generate seeding cases.
 inputs: day, cnt, lag, cond, agegrp
@@ -24,7 +28,10 @@ end
 # seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)
 
 
-# some isolation cases
+####################################################################
+# isolation cases
+####################################################################
+
 function isolate_case_1(locale; opendat, isodat, testdat, env)
     if ctr[:day] == 15
         isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
@@ -83,6 +90,12 @@ function unisolate_case_3(locale; opendat, isodat, testdat, env)
         unisolate!(1.0,[mild,sick,severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
     end
 end
+
+
+####################################################################
+# spread cases
+####################################################################
+
 
 """
 - define a cases as mycase=Spreadcase(15,cf_array,tf_array,compliance_array_or_float)

@@ -57,6 +57,29 @@ function reviewdays(df::DataFrame)
 end
 
 
+#################################################################################
+#  Epidemiological Stats -- very preliminary
+#################################################################################
+
+function infection_outcome(series, locale)
+    n = size(series[locale][:cum],1)
+    total_recov = series[locale][:cum][n, map2series.recovered[total]]
+    total_dead = series[locale][:cum][n, map2series.dead[total]]
+    end_infected = series[locale][:cum][n, map2series.infectious[total]]
+    total_pop = series[locale][:cum][1, map2series.unexposed[total]]
+
+    all_infected = (total_recov + total_dead + end_infected + end_infected)
+                    
+    infect_pct = all_infected / total_pop
+    death_pct = total_dead / all_infected
+    death_pop = total_dead / total_pop
+
+    return (infect_pct = infect_pct, death_pct = death_pct, death_pop = death_pop)
+end
+
+
+
+
 ###########################################################################################
 #  Plotting
 ###########################################################################################

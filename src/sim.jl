@@ -241,10 +241,10 @@ function add_totinfected_series!(series, locale)
     n = size(series[locale][:new],1)
     series[locale][:new] = hcat(series[locale][:new], zeros(Int,n,6))
     series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
-                                                      abs.(series[locale][:new][:,map2series.unexposed]) ) # @views 
+                                                      abs.(series[locale][:new][:,map2series.unexposed]) ) 
     # for cum
     series[locale][:cum] = hcat(series[locale][:cum], zeros(Int,n,6))
-    cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1) # @views 
+    @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
     return
 end
 
@@ -258,10 +258,10 @@ function sim_r0(;env=env, dt=dt)
     if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
         compliance = env.sd_compliance
         cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
-        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, sa_pct=sa_pct).r0
+        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, sa_pct=sa_pct, env=env).r0
 
         cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
-        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, sa_pct=sa_pct).r0
+        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, sa_pct=sa_pct, env=env).r0
 
         # this works if all compliance values are the same; approximate otherwise
         current_r0 = round(mean(compliance) * r0_comply + (1.0-mean(compliance)) * r0_nocomply, digits=2)
