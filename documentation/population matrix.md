@@ -1,4 +1,4 @@
-### Population Matrix
+# Population Matrix
 
 A population matrix is the data structure used to track groups of people in the simulation. All population matrices have the same indices and sizes. These names are used to indicate the purposes of the matrices:
 
@@ -46,7 +46,6 @@ Here are the functions:
 - input!: ```input!(val, condition, agegrp, lag, locale; dat=openmx)```
 - plus!: ```plus!(val, condition, agegrp, lag, locale; dat=openmx)```
 - minus!: ```minus!(val, condition, agegrp, lag, locale; dat=openmx)```
-- total: ```total(condition, agegrp, lag, locale; dat=openmx)```
 
 **Alternative Mappings**
 

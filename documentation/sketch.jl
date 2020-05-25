@@ -39,7 +39,7 @@
                     # nil distribute to nil, mild, recovered => advance one lag
 
             # go dead => remove from previous condition; remove from resident, remove from totalpop:  make sure we can count # dead today (or more than yesterday)
-            # go recovered => remove from previous condition; remove from exposed? remove from infectious
+            # DONE go recovered => remove from previous condition; remove from exposed? remove from infectious
 
             # TODO log new dead, new recovered  to change state
 

@@ -28,17 +28,20 @@ str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.3), tf=(.18,.45))
 
 # %%
 # working with specific locale
-locale = 2
+locale = 53033
 
 # %%
 alldict, env, series = run_a_sim(180,locale, showr0=false, 
        dtfilename="../parameters/dec_tree_all_25.csv",
-       silent=true,spreadcases=[str_50],
+       silent=true,spreadcases=[],
        runcases=[seed_1_6]);
 geo = alldict["geo"];
 
 # %%
 cumplot(series,locale,geo=geo)
+
+# %%
+infection_outcome(series,locale)
 
 # %% [markdown]
 # #### Death Percentage by Age Group
@@ -74,7 +77,8 @@ deadtbl = hcat(agelabels, unexvals, pctvals)
 
 # %% [markdown]
 # #### CDC Age Demographics for Covid-19 Deaths
-# <img src=attachment:image.png width="200" height="1000">
+# ##### through May 20, 2020 (based on slow reporting verified death reports--not latest)
+# <img src="attachment:image.png" width="700px">
 
 # %%
 deadseries = series[locale][:cum][:,[map2series.dead]...]
@@ -83,6 +87,9 @@ n = size(deadseries,1)
 # %%
 ageserieslabels = [agelabels[1] agelabels[2] agelabels[3] agelabels[4] agelabels[5]]
 areaplot(1:n, deadseries[:,1:5],labels=ageserieslabels, title="Deaths by Age Group")
+
+# %%
+[deadseries[180,1:6] deadseries[180,1:6] ./ deadseries[180,6]]
 
 # %% [markdown]
 # ## Plots by Disease Condition

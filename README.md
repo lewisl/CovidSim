@@ -1,3 +1,5 @@
+# CovidSim
+
 This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. [Look at some preliminary results...](https://github.com/lewisl/CovidSim/blob/master/report%201/report%201.ipynb)
 
 The model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The groups are:
@@ -64,6 +66,10 @@ A benefit of the model is comparative ease for running a variety of test cases t
 - social distancing
 
     The factors that drive spread of the virus can be changed with a complying and non-complying group. A subsequent "event" can change the degree of social distancing and the compliance to simulate varying degrees of "opening up."
+
+- test, trace and isolate
+
+    A group-based SEIR model cannot trace individual testing and outcomes but we can distribute tests for breadth, determine outcomes for the tested group, determine contacts, isolate those with positive test results and repeat through multiple generations of contacts. Many factors can be set such as test capacity per day, test compliance, contact compliance, early "breakout" from isolation, and lag time to receive test results.
 
 ##### Epidemiological Models
 There are several different approaches to epidemiological models that have been developed for a long time and various experiences applying models to the current COVID-19 epidemic have been reported. This paper summarizes the various model approaches applied to COVID-19 *non-judgmentally*[1]. Time series forecasting of the most rigorous kind applied correctly to reported infection and death data through as late as May 1, 2020 seems challenged by incompleteness of data as both infections and deaths may be seriously under-reported[2]. SEIR simulations have different challenges because their input parameters, which  represent social behaviors and clinical factors,  are difficult to define given unknowns about the disease. Attempting to correlate the two kinds of models is difficult: time series forecasts are subject to data quality challenges; SEIR models differ substantially from reported data. At this juncture, it may be more important to understand the dynamics of the epidemic that SEIR models provde, while critically examining such models for plausibility.

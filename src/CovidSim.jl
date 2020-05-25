@@ -34,8 +34,8 @@ include("spread.jl")
 include("cases.jl")
 include("johns_hopkins_data.jl")
 
-
-export                  # functions for simulation
+# functions for simulation
+export                  
     run_a_sim,
     seed!,
     transition!,
@@ -55,8 +55,9 @@ export                  # functions for simulation
     r0_sim,
     sim_r0
 
+# functions for cases
 export
-    test_and_trace,     # functions for cases
+    test_and_trace,     
     Spreadcase,
     sd_gen,
     seed_case_gen,
@@ -64,11 +65,13 @@ export
     case_setter,
     bayes
 
-export                  # functions for setup
+# functions for setup
+export                  
     build_data,
     setup
 
-export                  # functions for tracking
+# functions for tracking
+export                  
     reviewdays,
     showq,
     cumplot,
@@ -76,9 +79,11 @@ export                  # functions for tracking
     dayplot,
     dayanimate2,
     review_history,
-    make_series
+    make_series,
+    infection_outcome
 
-export            # queues for tracking
+# queues for tracking
+export            
     travelq,
     spreadq,
     transq,
@@ -86,7 +91,8 @@ export            # queues for tracking
     map2series,
     ctr
 
-export                  # functions for decision trees
+# functions for decision trees
+export                  
     setup_dt,
     read_dectree_file,
     create_node_dict,
@@ -94,17 +100,20 @@ export                  # functions for decision trees
     sanity_test,
     get_the_probs
 
-export                 # functions for accessing data from Johns Hopkins
+# functions for accessing data from Johns Hopkins
+export                 
     get_real_data,
     loc2df,
     read_actual
 
-export                  # control constants
+# control constants
+export                  
     age_dist,
-    lags
+    lags,
+    laglim
 
-
-export      # constants for geo data
+# constants for geo data
+export      
     fips,
     state,
     size_cat,
@@ -116,7 +125,8 @@ export      # constants for geo data
     smaller,
     rural
 
-export              # constants for indices to data tables
+# constants for indices to population matrix
+export              
     unexposed,
     infectious,
     recovered,

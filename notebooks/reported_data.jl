@@ -19,6 +19,7 @@ using CovidSim
 using DelimitedFiles
 using DataFrames
 using Plots
+using Dates
 pyplot()
 
 # %% [markdown]
@@ -30,29 +31,25 @@ jhcases,jhfirst, jhlast = get_real_data()
 jhdead, _, _ = get_real_data(series="dead")
 
 # %%
-println(jhcases.first, " ", jhdata.last)
-
-# %% [markdown]
-# We want column 13 through the end:  Feb. 1 to April 30
+n = jhcases.last.col - jhcases.first.col + 1; println(jhcases.first, " ", jhcases.last); println(n)
 
 # %% [markdown]
 # Get our locales.
 
 # %%
-geo = CovidSim.readgeodata("../data/geo2data.csv")
-geo[:,1:7]
+seattle = (;fips=53033); newyork=(;fips=36061); bismarck=(;fips=38015); println(newyork)
 
 # %%
-seattle = (fips=53033, id=2); nyc=(fips=36061, id=3); bismarck=(fips=38015,id=10)
-
-# %% jupyter={"outputs_hidden": true}
 sea = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=seattle.fips)
 rename!(sea, [:sea_infected, :sea_dead])
-nyc = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=newyork.fips)
+nyc = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=nyc.fips)
 rename!(nyc, [:nyc_infected, :nyc_dead])
 bis = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=bismarck.fips)
 rename!(bis, [:bis_infected, :bis_dead])
 tricities = hcat(sea, nyc, bis)
+
+# %% jupyter={"outputs_hidden": true}
+dt = CovidSim.setup_dt("../parameters/dec_tree_all.csv")
 
 # %% [markdown]
 # #### Run a simulation for the tricities
@@ -61,44 +58,50 @@ tricities = hcat(sea, nyc, bis)
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, env, series = run_a_sim(100,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(n, seattle.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle.id,geo=geo)
+geo = alldict["geo"]
 
 # %%
-cumplot(series,seattle.id,[infectious, recovered, dead],geo=geo)
+cumplot(series,seattle.fips,geo=geo)
+
+# %%
+cumplot(series,seattle.fips,[infectious, recovered, dead],geo=geo)
+
+# %%
+infection_outcome(series, seattle.fips)
 
 # %% [markdown]
 # #### Let's put some moderate social distancing in place around March 23
 # This reduces R0 from around 2.0 to around 1.2. Still, some growth but much slower...
 
 # %%
-str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.3), tf=(.18,.45))
+str_50 = sd_gen(start=50, comply=.75, cf=(.2,1.3), tf=(.18,.44))
 
 # %%
-sim_r0(env=env)
-
-# %%
-alldict, env, series = run_a_sim(100,seattle.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle.id,[infectious, recovered, dead],geo=geo)
+sim_r0(dt = dt, env=env)
+
+# %%
+cumplot(series,seattle.fips,[infectious, recovered, dead],geo=geo)
+
+# %%
+infection_outcome(series, seattle.fips)
 
 # %% [markdown]
 # #### What is the difference between active cases and reported cases?
 
 # %%
-series[2][:cum][:,[map2series.infectious[6], map2series.totinfected[6]]]
-
-# %%
-cumplot(series,seattle.id,[infectious, totinfected], geo=geo)
+cumplot(series,seattle.fips,[infectious, totinfected], geo=geo)
 
 # %% [markdown]
 # #### What's going on here?
@@ -111,11 +114,28 @@ cumplot(series,seattle.id,[infectious, totinfected], geo=geo)
 # Active infected cases *will* go down and it shows the effect of so-called herd immunity: When there are many recovered and temporarily and partially immune people in the population, the virus spread slows down because there are fewer hosts available. Eventually, this will protect many other people as the spread becomes very slow and active virus in hosts dies out.
 
 # %% [markdown]
+# #### Align simulation and reported series on the day when 50 deaths were reached
+
+# %%
+sim20dead = Date("2020-01-22") + Day(findfirst(series[seattle.fips][:cum][:,map2series.dead[6]] .>= 50))
+rpt20dead = Date("2020-01-22") + Day(findfirst(tricities[:, :sea_dead] .>= 50))
+adjdays = Dates.value(sim20dead - rpt20dead)
+
+# %%
+println(tricities[49,:sea_dead], " ", series[seattle.fips][:cum][103,map2series.dead[6]])
+
+# %%
+alldict, env, series = run_a_sim(n+adjdays, seattle.fips, showr0=false, silent=true,
+       dtfilename="../parameters/dec_tree_all_25.csv",
+       spreadcases=[str_50],
+       runcases=[seed_1_6]);
+
+# %% [markdown]
 # #### Simulated vs. Reported Cases
 
 # %%
-plot(1:100, series[2][:cum][:,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-plot!(1:100, tricities[:,:sea_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=6)
+plot(1:n, series[seattle.fips][:cum][1+adjdays:n+adjdays,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot!(1:n, tricities[:,:sea_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=6)
 title!("King County Simulation vs. Reported Cases", titlefontsize=8)
 xlabel!("Days: Feb. 1 to April 30", guidefontsize=8)
 
@@ -131,57 +151,73 @@ xlabel!("Days: Feb. 1 to April 30", guidefontsize=8)
 # This phenomenon is happening around the world with a respected article based estimating cases based on more accurate reported deaths. The article suggests that under-reporting in countries varies from 3X to more than 12X. 
 
 # %%
-plot(1:100, series[2][:cum][:,map2series.dead[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-plot!(1:100, tricities[:,:sea_dead], label="Reported Deaths",dpi=150, size=(400,260), tickfontsize=6)
+plot(1:n, series[seattle.fips][:cum][1+adjdays:(n+adjdays),map2series.dead[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot!(1:n, vcat(zeros(0),tricities[1:n-0, :sea_dead]), label="Reported Deaths",dpi=150, size=(400,260), tickfontsize=6)
 title!("King County Simulation vs Reported Deaths", titlefontsize=10)
-xlabel!("Days: Feb. 1 to April 30", guidefontsize=10)
+xlabel!("Days: Jan. 22 to May 23", guidefontsize=10)
 
 # %% [markdown]
 # ### Virtual New York City
 
 # %%
-alldict, env, series = run_a_sim(100, nyc.id, showr0=false, silent=true,
+alldict, env, series = run_a_sim(122, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,nyc.id,geo=geo)
+cumplot(series,newyork.fips,geo=geo)
 
 # %% [markdown]
 # Why does New York grow much faster than Seattle? Because it has a much higher population density.  The simulation uses population density as an input that influences the spread of the virus.
 
 # %%
-alldict, env, series = run_a_sim(100,nyc.id, showr0=false, silent=true,
+infection_outcome(series, newyork.fips)
+
+# %% [markdown]
+# #### Let's do some social distancing
+
+# %%
+alldict, env, series = run_a_sim(n+adjdays, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
 
 # %% [markdown]
+# #### Align simulation and reported series on the day when 50 deaths were reached
+
+# %%
+sim20dead = Date("2020-01-22") + Day(findfirst(series[newyork.fips][:cum][:,map2series.dead[6]] .>= 50))
+rpt20dead = Date("2020-01-22") + Day(findfirst(tricities[:, :nyc_dead] .>= 50))
+println("sim ", sim20dead," rept ", rpt20dead)
+adjdays = Dates.value(sim20dead - rpt20dead)
+
+# %% [markdown]
 # ### With Social Distancing
 
 # %%
-cumplot(series,nyc.id,[infectious, recovered, dead], geo=geo)
+cumplot(series,newyork.fips,[infectious, recovered, dead], geo=geo)
 
 # %% [markdown]
 # ### Active Cases vs. Cumulative Total Cases
 
 # %%
-cumplot(series,nyc.id,[infectious, totinfected], geo=geo)
+cumplot(series,newyork.fips,[infectious, totinfected], geo=geo)
 
 # %% [markdown]
 # ### Simulation vs. Reported Total Cases
 
 # %%
-plot(1:100, series[nyc.id][:cum][:,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-plot!(1:100, tricities[:,:nyc_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=6)
-title!("New York City Simulation vs. Reported Cases", titlefontsize=8)
+plot(1:122, vcat(zeros(abs(adjdays)),series[newyork.fips][:cum][1:n+adjdays,map2series.totinfected[6]]), label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+# plot(1:122, series[newyork.fips][:cum][1+adjdays:n+adjdays,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot!(1:122, tricities[:,:nyc_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=7)
+title!("New York City Simulation vs. Reported Cases", titlefontsize=7)
 xlabel!("Days: Feb. 1 to April 30", guidefontsize=8)
 
 
 # %%
-plot(1:100, series[nyc.id][:cum][:,map2series.dead[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-plot!(1:100, tricities[:,:nyc_dead], label="Reported Deaths",dpi=150, size=(400,260), tickfontsize=6)
+plot(1:122, vcat(zeros(abs(adjdays)),series[newyork.fips][:cum][1:n+adjdays,map2series.dead[6]]), label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot!(1:122, tricities[:,:nyc_dead], label="Reported Deaths",dpi=150, size=(400,260), tickfontsize=6)
 title!("NYC Simulation vs Reported Deaths", titlefontsize=10)
 xlabel!("Days: Feb. 1 to April 30", guidefontsize=10)
 
