@@ -4,7 +4,7 @@ In an SEIR simulation of the COVID-19 outbreak (Susceptible, Exposed, Infected, 
 
 I thought I *should* be able to do this recursively, but my brain is more loopy than recursive.  I had done the text book recursion cases of factorial and following the branches of a binary tree, with the classic paths down left and right branches. But, the illness transition decision trees are more ragged.  They can have any number of branches (though always 1 to 3) and each branch can have different depths (longest is 6).  For 2 days I beat myself up, got impatient, and gave up.  I built the paths by hand (the human brain can see the paths almost immediately) and then fed the paths as input to the sanity check. I put the problem down to get more important stuff done.
 
-Tonight, I took it on again.  In half an hour in < 20 lines of code I solved it. It's not recursive, but it is conceptually recursive (I did learn something...).  The trickiest thing wasn't the recursive-lite approach. I realized I need to append to the current path without modifying the current path. In ML-like languages we'd do this with "cons", which creates a pair.  In ML, one abhors mutating a variable so you can only call with a new value (the argument) or return a new value. And recursion performs the loop. In Julia, we love to mutate data structures in place for efficiency.  There is append!, but not append. But, it's easy to use an array literal to create a new value that is an append--or "cons" of the old array (the head) and its new tail. A while loop is a bit like recursion:  we stop when the conditions have been met that we are done, not by a fixed number of iterations. The while loop runs 17 times for a tree with 22 leaves--and thus 22 branches. Each time through we finish at least one branch of a given depth.
+Tonight, I took it on again.  In half an hour in < 20 lines of code I solved it. It's not recursive, but it is conceptually recursive (I did learn something...).  The trickiest thing wasn't the recursive-lite approach. I realized I need to append to the current path without modifying the current path. In ML-like languages we'd do this with "cons", which creates a pair.  In ML, one abhors mutating a variable so you can only call with a new value (the argument) or return a new value. And recursion performs the loop. In Julia, we love to mutate data structures in place for efficiency.  There is append!, but not append. But, it's easy to use vcat create a new array that is an append--or "cons" of the old array (the head) and its new tail. A while loop is a bit like recursion:  we stop when the conditions have been met that we are done, not by a fixed number of iterations. The while loop runs 17 times for a tree with 22 leaves--and thus 22 branches. Each time through we finish at least one branch of a given depth.
 
 ```julia
 function walktree(dt, top)
@@ -16,9 +16,9 @@ function walktree(dt, top)
         endnode = currentpath[end]
         for br in dt[endnode]
             if br.next[1] == 0
-                push!(done, [currentpath..., br.next])  # append without modifying currentpath
+                push!(done, vcat(currentpath, br.next))  # append without modifying currentpath
             else
-                push!(todo, [currentpath..., br.next])   
+                push!(todo, vcat(currentpath, br.next))   
             end
         end
     end
@@ -79,4 +79,16 @@ Here is what a tree looks like:
    CovidSim.Branch(8, 4, 0.4, (0, 5), "severe", "dead")
 =#
 
+```
+
+
+Here is the output for a valid collection of 5 trees, one for each age group. The leaf node probabilities all sum to one (3rd column is total probs for "recover" and 4th column is total probs for "dead").
+
+```
+5×4 Array{Float64,2}:
+ 1.0  1.0  0.999511  0.000488522
+ 2.0  1.0  0.999332  0.000668336
+ 3.0  1.0  0.99616   0.0038404
+ 4.0  1.0  0.980863  0.0191366
+ 5.0  1.0  0.850242  0.149758
 ```

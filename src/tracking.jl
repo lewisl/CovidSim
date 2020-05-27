@@ -70,14 +70,12 @@ function infection_outcome(series, locale)
 
     all_infected = (total_recov + total_dead + end_infected + end_infected)
                     
-    infect_pct = all_infected / total_pop
+    infect_pop = all_infected / total_pop
     death_pct = total_dead / all_infected
     death_pop = total_dead / total_pop
 
-    return (infect_pct = infect_pct, death_pct = death_pct, death_pop = death_pop)
+    return (infect_pop = infect_pop, death_pct = death_pct, death_pop = death_pop)
 end
-
-
 
 
 ###########################################################################################
@@ -117,10 +115,11 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
             xlabel = "Simulation Days",
             ylabel = "People",
             legendfontsize = 10,
-            reuse = false
+            reuse = false,
+            annotate = ((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
         )
-    annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
-    gui()
+    # annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
+    # gui()
 end
 
 
