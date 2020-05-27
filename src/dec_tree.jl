@@ -99,9 +99,9 @@ function walktree(dt, top)
         endnode = currentpath[end]
         for br in dt[endnode]
             if br.next[1] == 0
-                push!(done, [currentpath..., br.next])  # append without modifying currentpath
+                push!(done, vcat(currentpath, br.next))  # append without modifying currentpath
             else
-                push!(todo, [currentpath..., br.next])   
+                push!(todo, vcat(currentpath, br.next))   
             end
         end
     end
