@@ -6,6 +6,7 @@
     # fix all the travel functions to latest APIs
 # Done
 
+__precompile__(true)
 
 module CovidSim
 
