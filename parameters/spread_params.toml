@@ -8,8 +8,8 @@ recv_risk = [0.1, 0.39, 0.44, 0.54, 0.56]
 
 # contact_factors and touch_factors reshaped after loaded 
 # to look like the arrangements below
-	# size(contact_factors) to (4,5)
-	# size(touch_factors) to (6,5)
+	# size(contact_factors) to (4,5) => input in TOML is (20, ) made to look 4 x 5
+	# size(touch_factors) to (6,5) => input in TOML is (30,) made to look 6 x 5
 
 contact_factors =       [ 1.0,    1.8,    1.8,     1.5,   1.0,    # nil
                           1.0,    1.8,    1.8,     1.5,   0.9,    # mild
@@ -20,5 +20,5 @@ touch_factors =         [0.55,   0.62,    0.60,    0.4,   0.35,   # unexposed
                          0.55,   0.62,    0.60,    0.4,   0.35,   # recovered
                          0.55,   0.62,    0.60,    0.4,   0.35,   # nil
                          0.55,   0.62,    0.55 ,   0.4,   0.28,   # mild
-                         0.28,   0.35,    0.3,   0.18,   0.18,   # sick
+                         0.28,   0.35,    0.3,     0.18,  0.18,   # sick
                          0.18,   0.18,    0.18,   0.18,   0.18]   # severe

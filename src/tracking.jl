@@ -86,7 +86,9 @@ end
 function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; days="all",geo=[])
 
     pyplot()
-    theme(:ggplot2, foreground_color_border =:black, reuse = false)
+    # theme(:ggplot2, foreground_color_border =:black, reuse = false)
+    theme(:wong2, foreground_color_border=:black, 
+          tickfontsize=9, gridlinewidth=1)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
@@ -116,7 +118,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
             ylabel = "People",
             legendfontsize = 10,
             reuse = false,
-            annotate = ((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
+            annotate = ((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 11, :left)))
         )
     # annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
     # gui()

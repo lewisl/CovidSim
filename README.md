@@ -1,6 +1,6 @@
 # CovidSim
 
-This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. [Look at some preliminary results...](https://github.com/lewisl/CovidSim/blob/master/report%201/report%201.ipynb)
+This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. [Look at some preliminary results...](https://github.com/lewisl/CovidSim/blob/master/reports/report%201/report%201.ipynb)
 
 The model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The groups are:
 
