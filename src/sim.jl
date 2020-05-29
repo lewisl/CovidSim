@@ -161,11 +161,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
             end
             spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
             transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
-            # transition!(dt, loc, dat=isolatedmx)  # transition all infectious cases in isolation
-            # if showr0 && (mod(ctr[:day],10) == 0)
-            #     current_r0 = sim_r0(env=env, dt=dt)
-            #     println("at day $(ctr[:day]) r0 = $current_r0")
-            # end
         end
         transition!(dt, dat=isolatedmx)  # transition all infectious cases / locales in isolation
         transition!(dt, dat=testmx) # transition tracked test to stay in sync with openmx
