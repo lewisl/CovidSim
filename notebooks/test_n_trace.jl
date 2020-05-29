@@ -24,7 +24,7 @@ using CovidSim
 
 # %%
 bismarck = (;fips=38015)
-newyork=(;fips=36061)
+newyork = (;fips=36061)
 
 # %%
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
