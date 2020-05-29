@@ -83,11 +83,12 @@ end
 ###########################################################################################
 
 
-function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; days="all",geo=[])
+function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; 
+    days="all",geo=[], thm=:wong2)
 
     pyplot()
     # theme(:ggplot2, foreground_color_border =:black, reuse = false)
-    theme(:wong2, foreground_color_border=:black, 
+    theme(thm, foreground_color_border=:black, 
           tickfontsize=9, gridlinewidth=1)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
@@ -106,6 +107,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     infected = series[locale][:cum][1,map2series[unexposed][total]] - series[locale][:cum][end,map2series[unexposed][total]]
     firstseries = plcols[1]
     half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][total]]) * 0.7)
+    co_pal = length(plcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
     # the plot
@@ -117,6 +119,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
             xlabel = "Simulation Days",
             ylabel = "People",
             legendfontsize = 10,
+            color_palette = co_pal,
             reuse = false,
             annotate = ((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 11, :left)))
         )

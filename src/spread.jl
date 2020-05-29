@@ -85,10 +85,7 @@ function spreadsteps(density_factor, all_unexposed; env=env)
 end
 
 
-"""
-How many contacts do spreaders attempt to reach?  This is based on the characteristics of the
-spreaders.
-"""
+# method used by test_and_trace
 function how_many_contacts!(density_factor=1.0; env=env)
 
     # variables from env
@@ -101,6 +98,11 @@ function how_many_contacts!(density_factor=1.0; env=env)
 end
 
 
+
+"""
+How many contacts do spreaders attempt to reach?  This is based on the characteristics of the
+spreaders.
+"""
 function how_many_contacts!(numcontacts, spreaders, target_accessible, contact_factors, 
     density_factor; env=env)
     #=  This originally ignores the conditions of the touched--assumes they are all equally likely to be touched
@@ -148,6 +150,7 @@ function how_many_contacts!(numcontacts, spreaders, target_accessible, contact_f
 end
 
 
+# method used by test_and_trace
 function how_many_touched!(;env=env)
     map2touch = (unexposed= 1, infectious=3, recovered=2, dead=-1, 
                  nil= -1, mild= -1, sick= -1, severe= -1)

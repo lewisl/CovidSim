@@ -114,7 +114,7 @@ alldict, env, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
        runcases=[seed_1_6]);
 
 # %%
-nycopen2=cumplot(series,newyork.fips,[recovered,infectious, dead],geo=geo)
+nycopen2=cumplot(series,newyork.fips,geo=geo)
 
 # %% [markdown]
 # Even with some restrictions still in place, this opening results in only about 10 to 11% reduction in deaths compared to never having implemented social distancing or social distancing followed by completely opening. This alternative would *not* be recommended. Rigorous implementation of test, trace and isolate with idespread testing of asymptomatic people, same-day test results, and high compliance with contact tracing and quarantine isolation is very hard to achieve, but is a preferred alternative.  If the high degree of compliance and implementation rigor is not possible, is there an alternative?
@@ -152,7 +152,7 @@ alldict, env, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
        runcases=[seed_1_6, isolate_vulnerable]);
 
 # %%
-cumplot(series,newyork.fips,[recovered,infectious, dead],geo=geo)
+cumplot(series,newyork.fips,geo=geo)
 
 # %% [markdown]
 # **Assessment:**
