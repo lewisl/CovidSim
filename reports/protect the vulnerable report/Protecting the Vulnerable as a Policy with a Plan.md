@@ -1,8 +1,8 @@
-### Protecting the Vulnerable as a Policy with a Plan
+### A Safer Way to Open the US
 
 ### Initial Summary
 
-As the states and cities of the United States consider reducing the stringency of shelter-in-place orders and social distancing guidelines, we face the most difficult policy choices. This paper proposes a new policy option of protecting the vulnerable for dealing with next phase of the Coronavirus epidemic in the United States. The case for protecting the vulnerable is based on four points:
+As the states and cities of the United States consider reducing the stringency of shelter-in-place orders and social distancing guidelines, we face the most difficult policy choices. This paper proposes a new policy option of protecting the vulnerable for dealing with next phase of the Coronavirus epidemic in the United States. The case for protecting the vulnerable as cities open more is based on four points:
 
 1. As cities and states start to loosen social distancing and shelter-in-place restrictions to allow more econonic activity and a return to some normal daily activities, infection cases and deaths will rise. Epidemiology models clearly show this and some states are alreading experiencing it. We need a way forward that does enable more activity while preventing a large increase in the number of deaths.
 2. Most of the deaths that have occurred to date have affected people over sixty with co-existing chronic disease conditions and a small percentage of working age and younger people who also suffer co-existing conditions. Approximately 37% of all deaths in the United States as of May 21 had occurred in elderly care facilities and over 50% in 15 states[1]. This concentration of deaths in one segment of the population will enable us to focus on protecting them rather than trying to prevent infection across the entire population. 
@@ -59,7 +59,7 @@ On May 23, 2020, Governor Asa Hutchinson of Arkansas announced that his state wa
 
 Here is the plot of new daily cases for Arkansas through May 31, 2020 at a point approximately 3 weeks after opening up[4]. Arkansas is not particularly bad, but the governor seems to have reversed course from previously dismissing the virus to acknowledging factually what he is seeing. The data is quite erratic, but the highs and lows seem to be growing compared to highs and lows of 2 weeks prior:
 
-<img src="arkansas JH 6-1-2020 new cases.png" width="600">
+<center><img src="arkansas JH 6-1-2020 new cases.png" width="600"></center>
 
 Around the US, the resulting increase in deaths compared to sustaining social distancing for 2 to 3 more months will probably be considered intolerable in every moderately sized urban area where population density is sufficient to fuel exponential growth. The economic pressure to end social distancing is also real and people need to work rather than seek relief, so some approach must be found to enable resuming more activities without a dramatic increase in deaths.
 
