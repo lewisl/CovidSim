@@ -7,7 +7,7 @@ mutable struct Env
     all_accessible::Array{Int64,3} # laglim,6,5
     contacts::Array{Int64,3} # laglim,4,5
     simple_accessible::Array{Int64,2} # 6,5
-    touched::Array{Int64,2} # laglim,5
+    touched::Array{Int64,3} # laglim,6,5
     lag_contacts::Array{Int,1} # laglim,
     riskmx::Array{Float64,2} # laglim,5
     contact_factors::Array{Float64,2}  # 4,5 parameters for spread!
@@ -22,7 +22,7 @@ mutable struct Env
                             all_accessible=zeros(Int,0,0,0),
                             contacts=zeros(Int,0,0,0),
                             simple_accessible=zeros(Int,0,0),
-                            touched=zeros(Int,0,0),
+                            touched=zeros(Int,0,0,0),
                             lag_contacts=zeros(Int,laglim),
                             riskmx=zeros(Float64,0,0),
                             contact_factors=zeros(Float64,0,0),
@@ -284,7 +284,7 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
                 all_accessible=zeros(Int64,laglim,6,5),
                 contacts=zeros(Int64,laglim,4,5),
                 simple_accessible=zeros(Int64,6,5),
-                touched=zeros(Int64,laglim,5),
+                touched=zeros(Int64,laglim,6,5),
                 lag_contacts=zeros(Int64,laglim),
                 riskmx = zeros(Float64,laglim,5),
                 contact_factors = contact_factors,
