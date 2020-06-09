@@ -139,14 +139,15 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
     return contacts
 end
 
-
  
 """
-For potential contacts by spreaders reaching out, how many of the accessible (susceptible and NOT)
-are consequentially "touched" by a spreader? This is based on the characteristics of the
-recipient. This also splits the recipients by the characteristics of the spreaders and the recipients.
+How many contacts result in consequential touches? Each cell in contacts is the number of
+contacts indexed by the characteristics of the *spreader*. Map each cell of contacts to
+the accessible population (susceptible and NOT) to split cells of the accessible
+proportionally to the cells of the accessible. Then, filter through binomial distribution 
+for a "successful" touch based on characteristics of the recipient.
 
-Used for spread with kind=:spread, the default. Used for contact tracing with kind=:trace
+An alternative method is used for test_and_trace, which prepares its inputs in the caller.
 """
 function how_many_touched!(;env=env)
 
@@ -155,28 +156,11 @@ function how_many_touched!(;env=env)
     # consolidate the cells of the contacts made by spreaders by summing across agegrp and condition
     # reduce the number of cells 500 / (4 * 5) → 25
     env.lag_contacts[:] = sum(env.contacts,dims=(2,3))[:,:,1] #  @views (laglim, ) contacts by lag after sum by cond, agegrp
+    contacts = reshape(env.lag_contacts,25,1,1)  # laglim x 4 x 5: lag x cond x agegrp; cond in {nil, mild, sick, severe}
     touched = env.touched
     touched .= 0
-        # sum accessible to unexposed, recovered, infectious by agegrps (don't use nil, mild, sick, severe conditions)
-            # unexposed, recovered, sum of(nil, mild, sick, severe) = infectious  6,5 with last 3 rows all zeros
-    # @views target_accessible = [env.simple_accessible[1:2,:]; sum(env.simple_accessible[3:6,:],dims=1)];  # @views (3, 5)
-    target_accessible = env.simple_accessible
+    target_accessible = env.simple_accessible  # (6,5) 6 conds: unexp, recovered, nil, mild, sick, severe by agegrps
     target_tf = env.touch_factors  # view(env.touch_factors, map2touch.unexposed, :)  w/o view (6,5)
-    how_many_touched!(touched, reshape(env.lag_contacts,25,1,1), target_accessible,
-                      [], target_tf, env=env)  # []
-end
-
-
-# method used by test_and_trace directly and called by interface used by spread
-function how_many_touched!(touched, contacts, target_accessible, target_conds,
-                           target_tf; env=env, kind=:spread)
-#=
-    - who is accessible: start with all to capture effect of "herd immunity", when it arises
-    - all_accessible laglim x 6 x 5  lag x cond x agegrp, includes unexposed, recovered, nil, mild, sick, severe
-    - contacts laglim x 4 x 5  lag x cond x agegrp, includes nil, mild, sick, severe = the contacts made by spreaders
-
-    There is a lot of setup before we get to business here.
-=#
 
     totaccessible = sum(target_accessible)
     peeps = zeros(Int, size(target_accessible))
@@ -201,53 +185,71 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
         t_a_pct = t_a_pct ./ sum(t_a_pct) # normalize to sum to 1.0
     end
 
-    #=
-        now to business: for spread, who gets touched in unexposed by agegrp?
-                        for contact tracing, who is touched in unexposed, recovered, nil, mild
+    dcat = Categorical(t_a_pct) # categorical distribution by cells of target_accessible
 
-        - folks in each cell of contacts touch a sample of the accessible reduced by the touch factor
-        - draw a categorical sample for each cell to distribute them across the contact categories
-        - we consider the folks who get contacts in infectious and recovered, because that happens--reduces
-           the number of unexposed who are touched
-        - then we throw out the folks in infectious and recovered and keep those in unexposed
-        - we should care about not touching more than the number of unexposed?   (or accessible?)
-        - env.touch_factors is (5,6): agegrps by unexposed, recovered, nil, sick, mild, severe
-    =#
+    for l in eachindex(contacts)
+        subgroup = contacts[l] # source of contacts, broken down by shape of spreaders
+        if subgroup == 0
+            continue
+        else
+            x = rand(dcat, subgroup)  # distribute cell across all accessible cells
+            peeps .= reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))  
+            cnt = binomial_one_sample.(peeps, target_tf)  # in each cell of accessible: successful touch
+            touched[l, :, :] .= cnt
+        end
+    end
+
+    return touched
+end
+
+
+# method used by test_and_trace
+function how_many_touched!(touched, contacts, target_accessible, target_conds,
+                           target_tf; env=env)
+
+    totaccessible = sum(target_accessible)
+    peeps = zeros(Int, size(target_accessible))
+
+    # this can happen with a social distancing or quarantine case with 100% compliance
+        # or early/late in epidemic when there are no spreaders to make contacts
+    if totaccessible == 0  || sum(contacts) == 0
+        return touched  # already initialized to zeros by caller
+    end
+
+    # map to access maps conditions to the rows of simple_accessible and touch_factors
+    map2access = (unexposed= 1, infectious=-1, recovered= 2, dead=-1,
+                  nil= 3, mild=  4, sick= 5, severe= 6)
+    # map to top 3 rows of simple_accessible
+    map2touch = (unexposed= 1, infectious=3, recovered=2, dead=-1,
+                 nil= -1, mild= -1, sick= -1, severe= -1)
+
+    # t_a_pct is dist. of accessible by agegrp and target conds (15,)
+    t_a_pct = round.(reshape(target_accessible ./ totaccessible, length(target_accessible)), digits=10) # % for each cell
+    if !isapprox(sum(t_a_pct), 1.0)
+        @debug @warn "how_many_touched: sum(t_a_pct) $(sum(t_a_pct)) not equal 1.0: normalized to sum to 1.0"
+        t_a_pct = t_a_pct ./ sum(t_a_pct) # normalize to sum to 1.0
+    end
 
     dcat = Categorical(t_a_pct) # categorical distribution by dims of target_accessible
 
-    if isempty(target_conds)  # this will be the case when called from spreadsteps or spreadcases or r0_sim
-        for l in eachindex(contacts)
-            subgroup = contacts[l] # source of contacts, broken down by shape of spreaders
-            if subgroup == 0
-                continue
-            else
-                x = rand(dcat, subgroup) # (length(lc),) probabistically distribute contacts for a lag across accessible by unexposed|recovered|infectious, agegrp
-                peeps .= reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))  # (5,) distribute across all 3 groups, but only take unexposed
-                # for a in agegrps # probabilistically see who of the accessible is significantly touched
-                cnt = binomial_one_sample.(peeps, target_tf)  # peeps[map2touch.unexposed,:]
-                touched[l, :, :] .= cnt
-            end
-        end
-    else   # this will be the case when called by test_and_trace 
-        for l in lags  
-            for cond in target_conds
-                for a in agegrps     # agegrps 
-                    subgroup = contacts[l, map2access[cond], a]   # [l, map2access[cond], a]
-                    if subgroup == 0
-                        continue
-                    else   # distribute 1 contact subgroup to all cells of touched
-                        x = rand(dcat, subgroup) # across all the touch target groups
-                        peeps .= reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))
-                        for l in lags  # consolidate the touched
-                            @views cnt = binomial_one_sample.(peeps[l,:,:], target_tf)  
-                            touched[l,:,:] .+= cnt  # total the results from each contact cell
-                        end
+    for l in lags  
+        for cond in target_conds
+            for a in agegrps     # agegrps 
+                subgroup = contacts[l, map2access[cond], a]   # [l, map2access[cond], a]
+                if subgroup == 0
+                    continue
+                else   # distribute 1 contact subgroup to all cells of touched
+                    x = rand(dcat, subgroup) # across all the touch target groups
+                    peeps .= reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))
+                    for l in lags  # consolidate the touched
+                        @views cnt = binomial_one_sample.(peeps[l,:,:], target_tf)  
+                        touched[l,:,:] .+= cnt  # total the results from each contact cell
                     end
                 end
-            end 
-        end
+            end
+        end 
     end
+
     return touched
 end
 
@@ -266,8 +268,8 @@ returns newinfected
 """
 function how_many_infected(all_unexposed; env=env)
 
-    # variables from env
-    @views touched_by_lag_age = env.touched[:, unexposed, :]  # (laglim,5)  all_unexposed (5,)
+    # only unexposed (= susceptible) can become infected
+    @views touched_by_lag_age = env.touched[:, unexposed, :]  # (laglim,5)
 
     newinfected = zeros(Int, length(agegrps))  # (5,)
 
