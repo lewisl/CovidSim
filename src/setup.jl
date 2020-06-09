@@ -20,7 +20,7 @@ function setup(n_days;
     # simulation data matrix
         datadict = build_data(fips_locs, n_days)
         openmx = datadict["openmx"]   # alias to make it easier to do initialization
-        init_unexposed!(openmx, geodata, fips_locs)
+        setup_unexposed!(openmx, geodata, fips_locs)
 
     # small parameters
         spread_params = read_spread_params(spfilename)
@@ -45,11 +45,18 @@ function quickdate(strdates)  # 20x faster than the built-in date parsing, e.g.-
 end
 
 
-function init_unexposed!(dat, geodata, locales)
+# method for multiple locales
+function setup_unexposed!(dat, geodata::Array, locales::Array)
     for loc in locales
-        for agegrp in agegrps
-            dat[loc][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * geodata[geodata[:, fips] .== loc, popsize][1])
-        end
+        pop = geodata[geodata[:, fips] .== loc, popsize][1]
+        setup_unexposed!(dat, pop, loc)
+    end
+end
+
+# method for single locale, pop is Int
+function setup_unexposed!(dat, pop, loc)
+    for agegrp in agegrps
+        dat[loc][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * pop)
     end
 end
 

@@ -3,7 +3,7 @@
 
 
         # how many people are contacted by each spreader?  Think of this as reaching out...
-        # numcontacts is the potential number of people contacted by a spreader in each
+        # contacts is the potential number of people contacted by a spreader in each
         # cell by lag (laglim), infectious cond (4), and agegrp(5)
 
     #=  This originally ignores the conditions of the touched--assumes they are 

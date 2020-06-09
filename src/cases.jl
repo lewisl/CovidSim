@@ -175,8 +175,8 @@ function spread_case_runner(density_factor, all_unexposed; env=env)
         end  # if
         push!(newinfected, spreadsteps(density_factor, all_unexposed, env=env))
         if i == :comply
-            spread_stash[:comply_contacts] = copy(env.numcontacts)
-            spread_stash[:comply_touched] = copy(env.numtouched)
+            spread_stash[:comply_contacts] = copy(env.contacts)
+            spread_stash[:comply_touched] = copy(env.touched)
             spread_stash[:comply_spreaders] = copy(env.spreaders)
         end
     end  # for loop
