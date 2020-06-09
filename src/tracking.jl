@@ -16,6 +16,7 @@ const ctr = counter(Symbol) # from package DataStructures
 const spreadq = []
 const transq = []
 const tntq = []
+const r0q = []
 
 
 # for Johns Hopkins US actual data
@@ -184,6 +185,7 @@ function dayplot(spreadseries::DataFrame, plseries=[])
     plot(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
             lw=2,
             size = (700,500),
+            dpi=180,
             xlabel="Simulation Days", 
             ylabel="People", 
             title="Daily Spread of Covid",

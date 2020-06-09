@@ -5,9 +5,9 @@ mutable struct Env
     geodata::Array{Any, 2}
     spreaders::Array{Int64,3} # laglim,4,5
     all_accessible::Array{Int64,3} # laglim,6,5
-    numcontacts::Array{Int64,3} # laglim,4,5
+    contacts::Array{Int64,3} # laglim,4,5
     simple_accessible::Array{Int64,2} # 6,5
-    numtouched::Array{Int64,2} # laglim,5
+    touched::Array{Int64,2} # laglim,5
     lag_contacts::Array{Int,1} # laglim,
     riskmx::Array{Float64,2} # laglim,5
     contact_factors::Array{Float64,2}  # 4,5 parameters for spread!
@@ -20,9 +20,9 @@ mutable struct Env
     function Env(;          geodata=[0 "" ], # geodata
                             spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
                             all_accessible=zeros(Int,0,0,0),
-                            numcontacts=zeros(Int,0,0,0),
+                            contacts=zeros(Int,0,0,0),
                             simple_accessible=zeros(Int,0,0),
-                            numtouched=zeros(Int,0,0),
+                            touched=zeros(Int,0,0),
                             lag_contacts=zeros(Int,laglim),
                             riskmx=zeros(Float64,0,0),
                             contact_factors=zeros(Float64,0,0),
@@ -30,8 +30,8 @@ mutable struct Env
                             send_risk_by_lag=zeros(Float64,laglim),
                             recv_risk_by_age=zeros(Float64,5),
                             sd_compliance=ones(Float64,6,5)        )
-        return new(geodata, spreaders, all_accessible, numcontacts, simple_accessible,
-                   numtouched, lag_contacts, riskmx, contact_factors,
+        return new(geodata, spreaders, all_accessible, contacts, simple_accessible,
+                   touched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
     end
 end
@@ -122,9 +122,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
 #=
     see cases.jl for runcases and spreadcases
 =#
-    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   # empty it
-    !isempty(transq) && (deleteat!(transq, 1:length(transq)))   # empty it
-    !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   # empty it
+
+    empty_all_qs!() # from previous runs
 
     # access input data and pre-allocate storage
     alldict = setup(n_days; geofilename=geofilename, 
@@ -269,15 +268,23 @@ function sim_r0(;env=env, dt=dt)
 end
 
 
+function empty_all_qs!()
+    # empty tracking queues
+    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   
+    !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
+    !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
+    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
+end
+
 function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
  
     # initialize the simulation Env
     ret =   Env(geodata=geodata,
                 spreaders=zeros(Int64,laglim,4,5),
                 all_accessible=zeros(Int64,laglim,6,5),
-                numcontacts=zeros(Int64,laglim,4,5),
+                contacts=zeros(Int64,laglim,4,5),
                 simple_accessible=zeros(Int64,6,5),
-                numtouched=zeros(Int64,laglim,5),
+                touched=zeros(Int64,laglim,5),
                 lag_contacts=zeros(Int64,laglim),
                 riskmx = zeros(Float64,laglim,5),
                 contact_factors = contact_factors,
