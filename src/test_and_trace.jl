@@ -208,7 +208,7 @@ function test_and_trace(start_date, end_date;
             target_tf = view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
             postouched[gen][:] = how_many_touched!(postouched[gen], poscontacts[gen], 
                                         avail_to_test, test_conds, 
-                                        target_tf, env=env, kind=:trace)
+                                        target_tf, env=env)
             if past_contacts # going back "5" pretend days
                 up_multiple = floor(sum(shifter(rand(5),0.4, 1.3)))
                 postouched[gen][:] = postouched[gen] .* up_multiple
