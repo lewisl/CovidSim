@@ -155,10 +155,11 @@ function test_and_trace(start_date, end_date;
             return
         end
 
-        to_test = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations) # TODO pre-allocate?
-        postests = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations)
-        poscontacts = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations)
-        postouched = Dict(i=>zeros(Int, laglim, 4, agegrps) for i in 1:generations)
+        n_conds = length(map2access[unexposed]:map2access[mild])
+        to_test = Dict(i=>zeros(Int, laglim, n_conds, agegrps) for i in 1:generations) # TODO pre-allocate?
+        postests = Dict(i=>zeros(Int, laglim, n_conds, agegrps) for i in 1:generations)
+        poscontacts = Dict(i=>zeros(Int, laglim, n_conds, agegrps) for i in 1:generations)
+        postouched = Dict(i=>zeros(Int, laglim, n_conds, agegrps) for i in 1:generations)
 
         qloc = (locale=locale, quar_date=thisday)
 
