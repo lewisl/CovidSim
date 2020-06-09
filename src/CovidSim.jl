@@ -6,6 +6,7 @@
     # fix all the travel functions to latest APIs
 # Done
 
+
 __precompile__(true)
 
 module CovidSim
@@ -64,7 +65,8 @@ export
     seed_case_gen,
     t_n_t_case_gen,
     case_setter,
-    bayes
+    bayes,
+    tntq
 
 # functions for setup
 export                  
