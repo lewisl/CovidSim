@@ -12,7 +12,7 @@ pyplot()   # initialize plotting backend for Plots
 """
 const ctr = counter(Symbol) # from package DataStructures
 
-# for debugging simulations
+# for debugging simulations: daily outcome entries as named tuples
 const spreadq = []
 const transq = []
 const tntq = []

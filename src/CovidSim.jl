@@ -4,6 +4,8 @@
         # by agegroup, hospitalization %, ICU admission %, fatality %
         # UW virology, expansion of deaths by state on log chart
     # fix all the travel functions to latest APIs
+    # put in an inflection measure
+    # individual level model
 # Done
 
 

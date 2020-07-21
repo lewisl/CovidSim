@@ -22,7 +22,7 @@ function setup(n_days;
         openmx = datadict["openmx"]   # alias to make it easier to do initialization
         setup_unexposed!(openmx, geodata, fips_locs)
 
-    # small parameters
+    # spread parameters
         spread_params = read_spread_params(spfilename)
 
     # transition decision trees 
@@ -124,7 +124,10 @@ end
 
 # calculate density_factor in setup, per locale
 
-shifter(x::Array,a,b,c,d) = c .+ (d-c)/(b-a) .* (x .- a)
+function shifter(x::Array, oldmin, oldmax, newmin, newmax)
+    newmin .+ (newmax - newmin) / (oldmax - oldmin) .* (x .- oldmin)
+end
+
 
 function shifter(x, newmin=0.9, newmax=1.5)
     oldmin = minimum(x)
@@ -132,17 +135,4 @@ function shifter(x, newmin=0.9, newmax=1.5)
     shifter(x, oldmin, oldmax, newmin, newmax)
 end
 
-# not used
-function build_iso_probs()
-    # these don't need to sum to one in either direction!  independent events
-    default_iso_pr = zeros(6,5)
-    #                    enexp recover nil mild sick severe   
-    default_iso_pr[:, a1] = [0.3, 0.3, 0.3, 0.4, 0.8, 0.9]  # this is for column a1
-    default_iso_pr[:, a2] = [0.3, 0.3, 0.2, 0.3, 0.8, 0.9]
-    default_iso_pr[:, a3] = [0.3, 0.3, 0.3, 0.4, 0.8, 0.9]
-    default_iso_pr[:, a4] = [0.5, 0.5, 0.4, 0.6, 0.9, 0.9]
-    default_iso_pr[:, a5] = [0.5, 0.5, 0.4, 0.6, 0.9, 0.9]
 
-    iso_pr = Dict("default"=>default_iso_pr)
-
-end

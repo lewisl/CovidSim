@@ -7,7 +7,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.1
 #   kernelspec:
-#     display_name: Julia 1.4.0
+#     display_name: Julia 1.4.2
 #     language: julia
 #     name: julia-1.4
 # ---
@@ -35,25 +35,56 @@ alldict, env, series = run_a_sim(180,locale, showr0=false,
        dtfilename="../parameters/dec_tree_all_25.csv",
        silent=true,spreadcases=[],
        runcases=[seed_1_6]);
-geo = alldict["geo"];
 
 # %%
-cumplot(series,locale,geo=geo)
+cumplot(series,locale,geo=alldict["geo"])
 
 # %%
 infection_outcome(series,locale)
 
 # %% [markdown]
-# #### Death Percentage by Age Group
+# #### Death Percentage Across Age Groups
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
 deadvals = series[locale][:cum][end,[map2series.dead]...]
 pctvals = round.([deadvals[i] / deadvals[6] for i in 1:length(deadvals)], digits=3)
-deadtbl = hcat(agelabels, deadvals, pctvals)
+death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 
 # %% [markdown]
-# ### Recovered Percentage by Age Group
+# #### Death Percentage of Infected *Within* Each Age Group
+
+# %%
+dead = series[locale][:cum][end, map2series.dead] 
+infected = series[locale][:cum][1,map2series.unexposed] .- series[locale][:cum][end,map2series.unexposed]
+death_pct_infected_within_age = round.(dead ./ infected, digits=5)
+hcat(agelabels, death_pct_infected_within_age)
+
+# %% [markdown]
+# #### Death Percentage of Population *Within* Each Age Group
+
+# %%
+pop = series[locale][:cum][1,map2series.unexposed]
+death_pct_bypop_within_age = round.(dead ./ pop, digits=5)
+hcat(agelabels, death_pct_bypop_within_age)
+
+# %% [markdown]
+# #### Severe Percentage of Infected *Within* Each Age Group
+
+# %%
+severe = sum(clamp.(series[locale][:new][:, map2series.severe], 0, 10_000_000), dims=1)'
+sev_pct_infected_byage = round.(severe ./ infected, digits=5)
+hcat(agelabels, sev_pct_infected_byage)
+
+# %%
+#### Severe Percentage of Population *Within* Each Age Group
+
+# %%
+sev_pct_pop_byage = round.(severe ./ pop, digits=5)
+hcat(agelabels, sev_pct_pop_byage)
+
+# %% [markdown]
+# ### Recovered Distribution by Age Group
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
@@ -136,7 +167,7 @@ cumhistmx = alldict["dat"]["cumhistmx"]
 newhistmx = alldict["dat"]["newhistmx"]
 openmx = alldict["dat"]["openmx"];
 
-# %% jupyter={"source_hidden": true}
+# %%
 
 summary = (
            total_infected = series[locale][:cum][1, 6] - series[locale][:cum][180,6],

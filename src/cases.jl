@@ -5,6 +5,14 @@
 #       then run_a_sim(geofilename, n_days, locales; runcases=cases)
 ####################################################################
 
+####################################################################
+# 
+# - define a cases as mycase=Spreadcase(15,cf_array,tf_array,compliance_array_or_float)
+# - pass these cases to run_a_sim in kwarg spreadcases as a list--they'll be run in function spread!
+#        scases = [mycase, case_2, ...]  then run_a_sim(geofilename, n_days, locales; spreadcases=scases)
+# - cases above can be combined with these passing in both runcases and spreadcases
+# 
+####################################################################
 
 ####################################################################
 # seeding cases
