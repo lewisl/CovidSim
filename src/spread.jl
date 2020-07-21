@@ -39,9 +39,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
         return
     end
 
-    # all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)  #  @views  laglim x 6 x 5  lag x cond by agegrp
     all_accessible .= grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)
-    # simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)  @views 
     simple_accessible .= sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)  @views 
 
     all_unexposed = grab(unexposed, agegrps, lag1, locale, dat=dat)  # (5, ) agegrp for lag 1
@@ -143,9 +141,9 @@ end
 """
 How many contacts result in consequential touches? Each cell in contacts is the number of
 contacts indexed by the characteristics of the *spreader*. Map each cell of contacts to
-the accessible population (susceptible and NOT) to split cells of the accessible
-proportionally to the cells of the accessible. Then, filter through binomial distribution 
-for a "successful" touch based on characteristics of the recipient.
+the accessible population (susceptible and NOT) proportionally to the cells of the accessible. 
+Then, filter through binomial distribution for a "successful" touch based on characteristics 
+of the recipient.
 
 An alternative method is used for test_and_trace, which prepares its inputs in the caller.
 """
@@ -156,7 +154,7 @@ function how_many_touched!(;env=env)
     # consolidate the cells of the contacts made by spreaders by summing across agegrp and condition
     # reduce the number of cells 500 / (4 * 5) → 25
     env.lag_contacts[:] = sum(env.contacts,dims=(2,3))[:,:,1] #  @views (laglim, ) contacts by lag after sum by cond, agegrp
-    contacts = reshape(env.lag_contacts,25,1,1)  # laglim x 4 x 5: lag x cond x agegrp; cond in {nil, mild, sick, severe}
+    contacts = reshape(env.lag_contacts, laglim, 1, 1)  # laglim x 4 x 5: lag x cond x agegrp; cond in {nil, mild, sick, severe}
     touched = env.touched
     touched .= 0
     target_accessible = env.simple_accessible  # (6,5) 6 conds: unexp, recovered, nil, mild, sick, severe by agegrps
