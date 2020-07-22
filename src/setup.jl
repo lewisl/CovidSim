@@ -3,7 +3,7 @@
 ######################################################################################
 
 
-function setup(n_days;   
+function setup(n_days; 
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/dec_tree_all.csv",
     spfilename="../parameters/spread_params.toml")
@@ -48,7 +48,7 @@ end
 # method for multiple locales
 function setup_unexposed!(dat, geodata::Array, locales::Array)
     for loc in locales
-        pop = geodata[geodata[:, fips] .== loc, popsize][1]
+        pop = convert(T_int, geodata[geodata[:, fips] .== loc, popsize][1])
         setup_unexposed!(dat, pop, loc)
     end
 end
@@ -56,7 +56,7 @@ end
 # method for single locale, pop is Int
 function setup_unexposed!(dat, pop, loc)
     for agegrp in agegrps
-        dat[loc][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * pop)
+        dat[loc][1, unexposed, agegrp] = floor(T_int,age_dist[agegrp] * pop)
     end
 end
 
@@ -74,19 +74,19 @@ end
 
 
 # one environment at a time
-function data_dict(locales; lags=laglim, conds=8, agegrps=5)
+function data_dict(locales; lags=laglim, conds=length(conditions), agegrps=ages)
     dat = Dict()
     for loc in locales
-        dat[loc] = zeros(Int, lags, conds, agegrps)
+        dat[loc] = zeros(T_int, lags, conds, agegrps)
     end
     return dat       
 end
 
 
-function hist_dict(locales, n_days; conds=8, agegrps=5)
+function hist_dict(locales, n_days; conds=length(conditions), agegrps=ages)
     dat = Dict()
     for loc in locales
-        dat[loc] = zeros(Int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+        dat[loc] = zeros(T_int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end

@@ -1,35 +1,38 @@
 
 # pre-allocate large arrays, accessed and modified frequently
 # hold complex parameter sets
-mutable struct Env
+mutable struct SimEnv{T<:Integer} 
     geodata::Array{Any, 2}
-    spreaders::Array{Int64,3} # laglim,4,5
-    all_accessible::Array{Int64,3} # laglim,6,5
-    contacts::Array{Int64,3} # laglim,4,5
-    simple_accessible::Array{Int64,2} # 6,5
-    touched::Array{Int64,3} # laglim,6,5
-    lag_contacts::Array{Int,1} # laglim,
-    riskmx::Array{Float64,2} # laglim,5
-    contact_factors::Array{Float64,2}  # 4,5 parameters for spread!
-    touch_factors::Array{Float64,2}  #  6,5  parameters for spread!
-    send_risk_by_lag::Array{Float64,1}  # laglim,  parameters for spread!
+    spreaders::Array{T, 3} # laglim,4,5
+    all_accessible::Array{T, 3} # laglim,6,5
+    contacts::Array{T, 3} # laglim,4,5
+    simple_accessible::Array{T, 2} # 6,5
+    touched::Array{T, 3} # laglim,6,5
+    lag_contacts::Array{T, 1} # laglim,
+    riskmx::Array{Float64, 2} # laglim,5
+    contact_factors::Array{Float64, 2}  # 4,5 parameters for spread!
+    touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
+    send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
     recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
-    sd_compliance::Array{Float64,2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
+    sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
-    function Env(;          geodata=[0 "" ], # geodata
-                            spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
-                            all_accessible=zeros(Int,0,0,0),
-                            contacts=zeros(Int,0,0,0),
-                            simple_accessible=zeros(Int,0,0),
-                            touched=zeros(Int,0,0,0),
-                            lag_contacts=zeros(Int,laglim),
-                            riskmx=zeros(Float64,0,0),
-                            contact_factors=zeros(Float64,0,0),
-                            touch_factors=zeros(Float64,0,0),
-                            send_risk_by_lag=zeros(Float64,laglim),
-                            recv_risk_by_age=zeros(Float64,5),
-                            sd_compliance=ones(Float64,6,5)        )
+    # T_int should be one of Int64, Int32 when calling the constructor
+    function SimEnv{T}(; 
+                                geodata=[T(0) "" ], # geodata
+                                spreaders=zeros(T, 0,0,0),   # semicolon for all keyword (named) arguments)
+                                all_accessible=zeros(T, 0,0,0),
+                                contacts=zeros(T, 0,0,0),
+                                simple_accessible=zeros(T, 0,0),
+                                touched=zeros(T, 0,0,0),
+                                lag_contacts=zeros(T, laglim),
+                                riskmx=zeros(Float64, 0,0),
+                                contact_factors=zeros(Float64, 0,0),
+                                touch_factors=zeros(Float64, 0,0),
+                                send_risk_by_lag=zeros(Float64,laglim),
+                                recv_risk_by_age=zeros(Float64, 5),
+                                sd_compliance=ones(Float64, 6,5)        
+                            ) where T<:Integer
         return new(geodata, spreaders, all_accessible, contacts, simple_accessible,
                    touched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
@@ -39,75 +42,7 @@ end
 # switches and values used to control cases that run during simulation
 const RunControl = Dict{Symbol,Any}()
 
-# control constants
-const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
-const laglim = 25
-const lags = 1:laglim   # rows
 
-# geo data: fips,county,city,state,sizecat,pop,density
-const fips = 1
-const county = 2
-const city = 3
-const state = 4
-const sizecat = 5
-const popsize = 6
-const density = 7
-const anchor = 8
-const restrict = 9
-const density_fac = 10
-
-# population centers sizecats
-const major = 1  # 20
-const large = 2  # 50
-const medium = 3
-const small = 4
-const smaller = 5
-const rural = 6
-
-# condition_outcome columns and stat series columns
-const unexposed = 1
-const infectious = 2
-const recovered = 3
-const dead = 4
-const nil = 5
-const mild = 6
-const sick = 7
-const severe = 8
-const totinfected = 9
-const travelers = 10
-const isolated = 11
-
-# columns of history series: first 5 cols are agegrps, 6th is total
-const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
-                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
-const total = 6
-
-const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
-const condnames = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
-                       5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
-const infectious_cases = [nil, mild, sick, severe]
-const transition_cases = [recovered, nil, mild, sick, severe, dead]
-
-# transition_prob_rows
-const to_recovered = 1
-const to_nil = 2
-const to_mild = 3
-const to_sick = 4
-const to_severe = 5
-const to_dead = 6
-
-# agegrp channels at dimension 3
-const a1 = 1 # 0-19
-const a2 = 2 # 20-39
-const a3 = 3 # 40-59
-const a4 = 4 # 60-79
-const a5 = 5 # 80+
-const agegrps = 1:5
-const ages = length(agegrps)
-
-
-# traveling constants
-const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 
 ####################################################################################
@@ -115,7 +50,7 @@ const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, silent=true,
+function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int32,
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.csv",
             spfilename="../parameters/spread_params.toml")
@@ -124,6 +59,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
 =#
 
     empty_all_qs!() # from previous runs
+
+    global T_int = set_int_type # update the global type of ints with the input value
 
     # access input data and pre-allocate storage
     alldict = setup(n_days; geofilename=geofilename, 
@@ -188,7 +125,7 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     thisday = ctr[:day]
     if thisday == 1
         for locale in locales
-            zerobase = zeros(Int, size(newhist[locale])[1:2])
+            zerobase = zeros(T_int, size(newhist[locale])[1:2])
             zerobase[1,1:5] .+= starting_unexposed[locale]
             zerobase[1,6] = sum(starting_unexposed[locale])
 
@@ -218,7 +155,7 @@ end
 
 # a single locale, either cumulative or new
 function make_series(histmx)
-    s = zeros(Int, size(histmx,3), prod(size(histmx)[1:2]))
+    s = zeros(T_int, size(histmx,3), prod(size(histmx)[1:2]))
     for i in 1:size(histmx, 3)
         s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
     end
@@ -233,11 +170,11 @@ function add_totinfected_series!(series, locale)
     end
     # for new
     n = size(series[locale][:new],1)
-    series[locale][:new] = hcat(series[locale][:new], zeros(Int,n,6))
+    series[locale][:new] = hcat(series[locale][:new], zeros(T_int, n, 6))
     series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
                                                       abs.(series[locale][:new][:,map2series.unexposed]) ) 
     # for cum
-    series[locale][:cum] = hcat(series[locale][:cum], zeros(Int,n,6))
+    series[locale][:cum] = hcat(series[locale][:cum], zeros(T_int, n, 6))
     @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
     return
 end
@@ -277,22 +214,27 @@ function empty_all_qs!()
 end
 
 function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
- 
-    # initialize the simulation Env
-    ret =   Env(geodata=geodata,
-                spreaders=zeros(Int64,laglim,4,5),
-                all_accessible=zeros(Int64,laglim,6,5),
-                contacts=zeros(Int64,laglim,4,5),
-                simple_accessible=zeros(Int64,6,5),
-                touched=zeros(Int64,laglim,6,5),
-                lag_contacts=zeros(Int64,laglim),
-                riskmx = zeros(Float64,laglim,5),
+    
+    global T_int
+
+    # initialize the simulation SimEnv
+
+    ret =   SimEnv{T_int}(
+                geodata=geodata,
+                spreaders=zeros(T_int, laglim, 4, agegrps),
+                all_accessible=zeros(T_int, laglim, 6, agegrps),
+                contacts=zeros(T_int, laglim, 4, agegrps),
+                simple_accessible=zeros(T_int, 6, agegrps),
+                touched=zeros(T_int, laglim, 6, agegrps),
+                lag_contacts=zeros(T_int, laglim),
+                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
                 contact_factors = contact_factors,
                 touch_factors = touch_factors,
                 send_risk_by_lag = send_risk,
                 recv_risk_by_age = recv_risk,
-                sd_compliance = zeros(6,5))
-    ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
+                sd_compliance = zeros(6, agegrps)
+            )
+    # ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
 
     # contact_factors and touch_factors look like:
     #=
@@ -336,11 +278,11 @@ function histo(x)
     big = ceil(maximum(x))
     bins = Int(big)
     sm = floor(minimum(x))
-    ret = zeros(Int, bins)
+    ret = zeros(T_int, bins)
     binbounds = collect(1:bins)
     for i = 1:bins
         n = count(x -> i-1 < x <= i,x)
-        ret[i] = n
+        ret[i] = T_int(n)
     end
     return ret, binbounds
 end
@@ -364,12 +306,12 @@ end
 Returns a single number of successes for a
 sampled outcome of cnt tries with the input pr of success.
 """
-function binomial_one_sample(cnt, pr)::Int
+function binomial_one_sample(cnt, pr)::T_int
     return rand.(Binomial.(cnt, pr))
 end
 
 
-function categorical_sample(probvec, trials)
+function categorical_sample(probvec, trials)::Array{T_int,1}
     x = rand(Categorical(probvec), trials)
 end
 

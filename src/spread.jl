@@ -117,12 +117,12 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
                 scale = contact_factors[cond, agegrp]
                 spcount = spreaders[lag, cond, agegrp]
                 if spcount == 0
-                    contacts[lag, cond, agegrp] = 0
+                    contacts[lag, cond, agegrp] = T_int(0)
                     continue
                 end
                 dgamma = Gamma(1.0, density_factor * scale)  #shape, scale
                 x = rand(dgamma,spcount)
-                contacts[lag, cond, agegrp] = round(Int,sum(x))
+                contacts[lag, cond, agegrp] = round(T_int, sum(x))
             end
         end
     end
@@ -131,7 +131,7 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
     oc_ratio = sum(contacts) / sum(env.all_accessible)
     if oc_ratio > 1.0
         @warn "day: $(ctr[:day]) warning: overcontact ratio > 1.0: $oc_ratio"
-        contacts[:] = round.(1.0/oc_ratio .* contacts)
+        contacts[:] = round.(T_int, 1.0/oc_ratio .* contacts)
     end
 
     return contacts
@@ -156,12 +156,12 @@ function how_many_touched!(;env=env)
     env.lag_contacts[:] = sum(env.contacts,dims=(2,3))[:,:,1] #  @views (laglim, ) contacts by lag after sum by cond, agegrp
     contacts = reshape(env.lag_contacts, laglim, 1, 1)  # laglim x 4 x 5: lag x cond x agegrp; cond in {nil, mild, sick, severe}
     touched = env.touched
-    touched .= 0
+    touched .= T_int(0)
     target_accessible = env.simple_accessible  # (6,5) 6 conds: unexp, recovered, nil, mild, sick, severe by agegrps
     target_tf = env.touch_factors  # view(env.touch_factors, map2touch.unexposed, :)  w/o view (6,5)
 
     totaccessible = sum(target_accessible)
-    peeps = zeros(Int, size(target_accessible))
+    peeps = zeros(T_int, size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
@@ -206,7 +206,7 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
                            target_tf; env=env)
 
     totaccessible = sum(target_accessible)
-    peeps = zeros(Int, size(target_accessible))
+    peeps = zeros(T_int, size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
@@ -269,7 +269,7 @@ function how_many_infected(all_unexposed; env=env)
     # only unexposed (= susceptible) can become infected
     @views touched_by_lag_age = env.touched[:, unexposed, :]  # (laglim,5)
 
-    newinfected = zeros(Int, length(agegrps))  # (5,)
+    newinfected = zeros(T_int, length(agegrps))  # (5,)
 
     if sum(env.touched) == 0   # might happen with a social distancing or quarantine case with 100% compliance
         return newinfected
@@ -280,7 +280,7 @@ function how_many_infected(all_unexposed; env=env)
             newsick = binomial_one_sample(touched_by_lag_age[lag, age], env.riskmx[lag, age])  # draws, probability
             newinfected[age] += newsick
         end
-        # newsick = clamp(newinfected[age], 0, floor(Int,.95 * all_unexposed[age]))
+        # newsick = clamp(newinfected[age], T_int(0), floor(T_int,.95 * all_unexposed[age]))
     end
 
     return newinfected  # (length of agegrps, ) (only condition is nil, assumed lag = 1 => first day infected)
@@ -307,41 +307,41 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[]
                                send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age);
     r0mx = data_dict(1; lags=laglim, conds=length(conditions), agegrps=ages)  # single locale
     locale = 1
-    population = 2_000_000
-    setup_unexposed!(r0mx, population,locale)
+    population = convert(T_int, 2_000_000)
+    setup_unexposed!(r0mx, population, locale)
 
     # setup data
     all_unexposed = grab(unexposed, agegrps, 1, locale, dat=r0mx)  # (5, ) agegrp for lag 1
-    track_infected = zeros(Int, 5)
-    track_contacts = zeros(laglim, 4, 5)
-    track_touched = zeros(laglim, 6, 5)
+    track_infected = zeros(T_int, 5)
+    track_contacts = zeros(T_int, laglim, 4, 5)
+    track_touched = zeros(T_int, laglim, 6, 5)
 
     r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps, lags, locale, dat=r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
     r0env.simple_accessible[:] = sum(r0env.all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
     if !isempty(compliance)
-        r0env.simple_accessible[:] = round.(compliance .* r0env.simple_accessible)
+        r0env.simple_accessible[:] = round.(T_int, compliance .* r0env.simple_accessible)
     end
 
     if sa_pct[1] != 1.0
         sa_pct = [sa_pct[1],sa_pct[2],sa_pct[3], fill(sa_pct[3]./4.0, 3)...]
         res = [r0env.simple_accessible[1,:] .* i for i in sa_pct]
-        sanew = zeros(6,5)
+        sanew = zeros(T_int, 6, 5)
         for i in 1:6
            sanew[i,:] .= res[i]
         end
-        r0env.simple_accessible[:] = round.(Int, sanew)
+        r0env.simple_accessible[:] = round.(T_int, sanew)
     end
 
-    age_relative = round.(Int,age_dist ./ minimum(age_dist))
-    starting_spreaders = ones(Int,laglim,4,5)
+    age_relative = round.(T_int, age_dist ./ minimum(age_dist))
+    starting_spreaders = ones(T_int, laglim,4,5)
     for i in 1:5
         starting_spreaders[:,:,i] .= age_relative[i]
     end
     if !isempty(dt)
-        starting_spreaders[2:laglim, :, :] .= 0
-        starting_spreaders .*= 20
+        starting_spreaders[2:laglim, :, :] .= T_int(0)
+        starting_spreaders .*= T_int(20)
     else
-        starting_spreaders[1,:,:] .= 0;
+        starting_spreaders[1,:,:] .= T_int(0);
     end
     r0env.spreaders = copy(starting_spreaders)
     input!(starting_spreaders,infectious_cases,agegrps,lags,locale,dat=r0mx)
@@ -370,7 +370,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], cf=[]
     if !isempty(dt)
         tot_spreaders = sum(starting_spreaders)
     else
-        tot_spreaders = sum(starting_spreaders) / 24
+        tot_spreaders = round.(T_int, sum(starting_spreaders) / 24)
     end
     tot_contacts = sum(track_contacts)
     tot_touched = sum(track_touched)

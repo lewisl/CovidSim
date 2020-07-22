@@ -232,7 +232,7 @@ function isolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat=openmx, isodat
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, 0, available)  # limit to max
+    cnt = clamp(scnt, T_int(0), T_int(available))  # limit to max
     cnt < scnt && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
 end
@@ -245,14 +245,14 @@ function isolate_by!(num, cond, agegrp, lag, locale; opendat=openmx, isodat=isol
     else
         available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     end
-    cnt = clamp.(num, 0, available)  # limit to max
+    cnt = clamp.(num, T_int(0), T_int(available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
     return nothing
 end  # this one works
 
 
-function _isolate!(cnt, cond, agegrp, lag, locale::Int; opendat=openmx, isodat=isolatedmx)
+function _isolate!(cnt, cond, agegrp, lag, locale::Integer; opendat=openmx, isodat=isolatedmx)
     minus!.(cnt, cond, agegrp, lag, locale, dat=opendat)  # move out 
     update_infectious!(locale, dat=opendat)
     plus!.(cnt, cond, agegrp, lag, locale, dat=isodat)  # move in
@@ -284,7 +284,7 @@ function unisolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat = openmx, is
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, lag, locale, dat=isodat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, 0, available)  # limit to max
+    cnt = clamp(scnt, T_int(0), T_int(available))  # limit to max
     cnt < scnt && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
     return nothing  # this one works!
@@ -299,7 +299,7 @@ function unisolate_by!(num, cond, agegrp, lag, locale; mode=:both, opendat=openm
     # println("day $(ctr[:day]) request to unisolate   ", sum(num))
     # println("day $(ctr[:day]) available to unisolate ", sum(available))
 
-    cnt = clamp.(num, 0, available)  # limit to max
+    cnt = clamp.(num, T_int(0), T_int(available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, lag, locale; mode=:both, opendat=opendat, isodat=isodat)
     return nothing
