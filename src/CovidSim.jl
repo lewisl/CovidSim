@@ -1,4 +1,5 @@
 # TODO
+    # get rid of all uses of integer literals for lag, agegrps, conditions
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -54,7 +55,7 @@ export
     plus!,
     minus!,
     sumit,
-    Env,
+    SimEnv,
     initialize_sim_env,
     r0_sim,
     sim_r0
@@ -87,7 +88,7 @@ export
     make_series,
     infection_outcome
 
-# queues for tracking
+# queues (variables) for tracking
 export            
     travelq,
     spreadq,
@@ -161,6 +162,89 @@ export
     agegrps,
     ages,
     recv_risk_by_age
+
+
+###########################################################################
+# module global constants (except in Julia things aren't really constant!)
+###########################################################################
+
+# datatype constants
+T_int = Int32
+
+
+################################################################
+# constants for data structure indices
+################################################################
+
+# control constants
+const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
+const laglim = 25
+const lags = 1:laglim   # rows
+
+# geo data: fips,county,city,state,sizecat,pop,density
+const fips = 1
+const county = 2
+const city = 3
+const state = 4
+const sizecat = 5
+const popsize = 6
+const density = 7
+const anchor = 8
+const restrict = 9
+const density_fac = 10
+
+# population centers sizecats
+const major = 1  # 20
+const large = 2  # 50
+const medium = 3
+const small = 4
+const smaller = 5
+const rural = 6
+
+# condition_outcome columns and stat series columns
+const unexposed = 1
+const infectious = 2
+const recovered = 3
+const dead = 4
+const nil = 5
+const mild = 6
+const sick = 7
+const severe = 8
+const totinfected = 9
+const travelers = 10
+const isolated = 11
+
+# columns of history series: first 5 cols are agegrps, 6th is total
+const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
+                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
+const total = 6
+
+const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
+const condnames = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
+                       5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
+const infectious_cases = [nil, mild, sick, severe]
+const transition_cases = [recovered, nil, mild, sick, severe, dead]
+
+# transition_prob_rows
+const to_recovered = 1
+const to_nil = 2
+const to_mild = 3
+const to_sick = 4
+const to_severe = 5
+const to_dead = 6
+
+# agegrp channels at dimension 3
+const a1 = 1 # 0-19
+const a2 = 2 # 20-39
+const a3 = 3 # 40-59
+const a4 = 4 # 60-79
+const a5 = 5 # 80+
+const agegrps = 1:5
+const ages = length(agegrps)
+
+
+# traveling constants
+const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 
 end # module CovidSim
