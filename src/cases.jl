@@ -163,19 +163,19 @@ end  # function case_setter
 function spread_case_runner(density_factor, all_unexposed; env=env)
     spread_stash[:spreaders] = copy(env.spreaders)  # stash today's spreaders--isolated from env
     spread_stash[:simple_accessible] = copy(env.simple_accessible) # stash today's accessible--isolated from env
-    newinfected = T_int[]  # capture infected for comply and nocomply groups
+    newinfected = T_int[][]  # capture infected for comply and nocomply groups
     for i in [:comply,:nocomply]
         if i == :comply  # split the spreaders and accessible, set the case factors
-            env.spreaders[:]= round.(T_int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
+            env.spreaders[:]= round.(T_int[], permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
                                        env.sd_compliance[3:6,:], [3,1,2]))
-            env.simple_accessible[:]= round.(T_int, copy(spread_stash[:simple_accessible]) .*
+            env.simple_accessible[:]= round.(T_int[], copy(spread_stash[:simple_accessible]) .*
                                              env.sd_compliance)
             env.contact_factors = copy(spread_stash[:case_cf])
             env.touch_factors = copy(spread_stash[:case_tf])
         else  # i == :nocomply other split of spreaders and accessible, restore default factors
-            env.spreaders[:]= round.(T_int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
+            env.spreaders[:]= round.(T_int[], permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
                                         (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
-            env.simple_accessible[:]= round.(T_int, copy(spread_stash[:simple_accessible]) .*
+            env.simple_accessible[:]= round.(T_int[], copy(spread_stash[:simple_accessible]) .*
                                              (1.0 .- env.sd_compliance))
             # set the default contact_factors and touch_factors
             env.contact_factors = copy(spread_stash[:default_cf])

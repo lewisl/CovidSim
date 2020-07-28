@@ -1,5 +1,6 @@
 # TODO
     # get rid of all uses of integer literals for lag, agegrps, conditions
+        # in dectrees, for instance
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -169,7 +170,7 @@ export
 ###########################################################################
 
 # datatype constants
-T_int = Int32
+const T_int = Ref(Int32)  # this creates a reference type accessed or modified in functions as T_int[]
 
 
 ################################################################

@@ -73,7 +73,7 @@ function t_n_t_case(start_date, end_date;
                     if q.quar_date < thisday < q.quar_date + qdays
                         day_of_q = thisday - q.quar_date
                         # are there breakouts? 1 element of breakout array
-                        cnt = get(get(tnt_stash, q, [T_int(0)]), day_of_q, T_int(0)) 
+                        cnt = get(get(tnt_stash, q, [T_int[](0)]), day_of_q, T_int[](0)) 
 
                         println("type of cnt: ", typeof(cnt))
 
@@ -144,7 +144,7 @@ function test_and_trace(start_date, end_date;
     if start_date <= thisday < end_date
 
         # who gets tested?  
-        avail_to_test = zeros(T_int, 25,4,5)
+        avail_to_test = zeros(T_int[], 25,4,5)
         if target_test
             sel_age = get_next!(nxt) # circular cycle through 1:4
             if sel_age == 4; sel_age = 4:5; end  # only sampled age group is non-zero
@@ -159,21 +159,21 @@ function test_and_trace(start_date, end_date;
         end
 
         n_conds = length(map2access[unexposed]:map2access[mild])
-        to_test = Dict(i=>zeros(T_int, laglim, n_conds, agegrps) for i in 1:generations) # TODO pre-allocate?
-        postests = Dict(i=>zeros(T_int, laglim, n_conds, agegrps) for i in 1:generations)
-        poscontacts = Dict(i=>zeros(T_int, laglim, n_conds, agegrps) for i in 1:generations)
-        postouched = Dict(i=>zeros(T_int, laglim, n_conds, agegrps) for i in 1:generations)
+        to_test = Dict(i=>zeros(T_int[], laglim, n_conds, agegrps) for i in 1:generations) # TODO pre-allocate?
+        postests = Dict(i=>zeros(T_int[], laglim, n_conds, agegrps) for i in 1:generations)
+        poscontacts = Dict(i=>zeros(T_int[], laglim, n_conds, agegrps) for i in 1:generations)
+        postouched = Dict(i=>zeros(T_int[], laglim, n_conds, agegrps) for i in 1:generations)
 
         qloc = (locale=locale, quar_date=thisday)
 
         # initialize new tracking locales and stash
             tstloc = (locale=locale, test_date=thisday)
             if !haskey(testdat, tstloc)  
-                testdat[tstloc] = zeros(T_int, laglim, length(conditions), length(agegrps))
+                testdat[tstloc] = zeros(T_int[], laglim, length(conditions), length(agegrps))
             end
             # holds postest people to be quarantined after delay getting test results
             if !haskey(tnt_stash, tstloc) 
-                tnt_stash[tstloc] = zeros(T_int, laglim, length(test_conds), length(agegrps))
+                tnt_stash[tstloc] = zeros(T_int[], laglim, length(test_conds), length(agegrps))
             end
         
         density_factor = env.geodata[env.geodata[:, fips] .== locale, density_fac][1]
@@ -205,7 +205,7 @@ function test_and_trace(start_date, end_date;
                                     avail_to_test,
                                     target_cf, 
                                     density_factor, env=env)  								
-			poscontacts[gen][:] = round.(T_int, c_comply .* poscontacts[gen])
+			poscontacts[gen][:] = round.(T_int[], c_comply .* poscontacts[gen])
 
             # contacts lead to consquential touches that we count
             target_tf = view(env.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
@@ -213,12 +213,12 @@ function test_and_trace(start_date, end_date;
                                         avail_to_test, test_conds, 
                                         target_tf, env=env)
             if past_contacts # going back "5" pretend days
-                up_multiple = floor(T_int, sum(shifter(rand(5),0.4, 1.3)))
+                up_multiple = floor(T_int[], sum(shifter(rand(5),0.4, 1.3)))
                 postouched[gen][:] = postouched[gen] .* up_multiple
             end
 
             # isolate positives and stash breakout
-            put_in = round.(T_int, q_comply .* postests[gen])
+            put_in = round.(T_int[], q_comply .* postests[gen])
             if test_delay > 0 # delay positives into quarantine. (all results delayed, only pos matter)
                 tnt_stash[tstloc] .+= put_in
             else
@@ -249,13 +249,13 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
     # distribute the tests across disease conditions by age group and condition
            # we could do probabilistically but the probs are very small and the whole thing
            # is somewhat artificial: we can capture "randomness" by randomly ignoring x% of the results
-    pos_results = zeros(T_int, 25,4,5)
+    pos_results = zeros(T_int[], 25,4,5)
 
     if tc_perday <= 0  # earlier generations of test and trace used up the available tests today
-        return zeros(T_int,laglim, 4, length(agegrps)), [T_int(0)]
+        return zeros(T_int[],laglim, 4, length(agegrps)), [T_int[](0)]
     end
     if sum(to_test) == 0
-        return zeros(T_int,laglim, 4, length(agegrps)), [T_int(0)]
+        return zeros(T_int[],laglim, 4, length(agegrps)), [T_int[](0)]
     end        
 
     # today_tests = rand(Binomial(tc_perday, test_pct), 1)[1]
@@ -266,12 +266,12 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
     alloc_pct[isnan.(alloc_pct)] .= 0.0  # eliminate NaNs (underflow)
     @assert isapprox(sum(alloc_pct), 1.0) "probabilities must sum to 1.0"
 
-    # dist_tests = round.(T_int, (alloc_pct .- 1e-5) .* today_tests) 
-    dist_tests = zeros(T_int, size(to_test))
+    # dist_tests = round.(T_int[], (alloc_pct .- 1e-5) .* today_tests) 
+    dist_tests = zeros(T_int[], size(to_test))
     dcat = Categorical(alloc_pct)
-    x = rand(dcat, round(T_int, test_pct * tc_perday))
+    x = rand(dcat, round(T_int[], test_pct * tc_perday))
     dist_tests[:] = reshape([count(x .== i) for i in 1:length(dcat.p)], size(dist_tests))
-    dist_tests[:] = clamp.(dist_tests, T_int(0), T_int.(to_test))
+    dist_tests[:] = clamp.(dist_tests, T_int[](0), T_int[].(to_test))
 
     # test results  
 
@@ -309,7 +309,7 @@ end
 
 function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, env)
     if !haskey(isodat, qloc)  
-        isodat[qloc] = zeros(T_int, laglim, length(conditions), length(agegrps))
+        isodat[qloc] = zeros(T_int[], laglim, length(conditions), length(agegrps))
     end
 
     test_conds = [unexposed, recovered, nil, mild] 
@@ -330,7 +330,7 @@ function breakout!(breakout_pct, inq, qloc, qdays;
 
     # holds a breakout array (14,) from the quarantine
     if !haskey(tnt_stash, qloc) 
-        tnt_stash[qloc] = zeros(T_int, qdays-1)  # no breakout last day
+        tnt_stash[qloc] = zeros(T_int[], qdays-1)  # no breakout last day
     end
 
     m = breakout_pct / sum(breakout_dist[1:14])
@@ -340,7 +340,7 @@ function breakout!(breakout_pct, inq, qloc, qdays;
     dcat = Categorical(breakout_dist)
     outs = rand(dcat, sum(inq))
     outs = [count(outs .== i) for i in 1:length(breakout_dist)][1:length(breakout_dist)-1]
-    tnt_stash[qloc][:] = tnt_stash[qloc] .+ T_int(outs)
+    tnt_stash[qloc][:] = tnt_stash[qloc] .+ T_int[](outs)
 end  
 
 
@@ -355,11 +355,11 @@ matrix.
 function cnt_2_array(cnt, pop_mat; ret_conds=[nil, mild, sick, severe, unexposed, recovered])
     (ls, _, as) = axes(pop_mat)
     map2unq = (unexposed=1, infectious=-1, recovered=2,  dead=-1, nil=3, mild=4, sick=5, severe=6)
-    new_mat = zeros(T_int, length(ls), length(ret_conds), length(as))
+    new_mat = zeros(T_int[], length(ls), length(ret_conds), length(as))
     for l in ls, c in ret_conds, a in as
         if cnt <= 0; break; end
         put = clamp(cnt, 0 , pop_mat[l,c,a])
-        new_mat[l,map2unq[c],a] = T_int(put)
+        new_mat[l,map2unq[c],a] = T_int[](put)
         cnt -= put
     end
     return new_mat

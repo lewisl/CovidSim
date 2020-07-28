@@ -45,9 +45,9 @@ end
 
 
 # method to run through all existing locales in isolation
-function transition!(dt; dat)
+function transition!(dt, all_decpoints; dat)
     for locale in keys(dat)
-        transition!(dt, locale, dat=dat)
+        transition!(dt, all_decpoints, locale, dat=dat)
     end
 end
 
@@ -62,30 +62,35 @@ recovered or dead.
 
 Works for a single locale.
 """
-function transition!(dt, locale; dat)  
+function transition!(dt, all_decpoints, locale; dat)  
 
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     iszero(dat[locale]) && (return)
 
-    all_decpoints = reduce(merge,dt[agegrp].dec_points for agegrp in agegrps)
-    toprobs = zeros(6)
+    #pre-allocate variables updated in loop
+    toprobs = zeros(Float64, 6)
+    distvec = zeros(T_int[], 6)
+    tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
+    age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
+
     for lag = laglim:-1:1
         if lag in keys(all_decpoints) # check if a decision tree applies to this lag
-            for agegrp in agegrps
+            @inbounds for agegrp in agegrps
                 tree = dt[agegrp].tree
                 age_decpoints = dt[agegrp].dec_points
                 age_bump = copy(infectious_cases)
-                for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
-                    toprobs[:] = zeros(6)
+                @inbounds for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
+                    toprobs .= 0.0
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
                         toprobs[map2pr[branch.tocond]] = branch.pr
                     end
                     @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
                     age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
-                    folks = grab(fromcond,agegrp,lag,locale, dat=dat) # integer
-                    if folks > 0
-                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, dat=dat)
+                    folks = grab(fromcond,agegrp,lag,locale, dat=dat) 
+
+                    if folks > T_int[](0)
+                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, distvec, dat=dat)
                     end
                 end  
                 if !isempty(age_bump)  # bump people in conds that didn't get distributed above
@@ -110,7 +115,8 @@ Bump people from one lag to lag + 1 in the same disease condition.
 """
 function bump_up!(to_bump, agegrp, lag, locale; dat=openmx)
     bump = grab(to_bump, agegrp, lag, locale, dat=dat)
-    if sum(bump) > 0
+
+    if sum(bump) > T_int[](0)
         plus!(bump, to_bump, agegrp, lag+1, locale, dat=dat)
         minus!(bump, to_bump, agegrp, lag,   locale, dat=dat)
     end
@@ -123,15 +129,17 @@ function distribute_to_new_conditions!
 Based on decision trees for each age group, at specific decision points (in days), change
 people's disease condition, or move them to recovered or dead.
 """
-function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node; dat=openmx, lastlag=laglim)
+function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, distvec; dat=openmx, lastlag=laglim)
 
     @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
 
     # set vector of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
     @assert isapprox(sum(toprobs), 1.0, atol=1e-4) "target vector must sum to 1.0; submitted $toprobs"
     x = categorical_sample(toprobs, folks)  # integer results
-    distvec = bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
-    @assert sum(distvec) == folks "someone got lost $res != $folks"
+
+    distvec[:] = bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
+
+    # @assert sum(distvec) == folks "someone got lost $res != $folks"
 
     if lag != lastlag  # infectious cases to next lag
         @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) # @views 
@@ -232,7 +240,7 @@ function isolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat=openmx, isodat
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, T_int(0), T_int(available))  # limit to max
+    cnt = clamp(scnt, T_int[](0), T_int[](available))  # limit to max
     cnt < scnt && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
 end
@@ -245,7 +253,7 @@ function isolate_by!(num, cond, agegrp, lag, locale; opendat=openmx, isodat=isol
     else
         available = grab(cond, agegrp, lag, locale, dat=opendat)  # max
     end
-    cnt = clamp.(num, T_int(0), T_int(available))  # limit to max
+    cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
     return nothing
@@ -284,7 +292,7 @@ function unisolate_by!(pct::Float64,cond,agegrp,lag,locale; opendat = openmx, is
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, lag, locale, dat=isodat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, T_int(0), T_int(available))  # limit to max
+    cnt = clamp(scnt, T_int[](0), T_int[](available))  # limit to max
     cnt < scnt && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, lag, locale; opendat=opendat, isodat=isodat)
     return nothing  # this one works!
@@ -299,7 +307,7 @@ function unisolate_by!(num, cond, agegrp, lag, locale; mode=:both, opendat=openm
     # println("day $(ctr[:day]) request to unisolate   ", sum(num))
     # println("day $(ctr[:day]) available to unisolate ", sum(available))
 
-    cnt = clamp.(num, T_int(0), T_int(available))  # limit to max
+    cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, lag, locale; mode=:both, opendat=opendat, isodat=isodat)
     return nothing
