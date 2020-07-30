@@ -68,8 +68,8 @@ function transition!(dt, all_decpoints, locale; dat)
     iszero(dat[locale]) && (return)
 
     #pre-allocate variables updated in loop
-    toprobs = zeros(Float64, 6)
-    distvec = zeros(T_int[], 6)
+    toprobs = @MVector zeros(Float64, 6)
+    distvec = @MVector zeros(T_int[], 6)
     tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
     age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
 

@@ -15,6 +15,9 @@ __precompile__(true)
 
 module CovidSim
 
+# experimental
+using StaticArrays
+
 using DelimitedFiles
 using DataStructures
 using DataFrames

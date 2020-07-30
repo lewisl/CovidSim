@@ -53,9 +53,11 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     end  # no active case or active case
 
     # move the people from unexposed:agegrp to infectious:agegrp and nil
-    plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
-    plus!.(newinfected, nil, agegrps, lag1, locale, dat=dat)
-    minus!.(newinfected, unexposed, agegrps, lag1, locale, dat=dat)
+    if !iszero(newinfected)
+        plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
+        plus!.(newinfected, nil, agegrps, lag1, locale, dat=dat)
+        minus!.(newinfected, unexposed, agegrps, lag1, locale, dat=dat)
+    end
 
     push!(spreadq, (day=ctr[:day], locale=locale,
                 spreaders = sum(spreaders) + sum(get(spread_stash, :comply_spreaders, 0)),
@@ -102,7 +104,8 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
         Spreaders is usually small compared to all_accessible but there is a check.
     =#
 
-    if sum(env.simple_accessible) == T_int[](0)   # this can happen with a social distancing case with 100% compliance
+    # if sum(env.simple_accessible) == T_int[](0)   # this can happen with a social distancing case with 100% compliance
+    if iszero(env.simple_accessible)  # this can happen with a social distancing case with 100% compliance
         contacts[:] .= T_int[](0)
         return
     end
@@ -156,17 +159,21 @@ function how_many_touched!(;env=env)
     env.lag_contacts[:] = sum(env.contacts,dims=(2,3))[:,:,1] #  @views (laglim, ) contacts by lag after sum by cond, agegrp
     contacts = reshape(env.lag_contacts, laglim, 1, 1)  # laglim x 4 x 5: lag x cond x agegrp; cond in {nil, mild, sick, severe}
     touched = env.touched
-    touched .= T_int[](0)
+    touched[:] .= T_int[](0)
+    peeps = env.peeps
+    peeps[:] .= T_int[](0)
+
     target_accessible = env.simple_accessible  # (6,5) 6 conds: unexp, recovered, nil, mild, sick, severe by agegrps
     target_tf = env.touch_factors  # view(env.touch_factors, map2touch.unexposed, :)  w/o view (6,5)
 
     totaccessible = sum(target_accessible)
-    peeps = zeros(T_int[], size(target_accessible))
+    # peeps = zeros(T_int[], size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
-    if totaccessible == T_int[](0)  || sum(contacts) == T_int[](0)
-        return touched  # already initialized to zeros by caller
+    # if totaccessible == T_int[](0)  || sum(contacts) == T_int[](0)
+    if iszero(totaccessible) || iszero(contacts)
+        return touched  # initialized to zeros above
     end
 
     # map to access maps conditions to the rows of simple_accessible and touch_factors
@@ -207,11 +214,14 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
                            target_tf; env=env)
 
     totaccessible = sum(target_accessible)
-    peeps = zeros(T_int[], size(target_accessible))
+    peeps = env.peeps
+    peeps[:] .= T_int[](0)
+    # peeps = zeros(T_int[], size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
-    if totaccessible == 0  || sum(contacts) == 0
+    # if totaccessible == 0  || sum(contacts) == 0
+    if iszero(totaccessible) || iszero(contacts)
         return touched  # already initialized to zeros by caller
     end
 
@@ -273,7 +283,8 @@ function how_many_infected(all_unexposed; env=env)
 
     newinfected = zeros(T_int[], length(agegrps))  # (5,)
 
-    if sum(env.touched) == T_int[](0)   # might happen with a social distancing or quarantine case with 100% compliance
+    # if sum(env.touched) == T_int[](0)   # might happen with a social distancing or quarantine case with 100% compliance
+    if iszero(env.touched) # might happen with a social distancing or quarantine case with 100% compliance
         return newinfected
     end
 
