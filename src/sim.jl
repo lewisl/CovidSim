@@ -7,6 +7,7 @@ mutable struct SimEnv{T<:Integer}
     all_accessible::Array{T, 3} # laglim,6,5
     contacts::Array{T, 3} # laglim,4,5
     simple_accessible::Array{T, 2} # 6,5
+    peeps::Array{T, 2} # 6,5
     touched::Array{T, 3} # laglim,6,5
     lag_contacts::Array{T, 1} # laglim,
     riskmx::Array{Float64, 2} # laglim,5
@@ -24,6 +25,7 @@ mutable struct SimEnv{T<:Integer}
                                 all_accessible=zeros(T, 0,0,0),
                                 contacts=zeros(T, 0,0,0),
                                 simple_accessible=zeros(T, 0,0),
+                                peeps=zeros(T, 0,0),
                                 touched=zeros(T, 0,0,0),
                                 lag_contacts=zeros(T, laglim),
                                 riskmx=zeros(Float64, 0,0),
@@ -31,9 +33,9 @@ mutable struct SimEnv{T<:Integer}
                                 touch_factors=zeros(Float64, 0,0),
                                 send_risk_by_lag=zeros(Float64,laglim),
                                 recv_risk_by_age=zeros(Float64, 5),
-                                sd_compliance=ones(Float64, 6,5)        
+                                sd_compliance=ones(Float64, 6,5)    
                             ) where T<:Integer
-        return new(geodata, spreaders, all_accessible, contacts, simple_accessible,
+        return new(geodata, spreaders, all_accessible, contacts, simple_accessible, peeps,
                    touched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
     end
@@ -226,6 +228,7 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
                 all_accessible=zeros(T_int[], laglim, 6, agegrps),
                 contacts=zeros(T_int[], laglim, 4, agegrps),
                 simple_accessible=zeros(T_int[], 6, agegrps),
+                peeps=zeros(T_int[], 6, agegrps),
                 touched=zeros(T_int[], laglim, 6, agegrps),
                 lag_contacts=zeros(T_int[], laglim),
                 riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
