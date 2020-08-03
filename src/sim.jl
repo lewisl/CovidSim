@@ -82,7 +82,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
     # initial data for building data series of simulation outcomes
-    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, dat=openmx) for loc in locales])
+    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
     starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
         Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
 
@@ -93,13 +93,13 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         @inbounds for loc in locales
             density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
             for case in runcases
-                case(loc; opendat=openmx, isodat=isolatedmx, testdat=testmx, env=env)
+                case(loc, openmx, isolatedmx, testmx, env)   
             end
-            spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
-            transition!(dt, all_decpoints, loc, dat=openmx)   # transition all infectious cases "in the open"
+            spread!(loc, spreadcases, openmx, env,  density_factor)
+            transition!(dt, all_decpoints, loc, openmx)   # transition all infectious cases "in the open"
         end
-        transition!(dt, all_decpoints, dat=isolatedmx)  # transition all infectious cases / locales in isolation
-        transition!(dt, all_decpoints, dat=testmx) # transition tracked test to stay in sync with openmx
+        transition!(dt, all_decpoints, isolatedmx)  # transition all infectious cases / locales in isolation
+        transition!(dt, all_decpoints, testmx) # transition tracked test to stay in sync with openmx
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
             current_r0 = sim_r0(env=env, dt=dt, decpoints=all_decpoints)
             println("at day $(ctr[:day]) r0 = $current_r0")
@@ -323,7 +323,7 @@ end
 ####################################################################################
 
 """
-    function grab(condition, agegrp, lag, locale; dat=openmx)
+    function grab(condition, agegrp, lag, locale, dat)
 
 Inputs condition, agegrp and lag can be single or multiple (array or range).
 Only one locale can be accessed. Caller should loop over locales to retrieve
@@ -331,7 +331,7 @@ data from multiple locales.
 
 The returned array has dimensions (lag, condition, agegrp).
 """
-function grab(condition, agegrp, lag, locale; dat=openmx)
+function grab(condition, agegrp, lag, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
 
     return dat[locale][lag, condition, agegrp]
@@ -339,7 +339,7 @@ end
 
 
 """
-    function input!(val, condition, agegrp, lag, locale; dat=openmx)
+    function input!(val, condition, agegrp, lag, locale, dat)
 
 Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
 Only one locale can be provided.
@@ -348,15 +348,15 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 
 Inputs overwrite existing data at the referenced location of the target population matrix dat.
 """
-function input!(val, condition, agegrp, lag, locale; dat=openmx)
+function input!(val, condition, agegrp, lag, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale; dat=dat)
+    current = grab(condition, agegrp, lag, locale, dat)
     dat[locale][lag, condition, agegrp] = val
 end
 
 
 """
-    function plus!(val, condition, agegrp, lag, locale; dat=openmx)
+    function plus!(val, condition, agegrp, lag, locale, dat)
 
 Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
 Only one locale can be provided.
@@ -365,7 +365,7 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 
 Inputs are added to the existing data at the referenced location of the target population matrix dat.
 """
-function plus!(val, condition, agegrp, lag, locale; dat=openmx::Dict{Int64,Array{T,N} where T,N}) 
+function plus!(val, condition, agegrp, lag, locale, dat) 
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
 
     dat[locale][lag, condition, agegrp] += val    # T(val)
@@ -373,7 +373,7 @@ end
 
 
 """
-    function minus!(val, condition, agegrp, lag, locale; dat=openmx)
+    function minus!(val, condition, agegrp, lag, locale, dat)
 
 Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
 Only one locale can be provided.
@@ -383,9 +383,9 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 If subtraction from the existing data would result in negative values at the referenced locations of the target population matrix dat,
 an error will be raised. The population matrix must contain positive integer values.
 """
-function minus!(val, condition, agegrp, lag, locale; dat=openmx)
+function minus!(val, condition, agegrp, lag, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale; dat=dat)
+    current = grab(condition, agegrp, lag, locale, dat)
     @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
 end
