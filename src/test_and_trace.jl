@@ -180,7 +180,7 @@ function test_and_trace(start_date, end_date;
         conducted = 0 # per gen
         perday_conducted = 0 # per day
 
-        for gen in 1:generations
+        @inbounds for gen in 1:generations
             if gen == 1
                 to_test[gen][:] = avail_to_test
             else
