@@ -69,24 +69,26 @@ function transition!(dt, all_decpoints, locale; dat)
 
     #pre-allocate variables updated in loop
     toprobs = @MVector zeros(Float64, 6)
-    distvec = @MVector zeros(T_int[], 6)
+    distvec = @MVector zeros(T_int[], 6)  #  
     tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
     age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
 
-    for lag = laglim:-1:1
+    @inbounds for lag = laglim:-1:1
         if lag in keys(all_decpoints) # check if a decision tree applies to this lag
-            @inbounds for agegrp in agegrps
+           for agegrp in agegrps
                 tree = dt[agegrp].tree
                 age_decpoints = dt[agegrp].dec_points
                 age_bump = copy(infectious_cases)
-                @inbounds for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
-                    toprobs .= 0.0
+                for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
+                    toprobs = @MVector zeros(Float64, 6)
                     for branch in tree[node]  # agegroup index in array, node key in agegroup dict
                         toprobs[map2pr[branch.tocond]] = branch.pr
                     end
                     @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
                     fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
-                    age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
+                    
+                    # age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
+                    removeit!(age_bump, fromcond)
                     folks = grab(fromcond,agegrp,lag,locale, dat=dat) 
 
                     if folks > T_int[](0)
@@ -105,6 +107,15 @@ function transition!(dt, all_decpoints, locale; dat)
 
     update_infectious!(locale, dat = dat) # total all people who are nil, mild, sick, severe across all lags
     return
+end
+
+
+function removeit!(x,y)  # performs ok for tiny vectors
+   kill = 1
+   for i in eachindex(x)
+       if x[i] == y; kill = i; break; end
+   end
+   deleteat!(x, kill)
 end
 
 
@@ -130,27 +141,31 @@ Based on decision trees for each age group, at specific decision points (in days
 people's disease condition, or move them to recovered or dead.
 """
 function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, distvec; dat=openmx, lastlag=laglim)
+    
+    @inbounds begin
+        @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
 
-    @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
+        # set vector of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
+        @assert isapprox(sum(toprobs), 1.0, atol=1e-4) "target vector must sum to 1.0; submitted $toprobs"
+        x = categorical_sample(toprobs, folks)  # integer results
 
-    # set vector of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-    @assert isapprox(sum(toprobs), 1.0, atol=1e-4) "target vector must sum to 1.0; submitted $toprobs"
-    x = categorical_sample(toprobs, folks)  # integer results
+        # distvec = static_bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
 
-    distvec[:] = bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
+        distvec[:] = [count(x .== i) for i in 1:6]  # length(toprobs)
 
-    # @assert sum(distvec) == folks "someone got lost $res != $folks"
+        # @assert sum(distvec) == folks "someone got lost $res != $folks"
 
-    if lag != lastlag  # infectious cases to next lag
-        @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) # @views 
-    end
-    @views plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
-    @views plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
-    @views minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
+        if lag != lastlag  # infectious cases to next lag
+            @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat=dat) # @views 
+        end
+        @views plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat=dat)  # recovered to lag 1
+        @views plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat=dat)  # dead to lag 1
+        @views minus!(folks, fromcond, agegrp, lag, locale, dat=dat)  # subtract what we moved from the current lag
 
-    @views push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # @views primarily for debugging; can do some cool plots
+        @views push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # @views primarily for debugging; can do some cool plots
                    newcond=distvec[map2pr.nil:map2pr.severe], recovered=distvec[map2pr.recovered],
                    dead=distvec[map2pr.dead], node=node, locale=locale))
+    end
     return
 end
 

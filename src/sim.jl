@@ -1,7 +1,7 @@
 
 # pre-allocate large arrays, accessed and modified frequently
 # hold complex parameter sets
-mutable struct SimEnv{T<:Integer} 
+struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::Array{Any, 2}
     spreaders::Array{T, 3} # laglim,4,5
     all_accessible::Array{T, 3} # laglim,6,5
@@ -41,9 +41,6 @@ mutable struct SimEnv{T<:Integer}
     end
 end
 
-# switches and values used to control cases that run during simulation
-const RunControl = Dict{Symbol,Any}()
-
 
 
 
@@ -52,7 +49,7 @@ const RunControl = Dict{Symbol,Any}()
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int32,
+function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.csv",
             spfilename="../parameters/spread_params.toml")
@@ -93,7 +90,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
-        for loc in locales
+        @inbounds for loc in locales
             density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
             for case in runcases
                 case(loc; opendat=openmx, isodat=isolatedmx, testdat=testmx, env=env)
@@ -127,7 +124,7 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     # capture a snapshot of the end-of-day population matrix
     thisday = ctr[:day]
     if thisday == 1
-        for locale in locales
+        @inbounds for locale in locales
             zerobase = zeros(T_int[], size(newhist[locale])[1:2])
             zerobase[1,1:5] .+= starting_unexposed[locale]
             zerobase[1,6] = sum(starting_unexposed[locale])
@@ -137,7 +134,7 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
             newhist[locale][:,:,thisday] = cumhist[locale][:,:, thisday] .- zerobase
         end
     else  # on all other days...
-        for locale in locales
+        @inbounds for locale in locales
             cumhist[locale][:,1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
             @views cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2) # @views 
             @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1] # @views 
@@ -160,7 +157,7 @@ end
 function make_series(histmx)
     s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2]))
     for i in 1:size(histmx, 3)
-        s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
+        @views s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
     end
     return s
 end
@@ -269,7 +266,7 @@ end
 
 
 # discrete integer histogram
-function bucket(x; vals=[])
+function bucket(x; vals)
     if isempty(vals)
         vals = range(minimum(x), stop = maximum(x))
     end
@@ -335,7 +332,8 @@ data from multiple locales.
 The returned array has dimensions (lag, condition, agegrp).
 """
 function grab(condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+
     return dat[locale][lag, condition, agegrp]
 end
 
@@ -351,7 +349,7 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 Inputs overwrite existing data at the referenced location of the target population matrix dat.
 """
 function input!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale; dat=dat)
     dat[locale][lag, condition, agegrp] = val
 end
@@ -367,9 +365,10 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 
 Inputs are added to the existing data at the referenced location of the target population matrix dat.
 """
-function plus!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    dat[locale][lag, condition, agegrp] += val
+function plus!(val, condition, agegrp, lag, locale; dat=openmx::Dict{Int64,Array{T,N} where T,N}) 
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+
+    dat[locale][lag, condition, agegrp] += val    # T(val)
 end
 
 
@@ -385,7 +384,7 @@ If subtraction from the existing data would result in negative values at the ref
 an error will be raised. The population matrix must contain positive integer values.
 """
 function minus!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale; dat=dat)
     @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val

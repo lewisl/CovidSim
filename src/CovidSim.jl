@@ -17,6 +17,7 @@ module CovidSim
 
 # experimental
 using StaticArrays
+using LoopVectorization
 
 using DelimitedFiles
 using DataStructures
@@ -173,7 +174,7 @@ export
 ###########################################################################
 
 # datatype constants
-const T_int = Ref(Int32)  # this creates a reference type accessed or modified in functions as T_int[]
+const T_int = Ref(Int64)  # this creates a reference type accessed or modified in functions as T_int[]
 
 
 ################################################################

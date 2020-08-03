@@ -33,40 +33,43 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
     # spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # laglim x 4 x 5 lag x cond x agegrp
-    spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # laglim x 4 x 5 lag x cond x agegrp
 
-    if sum(spreaders) == T_int[](0)
-        return
+
+    @inbounds begin
+        spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # laglim x 4 x 5 lag x cond x agegrp
+
+        if sum(spreaders) == T_int[](0)
+            return
+        end
+
+        all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)
+        simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)  @views 
+
+        all_unexposed = grab(unexposed, agegrps, lag1, locale, dat=dat)  # (5, ) agegrp for lag 1
+
+        # set and run spreadcases or just run spreadsteps
+        spread_case_setter(spreadcases, env=env)  # bounces out right away if empty
+        if iszero(env.sd_compliance) || isone(env.sd_compliance)  # no compliance or full compliance--no split, just run once
+            newinfected = spreadsteps(density_factor, all_unexposed, env=env)
+        else # we need to split people into complying and noncomplying
+            newinfected = spread_case_runner(density_factor, all_unexposed, env=env)
+        end  # no active case or active case
+
+        # move the people from unexposed:agegrp to infectious:agegrp and nil
+        if !iszero(newinfected)
+            plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
+            plus!.(newinfected, nil, agegrps, lag1, locale, dat=dat)
+            minus!.(newinfected, unexposed, agegrps, lag1, locale, dat=dat)
+        end
+
+        push!(spreadq, (day=ctr[:day], locale=locale,
+                    spreaders = sum(spreaders) + sum(get(spread_stash, :comply_spreaders, 0)),
+                    contacts = sum(contacts) + sum(get(spread_stash, :comply_contacts, 0)),
+                    touched = sum(touched) + sum(get(spread_stash, :comply_touched, 0)),
+                    accessible = sum(all_accessible),
+                    unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
+                    infected=sum(newinfected)))
     end
-
-    all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)
-    simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)  @views 
-
-    all_unexposed = grab(unexposed, agegrps, lag1, locale, dat=dat)  # (5, ) agegrp for lag 1
-
-    # set and run spreadcases or just run spreadsteps
-    spread_case_setter(spreadcases, env=env)  # bounces out right away if empty
-    if iszero(env.sd_compliance) || isone(env.sd_compliance)  # no compliance or full compliance--no split, just run once
-        newinfected = spreadsteps(density_factor, all_unexposed, env=env)
-    else # we need to split people into complying and noncomplying
-        newinfected = spread_case_runner(density_factor, all_unexposed, env=env)
-    end  # no active case or active case
-
-    # move the people from unexposed:agegrp to infectious:agegrp and nil
-    if !iszero(newinfected)
-        plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
-        plus!.(newinfected, nil, agegrps, lag1, locale, dat=dat)
-        minus!.(newinfected, unexposed, agegrps, lag1, locale, dat=dat)
-    end
-
-    push!(spreadq, (day=ctr[:day], locale=locale,
-                spreaders = sum(spreaders) + sum(get(spread_stash, :comply_spreaders, 0)),
-                contacts = sum(contacts) + sum(get(spread_stash, :comply_contacts, 0)),
-                touched = sum(touched) + sum(get(spread_stash, :comply_touched, 0)),
-                accessible = sum(all_accessible),
-                unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
-                infected=sum(newinfected)))
-
     return
 end
 
@@ -158,6 +161,7 @@ function how_many_touched!(;env=env)
     # reduce the number of cells 500 / (4 * 5) → 25
     env.lag_contacts[:] = sum(env.contacts,dims=(2,3))[:,:,1] #  @views (laglim, ) contacts by lag after sum by cond, agegrp
     contacts = reshape(env.lag_contacts, laglim, 1, 1)  # laglim x 4 x 5: lag x cond x agegrp; cond in {nil, mild, sick, severe}
+
     touched = env.touched
     touched[:] .= T_int[](0)
     peeps = env.peeps
@@ -166,7 +170,8 @@ function how_many_touched!(;env=env)
     target_accessible = env.simple_accessible  # (6,5) 6 conds: unexp, recovered, nil, mild, sick, severe by agegrps
     target_tf = env.touch_factors  # view(env.touch_factors, map2touch.unexposed, :)  w/o view (6,5)
 
-    totaccessible = sum(target_accessible)
+    totaccessible = convert(T_int[], sum(target_accessible))
+
     # peeps = zeros(T_int[], size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
@@ -191,15 +196,13 @@ function how_many_touched!(;env=env)
         t_a_pct[:] = t_a_pct ./ sum(t_a_pct) # normalize to sum to 1.0
     end
 
-    dcat = Categorical(t_a_pct) # categorical distribution by cells of target_accessible
-
-    for l in eachindex(contacts)
+    @inbounds for l in eachindex(contacts)
         subgroup = contacts[l] # source of contacts, broken down by shape of spreaders
         if subgroup == 0
             continue
         else
-            x = rand(dcat, subgroup)  # distribute cell across all accessible cells
-            peeps[:] = reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))  
+            x = rand(Categorical(t_a_pct), subgroup)  # distribute cell across all accessible cells
+            peeps[:] = reshape([count(x .== i) for i in 1:length(t_a_pct)], size(target_accessible))  # length(dcat.p)
             cnt = binomial_one_sample.(peeps, target_tf)  # in each cell of accessible: successful touch
             touched[l, :, :] .= cnt
         end
@@ -240,8 +243,6 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
         t_a_pct[:] = t_a_pct ./ sum(t_a_pct) # normalize to sum to 1.0
     end
 
-    dcat = Categorical(t_a_pct) # categorical distribution by dims of target_accessible
-
     for l in lags  
         for cond in target_conds
             @inbounds for a in agegrps     # agegrps 
@@ -249,8 +250,8 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
                 if subgroup == T_int[](0)
                     continue
                 else   # distribute 1 contact subgroup to all cells of touched
-                    x = rand(dcat, subgroup) # across all the touch target groups
-                    peeps[:] = reshape([count(x .== i) for i in 1:length(dcat.p)], size(target_accessible))
+                    x = rand(Categorical(t_a_pct), subgroup) # across all the touch target groups
+                    peeps[:] = reshape([count(x .== i) for i in 1:length(t_a_pct)], size(target_accessible))
                     @inbounds for l in lags  # consolidate the touched
                         @views cnt = binomial_one_sample.(peeps[l,:,:], target_tf)  
                         touched[l,:,:] .+= cnt  # total the results from each contact cell
@@ -289,7 +290,7 @@ function how_many_infected(all_unexposed; env=env)
     end
 
     for age in agegrps
-        for lag in lags
+        @inbounds for lag in lags
             newsick = binomial_one_sample(touched_by_lag_age[lag, age], env.riskmx[lag, age])  # draws, probability
             newinfected[age] += newsick
         end
@@ -339,7 +340,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         sa_pct = [sa_pct[1],sa_pct[2],sa_pct[3], fill(sa_pct[3]./4.0, 3)...]
         res = [r0env.simple_accessible[1,:] .* i for i in sa_pct]
         sanew = zeros(T_int[], 6, 5)
-        for i in 1:6
+        @inbounds for i in 1:6
            sanew[i,:] .= res[i]
         end
         r0env.simple_accessible[:] = round.(T_int[], sanew)
@@ -347,7 +348,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
 
     age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
     starting_spreaders = ones(T_int[], laglim,4,5)
-    for i in 1:5
+    @inbounds for i in 1:5
         starting_spreaders[:,:,i] .= age_relative[i]
     end
     if !isempty(dt)
