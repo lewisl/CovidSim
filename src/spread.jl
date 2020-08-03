@@ -14,7 +14,7 @@ const spread_stash = Dict{Symbol, Array}()
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
-function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env=env)
+function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
 
     if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
         cleanup_stash(spread_stash)
@@ -32,20 +32,20 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
     newinfected = zeros(T_int[], 5) # by agegrp
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
-    # spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # laglim x 4 x 5 lag x cond x agegrp
+    # spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat) # laglim x 4 x 5 lag x cond x agegrp
 
 
     @inbounds begin
-        spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat=dat) # laglim x 4 x 5 lag x cond x agegrp
+        spreaders[:] = grab(infectious_cases, agegrps, lags, locale, dat) # laglim x 4 x 5 lag x cond x agegrp
 
         if sum(spreaders) == T_int[](0)
             return
         end
 
-        all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat=dat)
+        all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe],agegrps,lags, locale, dat)
         simple_accessible[:] = sum(all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)  @views 
 
-        all_unexposed = grab(unexposed, agegrps, lag1, locale, dat=dat)  # (5, ) agegrp for lag 1
+        all_unexposed = grab(unexposed, agegrps, lag1, locale, dat)  # (5, ) agegrp for lag 1
 
         # set and run spreadcases or just run spreadsteps
         spread_case_setter(spreadcases, env=env)  # bounces out right away if empty
@@ -57,9 +57,9 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
 
         # move the people from unexposed:agegrp to infectious:agegrp and nil
         if !iszero(newinfected)
-            plus!.(newinfected, infectious, agegrps, lag1, locale, dat=dat)
-            plus!.(newinfected, nil, agegrps, lag1, locale, dat=dat)
-            minus!.(newinfected, unexposed, agegrps, lag1, locale, dat=dat)
+            plus!(newinfected, infectious, agegrps, lag1, locale, dat)
+            plus!(newinfected, nil, agegrps, lag1, locale, dat)
+            minus!(newinfected, unexposed, agegrps, lag1, locale, dat)
         end
 
         push!(spreadq, (day=ctr[:day], locale=locale,
@@ -67,7 +67,7 @@ function spread!(locale, density_factor = [1.0]; spreadcases=[], dat=openmx, env
                     contacts = sum(contacts) + sum(get(spread_stash, :comply_contacts, 0)),
                     touched = sum(touched) + sum(get(spread_stash, :comply_touched, 0)),
                     accessible = sum(all_accessible),
-                    unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat=dat)),
+                    unexposed=sum(grab(unexposed, agegrps, lag1, locale, dat)),
                     infected=sum(newinfected)))
     end
     return
@@ -86,7 +86,7 @@ function spreadsteps(density_factor, all_unexposed; env=env)
 
     how_many_touched!(;env=env)
 
-    newinfected = how_many_infected(all_unexposed, env=env)    # (5,)  # how many people become infected?
+    newinfected = how_many_infected(all_unexposed, env)    # (5,)  # how many people become infected?
 end
 
 
@@ -266,7 +266,7 @@ end
 
 
 """
-function how_many_infected(all_unexposed; env=env)
+function how_many_infected(all_unexposed, env)
 
 This function is the last step of spreadsteps. Based on previous calculations of contacts
 and touched:
@@ -277,7 +277,7 @@ and touched:
 
 returns newinfected
 """
-function how_many_infected(all_unexposed; env=env)
+function how_many_infected(all_unexposed, env)
 
     # only unexposed (= susceptible) can become infected
     @views touched_by_lag_age = env.touched[:, unexposed, :]  # (laglim,5)
@@ -325,12 +325,12 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
     setup_unexposed!(r0mx, population, locale)
 
     # setup data
-    all_unexposed = grab(unexposed, agegrps, 1, locale, dat=r0mx)  # (5, ) agegrp for lag 1
+    all_unexposed = grab(unexposed, agegrps, 1, locale, r0mx)  # (5, ) agegrp for lag 1
     track_infected = zeros(T_int[], 5)
     track_contacts = zeros(T_int[], laglim, 4, 5)
     track_touched = zeros(T_int[], laglim, 6, 5)
 
-    r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps, lags, locale, dat=r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
+    r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps, lags, locale, r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
     r0env.simple_accessible[:] = sum(r0env.all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
     if !isempty(compliance)
         r0env.simple_accessible[:] = round.(T_int[], compliance .* r0env.simple_accessible)
@@ -358,7 +358,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         starting_spreaders[1,:,:] .= T_int[](0);
     end
     r0env.spreaders = copy(starting_spreaders)
-    input!(starting_spreaders,infectious_cases,agegrps,lags,locale,dat=r0mx)
+    input!(starting_spreaders,infectious_cases,agegrps,lags,locale,r0mx)
 
     # parameters that drive r0
     !isempty(cf) && (r0env.contact_factors = deepcopy(cf))
@@ -376,8 +376,8 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         track_infected .+= how_many_infected(all_unexposed, env=r0env)
 
         if !isempty(dt)  # optionally transition
-            transition!(dt, all_decpoints, locale, dat=r0mx)
-            r0env.spreaders = copy(grab(infectious_cases,agegrps,lags,locale,dat=r0mx))
+            transition!(dt, all_decpoints, locale, r0mx)
+            r0env.spreaders = copy(grab(infectious_cases,agegrps,lags,locale, r0mx))
         end
     end
 

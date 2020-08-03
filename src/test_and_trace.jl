@@ -85,8 +85,8 @@ function t_n_t_case(start_date, end_date;
                         end
                     # quarantines ending today
                     elseif q.quar_date + qdays == thisday # end of quarantine is today
-                        cnt = grab(ret_conds, agegrps, lags, q, dat=isodat)
-                        t_n_t_unquarantine(cnt, q, opendat=opendat, isodat=isodat, env=env)
+                        cnt = grab(ret_conds, agegrps, lags, q, isodat)
+                        t_n_t_unquarantine(cnt, q, opendat, isodat, env)
                         push!(tntq, (day=ctr[:day], unquarantine=sum(cnt)))
                         delete!(isodat, q)  # remove dated locale
                         delete!(tnt_stash, q)  # remove dated locale from stash
@@ -107,8 +107,8 @@ function t_n_t_case(start_date, end_date;
                             if breakout_pct != 0.0  # future breakouts from this quarantine cohort
                                 breakout!(breakout_pct, put_in, qloc, qdays) # Int[] (14, )
                             end
-                            t_n_t_quarantine(put_in, qloc::Quar_Loc; opendat=opendat, 
-                                             isodat=isodat, env=env)
+                            t_n_t_quarantine(put_in, qloc::Quar_Loc, opendat, 
+                                             isodat, env)
                             push!(tntq, (day=ctr[:day], quarantine=sum(put_in)))
                             delete!(tnt_stash, t) # pop the stash (delete!)
                         end
@@ -148,9 +148,9 @@ function test_and_trace(start_date, end_date;
         if target_test
             sel_age = get_next!(nxt) # circular cycle through 1:4
             if sel_age == 4; sel_age = 4:5; end  # only sampled age group is non-zero
-            avail_to_test[:,:,sel_age] = grab(test_conds, sel_age, lags, locale, dat=opendat)
+            avail_to_test[:,:,sel_age] = grab(test_conds, sel_age, lags, locale, opendat)
         else
-            avail_to_test[:] = grab(test_conds, agegrps, lags, locale, dat=opendat)
+            avail_to_test[:] = grab(test_conds, agegrps, lags, locale, opendat)
         end
 
         if sum(avail_to_test) == 0
@@ -313,14 +313,14 @@ function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, env)
     end
 
     test_conds = [unexposed, recovered, nil, mild] 
-    isolate_by!(postests, test_conds, agegrps, lags, qloc, opendat=opendat, isodat=isodat)
+    isolate_by!(postests, test_conds, agegrps, lags, qloc, opendat, isodat)
 end
 
 
-function t_n_t_unquarantine(cnt, qloc::Quar_Loc; opendat, isodat, env)
+function t_n_t_unquarantine(cnt, qloc::Quar_Loc, opendat, isodat, env)
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
-    unisolate_by!(cnt, ret_conds, agegrps, lags, qloc; 
-                  opendat=opendat, isodat=isodat, mode=:plus) # delete the qloc when unq all
+    unisolate_by!(cnt, ret_conds, agegrps, lags, qloc, 
+                  opendat, isodat, mode=:plus) # delete the qloc when unq all
 end
 
 
