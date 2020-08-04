@@ -1,113 +1,47 @@
 
 # pre-allocate large arrays, accessed and modified frequently
 # hold complex parameter sets
-mutable struct Env
+struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::Array{Any, 2}
-    spreaders::Array{Int64,3} # laglim,4,5
-    all_accessible::Array{Int64,3} # laglim,6,5
-    contacts::Array{Int64,3} # laglim,4,5
-    simple_accessible::Array{Int64,2} # 6,5
-    touched::Array{Int64,3} # laglim,6,5
-    lag_contacts::Array{Int,1} # laglim,
-    riskmx::Array{Float64,2} # laglim,5
-    contact_factors::Array{Float64,2}  # 4,5 parameters for spread!
-    touch_factors::Array{Float64,2}  #  6,5  parameters for spread!
-    send_risk_by_lag::Array{Float64,1}  # laglim,  parameters for spread!
+    spreaders::Array{T, 3} # laglim,4,5
+    all_accessible::Array{T, 3} # laglim,6,5
+    contacts::Array{T, 3} # laglim,4,5
+    simple_accessible::Array{T, 2} # 6,5
+    peeps::Array{T, 2} # 6,5
+    touched::Array{T, 3} # laglim,6,5
+    lag_contacts::Array{T, 1} # laglim,
+    riskmx::Array{Float64, 2} # laglim,5
+    contact_factors::Array{Float64, 2}  # 4,5 parameters for spread!
+    touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
+    send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
     recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
-    sd_compliance::Array{Float64,2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
+    sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
-    function Env(;          geodata=[0 "" ], # geodata
-                            spreaders=zeros(Int,0,0,0),   # semicolon for all keyword (named) arguments)
-                            all_accessible=zeros(Int,0,0,0),
-                            contacts=zeros(Int,0,0,0),
-                            simple_accessible=zeros(Int,0,0),
-                            touched=zeros(Int,0,0,0),
-                            lag_contacts=zeros(Int,laglim),
-                            riskmx=zeros(Float64,0,0),
-                            contact_factors=zeros(Float64,0,0),
-                            touch_factors=zeros(Float64,0,0),
-                            send_risk_by_lag=zeros(Float64,laglim),
-                            recv_risk_by_age=zeros(Float64,5),
-                            sd_compliance=ones(Float64,6,5)        )
-        return new(geodata, spreaders, all_accessible, contacts, simple_accessible,
+    # T_int[] should be one of Int64, Int32 when calling the constructor
+    function SimEnv{T}(; 
+                                geodata=[T(0) "" ], # geodata
+                                spreaders=zeros(T, 0,0,0),   # semicolon for all keyword (named) arguments)
+                                all_accessible=zeros(T, 0,0,0),
+                                contacts=zeros(T, 0,0,0),
+                                simple_accessible=zeros(T, 0,0),
+                                peeps=zeros(T, 0,0),
+                                touched=zeros(T, 0,0,0),
+                                lag_contacts=zeros(T, laglim),
+                                riskmx=zeros(Float64, 0,0),
+                                contact_factors=zeros(Float64, 0,0),
+                                touch_factors=zeros(Float64, 0,0),
+                                send_risk_by_lag=zeros(Float64,laglim),
+                                recv_risk_by_age=zeros(Float64, 5),
+                                sd_compliance=ones(Float64, 6,5)    
+                            ) where T<:Integer
+        return new(geodata, spreaders, all_accessible, contacts, simple_accessible, peeps,
                    touched, lag_contacts, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
     end
 end
 
-# switches and values used to control cases that run during simulation
-const RunControl = Dict{Symbol,Any}()
 
-# control constants
-const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
-const laglim = 25
-const lags = 1:laglim   # rows
-
-# geo data: fips,county,city,state,sizecat,pop,density
-const fips = 1
-const county = 2
-const city = 3
-const state = 4
-const sizecat = 5
-const popsize = 6
-const density = 7
-const anchor = 8
-const restrict = 9
-const density_fac = 10
-
-# population centers sizecats
-const major = 1  # 20
-const large = 2  # 50
-const medium = 3
-const small = 4
-const smaller = 5
-const rural = 6
-
-# condition_outcome columns and stat series columns
-const unexposed = 1
-const infectious = 2
-const recovered = 3
-const dead = 4
-const nil = 5
-const mild = 6
-const sick = 7
-const severe = 8
-const totinfected = 9
-const travelers = 10
-const isolated = 11
-
-# columns of history series: first 5 cols are agegrps, 6th is total
-const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
-                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
-const total = 6
-
-const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
-const condnames = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
-                       5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
-const infectious_cases = [nil, mild, sick, severe]
-const transition_cases = [recovered, nil, mild, sick, severe, dead]
-
-# transition_prob_rows
-const to_recovered = 1
-const to_nil = 2
-const to_mild = 3
-const to_sick = 4
-const to_severe = 5
-const to_dead = 6
-
-# agegrp channels at dimension 3
-const a1 = 1 # 0-19
-const a2 = 2 # 20-39
-const a3 = 3 # 40-59
-const a4 = 4 # 60-79
-const a5 = 5 # 80+
-const agegrps = 1:5
-const ages = length(agegrps)
-
-
-# traveling constants
-const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 
 ####################################################################################
@@ -115,7 +49,7 @@ const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, silent=true,
+function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.csv",
             spfilename="../parameters/spread_params.toml")
@@ -125,11 +59,14 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
 
     empty_all_qs!() # from previous runs
 
+    T_int[] = set_int_type # update the global type of ints with the input value
+
     # access input data and pre-allocate storage
     alldict = setup(n_days; geofilename=geofilename, 
                     dectreefilename=dtfilename, spfilename=spfilename)
 
         dt = alldict["dt"]  # decision trees for transition
+        all_decpoints = alldict["decpoints"]
         openmx = alldict["dat"]["openmx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
@@ -145,7 +82,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
     # initial data for building data series of simulation outcomes
-    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, dat=openmx) for loc in locales])
+    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
     starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
         Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
 
@@ -153,18 +90,18 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[],showr0 = true, s
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
-        for loc in locales
+        @inbounds for loc in locales
             density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
             for case in runcases
-                case(loc; opendat=openmx, isodat=isolatedmx, testdat=testmx, env=env)
+                case(loc, openmx, isolatedmx, testmx, env)   
             end
-            spread!(loc, density_factor, dat=openmx, env=env, spreadcases=spreadcases)
-            transition!(dt, loc, dat=openmx)   # transition all infectious cases "in the open"
+            spread!(loc, spreadcases, openmx, env,  density_factor)
+            transition!(dt, all_decpoints, loc, openmx)   # transition all infectious cases "in the open"
         end
-        transition!(dt, dat=isolatedmx)  # transition all infectious cases / locales in isolation
-        transition!(dt, dat=testmx) # transition tracked test to stay in sync with openmx
+        transition!(dt, all_decpoints, isolatedmx)  # transition all infectious cases / locales in isolation
+        transition!(dt, all_decpoints, testmx) # transition tracked test to stay in sync with openmx
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-            current_r0 = sim_r0(env=env, dt=dt)
+            current_r0 = sim_r0(env, dt, all_decpoints)
             println("at day $(ctr[:day]) r0 = $current_r0")
         end
 
@@ -187,17 +124,17 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     # capture a snapshot of the end-of-day population matrix
     thisday = ctr[:day]
     if thisday == 1
-        for locale in locales
-            zerobase = zeros(Int, size(newhist[locale])[1:2])
+        @inbounds for locale in locales
+            zerobase = zeros(T_int[], size(newhist[locale])[1:2])
             zerobase[1,1:5] .+= starting_unexposed[locale]
             zerobase[1,6] = sum(starting_unexposed[locale])
 
-            cumhist[locale][:, 1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
-            cumhist[locale][:, 6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
+            @views cumhist[locale][:, 1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
+            @views cumhist[locale][:, 6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
             newhist[locale][:,:,thisday] = cumhist[locale][:,:, thisday] .- zerobase
         end
     else  # on all other days...
-        for locale in locales
+        @inbounds for locale in locales
             cumhist[locale][:,1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
             @views cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2) # @views 
             @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1] # @views 
@@ -218,9 +155,9 @@ end
 
 # a single locale, either cumulative or new
 function make_series(histmx)
-    s = zeros(Int, size(histmx,3), prod(size(histmx)[1:2]))
+    s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2]))
     for i in 1:size(histmx, 3)
-        s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
+        @views s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
     end
     return s
 end
@@ -233,17 +170,18 @@ function add_totinfected_series!(series, locale)
     end
     # for new
     n = size(series[locale][:new],1)
-    series[locale][:new] = hcat(series[locale][:new], zeros(Int,n,6))
+    series[locale][:new] = hcat(series[locale][:new], zeros(T_int[], n, 6))
     series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
                                                       abs.(series[locale][:new][:,map2series.unexposed]) ) 
     # for cum
-    series[locale][:cum] = hcat(series[locale][:cum], zeros(Int,n,6))
+    series[locale][:cum] = hcat(series[locale][:cum], zeros(T_int[], n, 6))
     @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
     return
 end
 
 
-function sim_r0(;env=env, dt=dt)
+# returns a single r0 value
+function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
     # captures current population condition 
     pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
     sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
@@ -252,17 +190,18 @@ function sim_r0(;env=env, dt=dt)
     if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
         compliance = env.sd_compliance
         cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
-        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, sa_pct=sa_pct, env=env).r0
+        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0
 
         cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
-        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, sa_pct=sa_pct, env=env).r0
+        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=all_decpoints,
+                             sa_pct=sa_pct, env=env).r0
 
         # this works if all compliance values are the same; approximate otherwise
         current_r0 = round(mean(compliance) * r0_comply + (1.0-mean(compliance)) * r0_nocomply, digits=2)
     else
         cf =  env.contact_factors
         tf = env.touch_factors     
-        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, sa_pct=sa_pct, env=env).r0, digits=2)   
+        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0, digits=2)   
     end
     return current_r0
 end
@@ -277,22 +216,27 @@ function empty_all_qs!()
 end
 
 function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
- 
-    # initialize the simulation Env
-    ret =   Env(geodata=geodata,
-                spreaders=zeros(Int64,laglim,4,5),
-                all_accessible=zeros(Int64,laglim,6,5),
-                contacts=zeros(Int64,laglim,4,5),
-                simple_accessible=zeros(Int64,6,5),
-                touched=zeros(Int64,laglim,6,5),
-                lag_contacts=zeros(Int64,laglim),
-                riskmx = zeros(Float64,laglim,5),
+    
+
+    # initialize the simulation SimEnv
+
+    ret =   SimEnv{T_int[]}(
+                geodata=geodata,
+                spreaders=zeros(T_int[], laglim, 4, agegrps),
+                all_accessible=zeros(T_int[], laglim, 6, agegrps),
+                contacts=zeros(T_int[], laglim, 4, agegrps),
+                simple_accessible=zeros(T_int[], 6, agegrps),
+                peeps=zeros(T_int[], 6, agegrps),
+                touched=zeros(T_int[], laglim, 6, agegrps),
+                lag_contacts=zeros(T_int[], laglim),
+                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
                 contact_factors = contact_factors,
                 touch_factors = touch_factors,
                 send_risk_by_lag = send_risk,
                 recv_risk_by_age = recv_risk,
-                sd_compliance = zeros(6,5))
-    ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
+                sd_compliance = zeros(6, agegrps)
+            )
+    # ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
 
     # contact_factors and touch_factors look like:
     #=
@@ -323,7 +267,7 @@ end
 
 
 # discrete integer histogram
-function bucket(x; vals=[])
+function bucket(x; vals)
     if isempty(vals)
         vals = range(minimum(x), stop = maximum(x))
     end
@@ -336,11 +280,11 @@ function histo(x)
     big = ceil(maximum(x))
     bins = Int(big)
     sm = floor(minimum(x))
-    ret = zeros(Int, bins)
+    ret = zeros(T_int[], bins)
     binbounds = collect(1:bins)
-    for i = 1:bins
+    @inbounds for i = 1:bins
         n = count(x -> i-1 < x <= i,x)
-        ret[i] = n
+        ret[i] = T_int[](n)
     end
     return ret, binbounds
 end
@@ -364,12 +308,12 @@ end
 Returns a single number of successes for a
 sampled outcome of cnt tries with the input pr of success.
 """
-function binomial_one_sample(cnt, pr)::Int
+function binomial_one_sample(cnt, pr)::T_int[]
     return rand.(Binomial.(cnt, pr))
 end
 
 
-function categorical_sample(probvec, trials)
+function categorical_sample(probvec, trials)::Array{T_int[],1}
     x = rand(Categorical(probvec), trials)
 end
 
@@ -380,7 +324,7 @@ end
 ####################################################################################
 
 """
-    function grab(condition, agegrp, lag, locale; dat=openmx)
+    function grab(condition, agegrp, lag, locale, dat)
 
 Inputs condition, agegrp and lag can be single or multiple (array or range).
 Only one locale can be accessed. Caller should loop over locales to retrieve
@@ -388,14 +332,15 @@ data from multiple locales.
 
 The returned array has dimensions (lag, condition, agegrp).
 """
-function grab(condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+function grab(condition, agegrp, lag, locale, dat)
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+
     return dat[locale][lag, condition, agegrp]
 end
 
 
 """
-    function input!(val, condition, agegrp, lag, locale; dat=openmx)
+    function input!(val, condition, agegrp, lag, locale, dat)
 
 Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
 Only one locale can be provided.
@@ -404,15 +349,15 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 
 Inputs overwrite existing data at the referenced location of the target population matrix dat.
 """
-function input!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale; dat=dat)
+function input!(val, condition, agegrp, lag, locale, dat)
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+    current = grab(condition, agegrp, lag, locale, dat)
     dat[locale][lag, condition, agegrp] = val
 end
 
 
 """
-    function plus!(val, condition, agegrp, lag, locale; dat=openmx)
+    function plus!(val, condition, agegrp, lag, locale, dat)
 
 Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
 Only one locale can be provided.
@@ -421,14 +366,15 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 
 Inputs are added to the existing data at the referenced location of the target population matrix dat.
 """
-function plus!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    dat[locale][lag, condition, agegrp] += val
+function plus!(val, condition, agegrp, lag, locale, dat) 
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+
+    dat[locale][lag, condition, agegrp] += val    # T(val)
 end
 
 
 """
-    function minus!(val, condition, agegrp, lag, locale; dat=openmx)
+    function minus!(val, condition, agegrp, lag, locale, dat)
 
 Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
 Only one locale can be provided.
@@ -438,9 +384,9 @@ ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) mus
 If subtraction from the existing data would result in negative values at the referenced locations of the target population matrix dat,
 an error will be raised. The population matrix must contain positive integer values.
 """
-function minus!(val, condition, agegrp, lag, locale; dat=openmx)
-    @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale; dat=dat)
+function minus!(val, condition, agegrp, lag, locale, dat)
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
+    current = grab(condition, agegrp, lag, locale, dat)
     @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
 end

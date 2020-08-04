@@ -38,10 +38,10 @@ Convenience functions enable accessing values, updating in place, adding in plac
 
 Here are the functions:
 
-- grab: ```grab(condition, agegrp, lag, locale; dat=openmx)```
-- input!: ```input!(val, condition, agegrp, lag, locale; dat=openmx)```
-- plus!: ```plus!(val, condition, agegrp, lag, locale; dat=openmx)```
-- minus!: ```minus!(val, condition, agegrp, lag, locale; dat=openmx)```
+- grab: ```grab(condition, agegrp, lag, locale, openmx)```
+- input!: ```input!(val, condition, agegrp, lag, locale, dat)```
+- plus!: ```plus!(val, condition, agegrp, lag, locale, dat)```
+- minus!: ```minus!(val, condition, agegrp, lag, locale, dat)```
 
 **Alternative Mappings**
 

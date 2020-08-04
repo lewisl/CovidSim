@@ -28,8 +28,9 @@ end
 
 function setup_dt(dtfname)
     arr = read_dectree_file(dtfname)
-    dectrees = create_node_dict(arr)
-    return dectrees
+    dectrees = create_dec_trees(arr)
+    all_decpoints = reduce(merge, dectrees[agegrp].dec_points for agegrp in agegrps)
+    return dectrees, all_decpoints
 end
 
 
@@ -39,7 +40,7 @@ function read_dectree_file(fname)
 end
 
 
-function create_node_dict(arr::Array) # this wants to be recursive--another time...
+function create_dec_trees(arr::Array) # this wants to be recursive--another time...
     arrdectrees = []  # array of decision trees (dicts); keys are agegrps (1:5)
     ages = unique!(arr[:,1])
     for agegrp in ages
@@ -48,7 +49,7 @@ function create_node_dict(arr::Array) # this wants to be recursive--another time
         tree = Dict{Tuple{Int64,Int64},Array{Any,1}}()  # start a new tree for each agegrp
         dec_points = Dict{Int64, Array{Tuple{Int64,Int64},1}}()   # start dict of dec_points for each agregrp
         nodelist = unique!(xx[:,node_col])
-        arrbranches = []  # set outer scope
+        arrbranches = CovidSim.Branch[]  # set outer scope
         for strnode in nodelist
             node = eval(Meta.parse(strnode))  # convert the string to a tuple
             rr = xx[xx[:, node_col].==strnode,:]  # rows for the branches of this node
@@ -76,6 +77,7 @@ function create_node_dict(arr::Array) # this wants to be recursive--another time
         agegrp_tpl = (dec_points=dec_points, tree=tree)  # put all branches for this node in the dict for the agegrp
         push!(arrdectrees, agegrp_tpl) # done with all of the nodes, put the tree in the array
     end
+
     return arrdectrees
 end
 
@@ -168,37 +170,58 @@ end
 
 #  what a tree looks like:
 
-#=
-(1, 1)
+#= type Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}  
+(1, 1) =>
    CovidSim.Branch(5, 5, 0.2, (2, 1), "nil", "nil")
    CovidSim.Branch(5, 6, 0.65, (2, 2), "nil", "mild")
    CovidSim.Branch(5, 7, 0.15, (2, 3), "nil", "sick")
-(2, 1)
+(2, 1) =>
    CovidSim.Branch(5, 3, 0.8, (0, 0), "nil", "recovered")
    CovidSim.Branch(5, 7, 0.2, (3, 3), "nil", "sick")
-(2, 2)
+(2, 2) =>
    CovidSim.Branch(6, 6, 1.0, (3, 2), "mild", "mild")
-(2, 3)
+(2, 3) =>
    CovidSim.Branch(7, 7, 0.85, (3, 3), "sick", "sick")
    CovidSim.Branch(7, 8, 0.15, (3, 4), "sick", "severe")
-(3, 2)
+(3, 2) =>
    CovidSim.Branch(6, 3, 1.0, (0, 0), "mild", "recovered")
-(3, 3)
+(3, 3) =>
    CovidSim.Branch(7, 3, 0.8, (0, 0), "sick", "recovered")
    CovidSim.Branch(7, 7, 0.1, (5, 3), "sick", "sick")
    CovidSim.Branch(7, 8, 0.1, (4, 4), "sick", "severe")
-(3, 4)
+(3, 4) =>
    CovidSim.Branch(8, 3, 0.45, (0, 0), "severe", "recovered")
    CovidSim.Branch(8, 8, 0.5, (4, 4), "severe", "severe")
    CovidSim.Branch(8, 4, 0.05, (0, 5), "severe", "dead")
-(4, 4)
+(4, 4) =>
    CovidSim.Branch(8, 3, 0.85, (0, 0), "severe", "recovered")
    CovidSim.Branch(8, 8, 0.1, (5, 4), "severe", "severe")
    CovidSim.Branch(8, 4, 0.05, (0, 5), "severe", "dead")
-(5, 3)
+(5, 3) =>
    CovidSim.Branch(7, 3, 0.9, (0, 0), "sick", "recovered")
    CovidSim.Branch(7, 4, 0.1, (0, 5), "sick", "dead")
-(5, 4)
+(5, 4) =>
    CovidSim.Branch(8, 3, 0.6, (0, 0), "severe", "recovered")
    CovidSim.Branch(8, 4, 0.4, (0, 5), "severe", "dead")
+=#
+
+
+# what a dec_points dict looks like:
+
+#= type Dict{Int64, Array{Tuple{Int64, Int64}, 1}}   
+    5 => 
+        (1, 1)
+    9 => 
+        (2, 1)
+        (2, 2)
+        (2, 3)
+    14 => 
+        (3, 2)
+        (3, 3)
+        (3, 4)
+    19 => 
+        (4, 4)
+    25 => 
+        (5, 3)
+        (5, 4)
 =#

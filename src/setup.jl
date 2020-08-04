@@ -3,7 +3,7 @@
 ######################################################################################
 
 
-function setup(n_days;   
+function setup(n_days; 
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/dec_tree_all.csv",
     spfilename="../parameters/spread_params.toml")
@@ -26,12 +26,13 @@ function setup(n_days;
         spread_params = read_spread_params(spfilename)
 
     # transition decision trees 
-        dt = setup_dt(dectreefilename)
+        dt, all_decpoints = setup_dt(dectreefilename)
 
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "fips_locs"=>fips_locs, "dt"=>dt, "geo"=>geodata, "sp"=>spread_params)  # , "iso_pr"=>iso_pr
+    return Dict("dat"=>datadict, "fips_locs"=>fips_locs, "dt"=>dt, "decpoints"=>all_decpoints,
+                "geo"=>geodata, "sp"=>spread_params)  # , "iso_pr"=>iso_pr
 end
 
 
@@ -48,7 +49,7 @@ end
 # method for multiple locales
 function setup_unexposed!(dat, geodata::Array, locales::Array)
     for loc in locales
-        pop = geodata[geodata[:, fips] .== loc, popsize][1]
+        pop = convert(T_int[], geodata[geodata[:, fips] .== loc, popsize][1])
         setup_unexposed!(dat, pop, loc)
     end
 end
@@ -56,7 +57,7 @@ end
 # method for single locale, pop is Int
 function setup_unexposed!(dat, pop, loc)
     for agegrp in agegrps
-        dat[loc][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * pop)
+        dat[loc][1, unexposed, agegrp] = floor(T_int[],age_dist[agegrp] * pop)
     end
 end
 
@@ -73,20 +74,20 @@ function build_data(locales, n_days)
 end
 
 
-# one environment at a time
-function data_dict(locales; lags=laglim, conds=8, agegrps=5)
-    dat = Dict()
+# one locale at a time
+function data_dict(locales; lags=laglim, conds=length(conditions), agegrps=ages)
+    dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
-        dat[loc] = zeros(Int, lags, conds, agegrps)
+        dat[loc] = zeros(T_int[], lags, conds, agegrps)
     end
     return dat       
 end
 
 
-function hist_dict(locales, n_days; conds=8, agegrps=5)
-    dat = Dict()
+function hist_dict(locales, n_days; conds=length(conditions), agegrps=ages)
+    dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
-        dat[loc] = zeros(Int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+        dat[loc] = zeros(T_int[], conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end
