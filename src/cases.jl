@@ -26,10 +26,11 @@ Two of the inputs may refer to multiple items and must match in number of items.
 Returns a function that can be used in runcases input to run_a_sim.
 """
 function seed_case_gen(day, cnt, lag, cond, agegrp) # these args go into the returned seed! case
-    function scase(locale; opendat, isodat, testdat, env)  # args must match runcases loop in run_a_sim
-        seed!(day, cnt, lag, cond, agegrp, locale, dat=opendat)
+    function scase(locale, opendat, isodat, testdat, env)  # args must match runcases loop in run_a_sim
+        seed!(day, cnt, lag, cond, agegrp, locale, opendat)
     end
 end
+
 
 # some generated seed! cases-->these are global (in code)
 # seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
@@ -42,60 +43,60 @@ end
 
 function isolate_case_1(locale; opendat, isodat, testdat, env)
     if ctr[:day] == 15
-        isolate!(.25,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        isolate!(.25,[unexposed, nil],agegrps,1,locale, opendat, isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     elseif ctr[:day] == 23
-        isolate!(.50,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        isolate!(.50,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_1(locale; opendat, isodat, testdat, env)
     if ctr[:day]  == 120
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function isolate_case_2(locale; opendat, isodat, testdat, env)
     if ctr[:day] == 15
-        isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     elseif ctr[:day] == 23
-        isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_2(locale; opendat, isodat, testdat, env)
     if ctr[:day]  == 69
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_2b(locale; opendat, isodat, testdat, env)
     if ctr[:day]  == 84
-        unisolate!(.6,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(.6,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        unisolate!(.6,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        unisolate!(.6,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 
 function isolate_case_3(locale; opendat, isodat, testdat, env)
     if ctr[:day] == 40
-        isolate!(.40,[unexposed, nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     elseif ctr[:day] == 50
-        isolate!(.60,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_3(locale; opendat, isodat, testdat, env)
     if ctr[:day]  == 80
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale; opendat=opendat, isodat=isodat)
-        unisolate!(1.0,[mild,sick,severe],agegrps,1:laglim,locale; opendat=opendat, isodat=isodat)
+        unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
+        unisolate!(1.0,[mild,sick,severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
@@ -129,9 +130,9 @@ function spread_case_setter(cases=[]; env=env)
                 # restore defaults for spread!  
                 default_env = initialize_sim_env(env.geodata; touch_factors=env.touch_factors, contact_factors=env.contact_factors,
                                                  send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age)
-                env.sd_compliance = default_env.sd_compliance
-                env.contact_factors = default_env.contact_factors
-                env.touch_factors = default_env.touch_factors
+                env.sd_compliance[:] = default_env.sd_compliance
+                env.contact_factors[:] = default_env.contact_factors
+                env.touch_factors[:] = default_env.touch_factors
                 delete!(spread_stash, :case_cf)
                 delete!(spread_stash, :case_tf)
             else
@@ -166,22 +167,23 @@ function spread_case_runner(density_factor, all_unexposed; env=env)
     newinfected = []  # capture infected for comply and nocomply groups
     for i in [:comply,:nocomply]
         if i == :comply  # split the spreaders and accessible, set the case factors
-            env.spreaders[:]= round.(Int,permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
+            env.spreaders[:]= round.(T_int[], permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
                                        env.sd_compliance[3:6,:], [3,1,2]))
-            env.simple_accessible[:]= round.(Int,copy(spread_stash[:simple_accessible]) .*
+            env.simple_accessible[:]= round.(T_int[], copy(spread_stash[:simple_accessible]) .*
                                              env.sd_compliance)
-            env.contact_factors = copy(spread_stash[:case_cf])
-            env.touch_factors = copy(spread_stash[:case_tf])
+            env.contact_factors[:] = spread_stash[:case_cf] # copy(spread_stash[:case_cf])
+            env.touch_factors[:] = spread_stash[:case_tf] # copy(spread_stash[:case_tf])
         else  # i == :nocomply other split of spreaders and accessible, restore default factors
-            env.spreaders[:]= round.(Int, permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
+            env.spreaders[:]= round.(T_int[], permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
                                         (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
-            env.simple_accessible[:]= round.(Int, copy(spread_stash[:simple_accessible]) .*
+            env.simple_accessible[:]= round.(T_int[], copy(spread_stash[:simple_accessible]) .*
                                              (1.0 .- env.sd_compliance))
             # set the default contact_factors and touch_factors
-            env.contact_factors = copy(spread_stash[:default_cf])
-            env.touch_factors = copy(spread_stash[:default_tf])
+            env.contact_factors[:] = copy(spread_stash[:default_cf])
+            env.touch_factors[:] = copy(spread_stash[:default_tf])
         end  # if
-        push!(newinfected, spreadsteps(density_factor, all_unexposed, env=env))
+
+        push!(newinfected, spreadsteps(density_factor, all_unexposed, env))
         if i == :comply
             spread_stash[:comply_contacts] = copy(env.contacts)
             spread_stash[:comply_touched] = copy(env.touched)
