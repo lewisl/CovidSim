@@ -51,7 +51,7 @@ end
 
 
 """
-    transition!(dt, all_decpoints; locale, dat)
+    transition!(dt, all_decpoints, locale, dat)
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
@@ -73,7 +73,7 @@ function transition!(dt, all_decpoints, locale, dat)
 
     @inbounds for lag = laglim:-1:1
         if lag in keys(all_decpoints) # check if a decision tree applies to this lag
-           for agegrp in agegrps
+            for agegrp in agegrps
                 tree = dt[agegrp].tree
                 age_decpoints = dt[agegrp].dec_points
                 age_bump = copy(infectious_cases)
@@ -274,9 +274,9 @@ end  # this one works
 
 
 function _isolate!(cnt, cond, agegrp, lag, locale::Integer, opendat, isodat)
-    minus!.(cnt, cond, agegrp, lag, locale, opendat)  # move out 
+    minus!(cnt, cond, agegrp, lag, locale, opendat)  # move out 
     update_infectious!(locale, opendat)
-    plus!.(cnt, cond, agegrp, lag, locale, isodat)  # move in
+    plus!(cnt, cond, agegrp, lag, locale, isodat)  # move in
     update_infectious!(locale, isodat)
     return nothing  # this one works!
 end

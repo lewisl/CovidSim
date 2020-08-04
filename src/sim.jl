@@ -101,7 +101,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         transition!(dt, all_decpoints, isolatedmx)  # transition all infectious cases / locales in isolation
         transition!(dt, all_decpoints, testmx) # transition tracked test to stay in sync with openmx
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-            current_r0 = sim_r0(env=env, dt=dt, decpoints=all_decpoints)
+            current_r0 = sim_r0(env, dt, all_decpoints)
             println("at day $(ctr[:day]) r0 = $current_r0")
         end
 
@@ -180,7 +180,8 @@ function add_totinfected_series!(series, locale)
 end
 
 
-function sim_r0(;env=env, dt, decpoints)  # named args must be provided by caller
+# returns a single r0 value
+function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
     # captures current population condition 
     pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
     sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
@@ -189,10 +190,10 @@ function sim_r0(;env=env, dt, decpoints)  # named args must be provided by calle
     if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
         compliance = env.sd_compliance
         cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
-        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=decpoints, sa_pct=sa_pct, env=env).r0
+        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0
 
         cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
-        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=decpoints,
+        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=all_decpoints,
                              sa_pct=sa_pct, env=env).r0
 
         # this works if all compliance values are the same; approximate otherwise
@@ -200,7 +201,7 @@ function sim_r0(;env=env, dt, decpoints)  # named args must be provided by calle
     else
         cf =  env.contact_factors
         tf = env.touch_factors     
-        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, decpoints=decpoints, sa_pct=sa_pct, env=env).r0, digits=2)   
+        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0, digits=2)   
     end
     return current_r0
 end

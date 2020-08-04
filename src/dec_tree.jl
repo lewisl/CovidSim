@@ -28,7 +28,7 @@ end
 
 function setup_dt(dtfname)
     arr = read_dectree_file(dtfname)
-    dectrees = create_node_dict(arr)
+    dectrees = create_dec_trees(arr)
     all_decpoints = reduce(merge, dectrees[agegrp].dec_points for agegrp in agegrps)
     return dectrees, all_decpoints
 end
@@ -40,7 +40,7 @@ function read_dectree_file(fname)
 end
 
 
-function create_node_dict(arr::Array) # this wants to be recursive--another time...
+function create_dec_trees(arr::Array) # this wants to be recursive--another time...
     arrdectrees = []  # array of decision trees (dicts); keys are agegrps (1:5)
     ages = unique!(arr[:,1])
     for agegrp in ages
