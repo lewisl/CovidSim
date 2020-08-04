@@ -1,6 +1,0 @@
-name = "CovidSim"
-uuid = ""
-version = "0.3.0"
-author = ["Lewis Levin <lewis@neilson-levin.org>"]
-
-[deps]

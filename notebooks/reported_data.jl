@@ -7,9 +7,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.1
 #   kernelspec:
-#     display_name: Julia 1.4.0
+#     display_name: Julia 1.5.0
 #     language: julia
-#     name: julia-1.4
+#     name: julia-1.5.0-1.5
 # ---
 
 # %%
@@ -42,14 +42,14 @@ seattle = (;fips=53033); newyork=(;fips=36061); bismarck=(;fips=38015); println(
 # %%
 sea = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=seattle.fips)
 rename!(sea, [:sea_infected, :sea_dead])
-nyc = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=nyc.fips)
+nyc = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=newyork.fips)
 rename!(nyc, [:nyc_infected, :nyc_dead])
 bis = loc2df(confdat=jhcases.dat, deaddat=jhdead.dat, loc=bismarck.fips)
 rename!(bis, [:bis_infected, :bis_dead])
 tricities = hcat(sea, nyc, bis)
 
-# %% jupyter={"outputs_hidden": true}
-dt = CovidSim.setup_dt("../parameters/dec_tree_all.csv")
+# %%
+dt = CovidSim.setup_dt("../parameters/dec_tree_all.csv");
 
 # %% [markdown]
 # #### Run a simulation for the tricities
@@ -89,7 +89,7 @@ alldict, env, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
        runcases=[seed_1_6]);
 
 # %%
-sim_r0(dt = dt, env=env)
+sim_r0(env, alldict["dt"], alldict["decpoints"])
 
 # %%
 cumplot(series,seattle.fips,[infectious, recovered, dead],geo=geo)
@@ -208,16 +208,16 @@ cumplot(series,newyork.fips,[infectious, totinfected], geo=geo)
 # ### Simulation vs. Reported Total Cases
 
 # %%
-plot(1:122, vcat(zeros(abs(adjdays)),series[newyork.fips][:cum][1:n+adjdays,map2series.totinfected[6]]), label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-# plot(1:122, series[newyork.fips][:cum][1+adjdays:n+adjdays,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-plot!(1:122, tricities[:,:nyc_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=7)
+# plot(1:122, vcat(zeros(abs(adjdays)),series[newyork.fips][:cum][1:n+adjdays,map2series.totinfected[6]]), label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot(1:n, series[newyork.fips][:cum][1+adjdays:n+adjdays,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot!(1:n, tricities[:,:nyc_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=7)
 title!("New York City Simulation vs. Reported Cases", titlefontsize=7)
 xlabel!("Days: Feb. 1 to April 30", guidefontsize=8)
 
 
 # %%
-plot(1:122, vcat(zeros(abs(adjdays)),series[newyork.fips][:cum][1:n+adjdays,map2series.dead[6]]), label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
-plot!(1:122, tricities[:,:nyc_dead], label="Reported Deaths",dpi=150, size=(400,260), tickfontsize=6)
+plot(1:n, vcat(zeros(abs(adjdays)),series[newyork.fips][:cum][1:n+adjdays,map2series.dead[6]]), label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
+plot!(1:n, tricities[:,:nyc_dead], label="Reported Deaths",dpi=150, size=(400,260), tickfontsize=6)
 title!("NYC Simulation vs Reported Deaths", titlefontsize=10)
 xlabel!("Days: Feb. 1 to April 30", guidefontsize=10)
 

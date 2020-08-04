@@ -50,7 +50,7 @@ function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
         # set and run spreadcases or just run spreadsteps
         spread_case_setter(spreadcases, env=env)  # bounces out right away if empty
         if iszero(env.sd_compliance) || isone(env.sd_compliance)  # no compliance or full compliance--no split, just run once
-            newinfected = spreadsteps(density_factor, all_unexposed, env=env)
+            newinfected = spreadsteps(density_factor, all_unexposed, env)
         else # we need to split people into complying and noncomplying
             newinfected = spread_case_runner(density_factor, all_unexposed, env=env)
         end  # no active case or active case
@@ -80,19 +80,19 @@ function spreadsteps(density_factor, all_unexposed; env=env)
 Perform the 3 fundamental steps that spread the virus to unexposed people.
 Returns newinfected.
 """
-function spreadsteps(density_factor, all_unexposed; env=env)
+function spreadsteps(density_factor, all_unexposed, env)
 
-    how_many_contacts!(density_factor, env=env)
+    how_many_contacts!(env, density_factor)
 
-    how_many_touched!(;env=env)
+    how_many_touched!(env)
 
     newinfected = how_many_infected(all_unexposed, env)    # (5,)  # how many people become infected?
 end
 
 
 # this method used spread; full method used by test_and_trace
-function how_many_contacts!(density_factor=1.0; env=env)
-    how_many_contacts!(env.contacts, env.spreaders, env.simple_accessible, env.contact_factors, density_factor; env=env)
+function how_many_contacts!(env, density_factor=1.0)
+    how_many_contacts!(env.contacts, env.spreaders, env.simple_accessible, env.contact_factors, density_factor, env)
 end
 
 
@@ -101,7 +101,7 @@ How many contacts do spreaders attempt to reach?  This is based on the character
 spreaders.
 """
 function how_many_contacts!(contacts, spreaders, target_accessible, contact_factors, 
-    density_factor; env=env)
+    density_factor, env)
     #=  how_many_contacts--assumes anyone not isolated is equally likely to be touched.
         how_many_touched corrects this by allocating contacts in each cell by population proportion.
         Spreaders is usually small compared to all_accessible but there is a check.
@@ -153,7 +153,7 @@ of the recipient.
 
 An alternative method is used for test_and_trace, which prepares its inputs in the caller.
 """
-function how_many_touched!(;env=env)
+function how_many_touched!(env)
 
     map2touch = (unexposed= 1, infectious=3, recovered=2, dead=-1, 
                  nil= -1, mild= -1, sick= -1, severe= -1)
@@ -214,7 +214,7 @@ end
 
 # method used by test_and_trace
 function how_many_touched!(touched, contacts, target_accessible, target_conds,
-                           target_tf; env=env)
+                           target_tf, env)
 
     totaccessible = sum(target_accessible)
     peeps = env.peeps
@@ -341,51 +341,70 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         res = [r0env.simple_accessible[1,:] .* i for i in sa_pct]
         sanew = zeros(T_int[], 6, 5)
         @inbounds for i in 1:6
-           sanew[i,:] .= res[i]
+           sanew[i,:] .= round.(Int,res[i])
         end
         r0env.simple_accessible[:] = round.(T_int[], sanew)
     end
 
+    # age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
+    # starting_spreaders = ones(T_int[], laglim, 4, agegrps)
+    # @inbounds for i in 1:5
+    #     starting_spreaders[:,:,i] .= age_relative[i]
+    # end
+    # if !isempty(dt)
+    #     starting_spreaders[2:laglim, :, :] .= T_int[](0)
+    #     starting_spreaders .*= T_int[](20)
+    #     tot_spreaders = sum(starting_spreaders)
+    # else
+    #     starting_spreaders[1,:,:] .= T_int[](0);
+    #     tot_spreaders = round.(T_int[], sum(starting_spreaders) / (laglim - 1))
+    # end
+
+    # @show size(r0env.spreaders), size(starting_spreaders)
+
+    # r0env.spreaders[:] = starting_spreaders  # copy(starting_spreaders)
+    # input!(starting_spreaders,infectious_cases,agegrps,lags,locale,r0mx)
+
+
+
     age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
-    starting_spreaders = ones(T_int[], laglim,4,5)
+    r0env.spreaders[:] = ones(T_int[], laglim, 4, agegrps)
     @inbounds for i in 1:5
-        starting_spreaders[:,:,i] .= age_relative[i]
+        r0env.spreaders[:,:,i] .= age_relative[i]
     end
     if !isempty(dt)
-        starting_spreaders[2:laglim, :, :] .= T_int[](0)
-        starting_spreaders .*= T_int[](20)
+        r0env.spreaders[2:laglim, :, :] .= T_int[](0)
+        r0env.spreaders .*= T_int[](20)
+        tot_spreaders = sum(r0env.spreaders)
     else
-        starting_spreaders[1,:,:] .= T_int[](0);
+        r0env.spreaders[1,:,:] .= T_int[](0);
+        tot_spreaders = round.(T_int[], sum(r0env.spreaders) / (laglim - 1))
     end
-    r0env.spreaders = copy(starting_spreaders)
-    input!(starting_spreaders,infectious_cases,agegrps,lags,locale,r0mx)
+
+    input!(r0env.spreaders,infectious_cases,agegrps,lags,locale,r0mx)
 
     # parameters that drive r0
-    !isempty(cf) && (r0env.contact_factors = deepcopy(cf))
-    !isempty(tf) && (r0env.touch_factors = deepcopy(tf))
-    isempty(shift_contact)  || (r0env.contact_factors =shifter(r0env.contact_factors, shift_contact...))
-    isempty(shift_touch) || (r0env.touch_factors = shifter(r0env.touch_factors, shift_touch...))
+    !isempty(cf) && (r0env.contact_factors[:] = deepcopy(cf))
+    !isempty(tf) && (r0env.touch_factors[:] = deepcopy(tf))
+    isempty(shift_contact)  || (r0env.contact_factors[:] =shifter(r0env.contact_factors, shift_contact...))
+    isempty(shift_touch) || (r0env.touch_factors[:] = shifter(r0env.touch_factors, shift_touch...))
 
     stopat = !isempty(dt) ? laglim : 1
 
     for i = 1:stopat
         disp && println("test day = $i, spreaders = $(sum(r0env.spreaders))")
 
-        track_contacts .+= how_many_contacts!(density_factor, env=r0env)
-        track_touched .+= how_many_touched!(env=r0env)
-        track_infected .+= how_many_infected(all_unexposed, env=r0env)
+        track_contacts .+= how_many_contacts!(r0env, density_factor)
+        track_touched .+= how_many_touched!(r0env)
+        track_infected .+= how_many_infected(all_unexposed, r0env)
 
         if !isempty(dt)  # optionally transition
-            transition!(dt, all_decpoints, locale, r0mx)
-            r0env.spreaders = copy(grab(infectious_cases,agegrps,lags,locale, r0mx))
+            transition!(dt, decpoints, locale, r0mx)
+            r0env.spreaders[:] = grab(infectious_cases,agegrps,lags,locale, r0mx)
         end
     end
 
-    if !isempty(dt)
-        tot_spreaders = sum(starting_spreaders)
-    else
-        tot_spreaders = round.(T_int[], sum(starting_spreaders) / 24)
-    end
+
     tot_contacts = sum(track_contacts)
     tot_touched = sum(track_touched)
     tot_infected = sum(track_infected)
