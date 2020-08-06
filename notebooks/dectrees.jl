@@ -7,19 +7,19 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.1
 #   kernelspec:
-#     display_name: Julia 1.4.0
+#     display_name: Julia 1.5.0
 #     language: julia
-#     name: julia-1.4
+#     name: julia-1.5.0-1.5
 # ---
 
 # %%
 using CovidSim
 
 # %%
-dt = setup_dt("../parameters/dec_tree_all_25.csv");
+dectrees, all_decpoints = setup_dt("../parameters/dec_tree_all_25.csv");
 
 # %%
-res = CovidSim.sanity_test_all(dt)
+res = CovidSim.sanity_test_all(dectrees)
 
 # %%
 age_dist

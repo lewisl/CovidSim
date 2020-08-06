@@ -28,16 +28,15 @@ str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.3), tf=(.18,.45))
 
 # %%
 # working with specific locale
-locale = 53033
+seattle = 53033
 
 # %%
-alldict, env, series = run_a_sim(180,locale, showr0=false, 
-       dtfilename="../parameters/dec_tree_all_25.csv",
-       silent=true,spreadcases=[],
-       runcases=[seed_1_6]);
+alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
+        spreadcases=[],
+        runcases=[seed_1_6]);
 
 # %%
-cumplot(series,locale,geo=alldict["geo"])
+cumplot(series,seattle,geo=alldict["geo"])
 
 # %%
 infection_outcome(series,locale)

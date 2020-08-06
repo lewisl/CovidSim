@@ -176,7 +176,6 @@ function how_many_touched!(env)
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
-    # if totaccessible == T_int[](0)  || sum(contacts) == T_int[](0)
     if iszero(totaccessible) || iszero(contacts)
         return touched  # initialized to zeros above
     end
@@ -223,7 +222,6 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
-    # if totaccessible == 0  || sum(contacts) == 0
     if iszero(totaccessible) || iszero(contacts)
         return touched  # already initialized to zeros by caller
     end
@@ -284,7 +282,6 @@ function how_many_infected(all_unexposed, env)
 
     newinfected = zeros(T_int[], length(agegrps))  # (5,)
 
-    # if sum(env.touched) == T_int[](0)   # might happen with a social distancing or quarantine case with 100% compliance
     if iszero(env.touched) # might happen with a social distancing or quarantine case with 100% compliance
         return newinfected
     end
@@ -294,7 +291,6 @@ function how_many_infected(all_unexposed, env)
             newsick = binomial_one_sample(touched_by_lag_age[lag, age], env.riskmx[lag, age])  # draws, probability
             newinfected[age] += newsick
         end
-        # newsick = clamp(newinfected[age], T_int[](0), floor(T_int[],.95 * all_unexposed[age]))
     end
 
     return newinfected  # (length of agegrps, ) (only condition is nil, assumed lag = 1 => first day infected)
@@ -346,27 +342,6 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         r0env.simple_accessible[:] = round.(T_int[], sanew)
     end
 
-    # age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
-    # starting_spreaders = ones(T_int[], laglim, 4, agegrps)
-    # @inbounds for i in 1:5
-    #     starting_spreaders[:,:,i] .= age_relative[i]
-    # end
-    # if !isempty(dt)
-    #     starting_spreaders[2:laglim, :, :] .= T_int[](0)
-    #     starting_spreaders .*= T_int[](20)
-    #     tot_spreaders = sum(starting_spreaders)
-    # else
-    #     starting_spreaders[1,:,:] .= T_int[](0);
-    #     tot_spreaders = round.(T_int[], sum(starting_spreaders) / (laglim - 1))
-    # end
-
-    # @show size(r0env.spreaders), size(starting_spreaders)
-
-    # r0env.spreaders[:] = starting_spreaders  # copy(starting_spreaders)
-    # input!(starting_spreaders,infectious_cases,agegrps,lags,locale,r0mx)
-
-
-
     age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
     r0env.spreaders[:] = ones(T_int[], laglim, 4, agegrps)
     @inbounds for i in 1:5
@@ -403,7 +378,6 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
             r0env.spreaders[:] = grab(infectious_cases,agegrps,lags,locale, r0mx)
         end
     end
-
 
     tot_contacts = sum(track_contacts)
     tot_touched = sum(track_touched)

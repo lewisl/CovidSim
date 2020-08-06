@@ -9,7 +9,7 @@
 #   kernelspec:
 #     display_name: Julia 1.5.0
 #     language: julia
-#     name: julia-1.5
+#     name: julia-1.5.0-1.5
 # ---
 
 # %%
@@ -59,7 +59,7 @@ gui()
 # ### The long tail of (some) gamma distributions.
 
 # %%
-dgamma = Gamma(1.0, 2.0 )  #shape, scale
+dgamma = Gamma(1.4, 2.0 )  #shape, scale
 x = rand(dgamma,100);
 println(mean(x))
 println(round(sum((x))))
