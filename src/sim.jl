@@ -1,6 +1,10 @@
 
-# pre-allocate large arrays, accessed and modified frequently
-# hold complex parameter sets
+"""
+Struct for variables used by many functions = the simulation environment
+    
+- pre-allocate large arrays, accessed and modified frequently
+- hold complex parameter sets
+"""
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::Array{Any, 2}
     spreaders::Array{T, 3} # laglim,4,5
@@ -42,8 +46,6 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
 end
 
 
-
-
 ####################################################################################
 #   simulation runner
 ####################################################################################
@@ -77,6 +79,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         fips_locs = alldict["fips_locs"]
 
     env = initialize_sim_env(geodata; spread_params...)
+    density_factors = Dict(loc => geodata[geodata[:, fips] .== loc, density_fac][1] for loc in locales)
 
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
@@ -91,7 +94,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
         @inbounds for loc in locales
-            density_factor = geodata[geodata[:, fips] .== loc, density_fac][1]
+            density_factor = density_factors[loc]
             for case in runcases
                 case(loc, openmx, isolatedmx, testmx, env)   
             end
@@ -100,6 +103,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         end
         transition!(dt, all_decpoints, isolatedmx)  # transition all infectious cases / locales in isolation
         transition!(dt, all_decpoints, testmx) # transition tracked test to stay in sync with openmx
+
+        # r0 displayed every 10 days
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
             current_r0 = sim_r0(env, dt, all_decpoints)
             println("at day $(ctr[:day]) r0 = $current_r0")
@@ -119,6 +124,11 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     return alldict, env, series
 end
 
+
+
+################################################################################
+#  Build and update daily history series
+################################################################################
 
 function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     # capture a snapshot of the end-of-day population matrix
@@ -180,147 +190,9 @@ function add_totinfected_series!(series, locale)
 end
 
 
-# returns a single r0 value
-function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
-    # captures current population condition 
-    pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
-    sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
-
-    # if social_distancing case with split population
-    if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
-        compliance = env.sd_compliance
-        cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
-        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0
-
-        cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
-        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=all_decpoints,
-                             sa_pct=sa_pct, env=env).r0
-
-        # this works if all compliance values are the same; approximate otherwise
-        current_r0 = round(mean(compliance) * r0_comply + (1.0-mean(compliance)) * r0_nocomply, digits=2)
-    else
-        cf =  env.contact_factors
-        tf = env.touch_factors     
-        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0, digits=2)   
-    end
-    return current_r0
-end
-
-
-function empty_all_qs!()
-    # empty tracking queues
-    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   
-    !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
-    !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
-    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
-end
-
-function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
-    
-
-    # initialize the simulation SimEnv
-
-    ret =   SimEnv{T_int[]}(
-                geodata=geodata,
-                spreaders=zeros(T_int[], laglim, 4, agegrps),
-                all_accessible=zeros(T_int[], laglim, 6, agegrps),
-                contacts=zeros(T_int[], laglim, 4, agegrps),
-                simple_accessible=zeros(T_int[], 6, agegrps),
-                peeps=zeros(T_int[], 6, agegrps),
-                touched=zeros(T_int[], laglim, 6, agegrps),
-                lag_contacts=zeros(T_int[], laglim),
-                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
-                contact_factors = contact_factors,
-                touch_factors = touch_factors,
-                send_risk_by_lag = send_risk,
-                recv_risk_by_age = recv_risk,
-                sd_compliance = zeros(6, agegrps)
-            )
-    # ret.riskmx = send_risk_by_recv_risk(ret.send_risk_by_lag, ret.recv_risk_by_age)
-
-    # contact_factors and touch_factors look like:
-    #=
-        contact_factors = 
-                [ 1    1.8    1.8     1.5     1.0;    # nil
-                  1    1.7    1.7     1.4     0.9;    # mild
-                0.7    1.0    1.0     0.7     0.5;   # sick
-                0.5    0.8    0.8     0.5     0.3]  # severe
-
-      # agegrp    1     2      3       4       5
-
-        touch_factors = 
-                [.55    .62     .58     .4    .35;    # unexposed
-                 .55    .62     .58     .4    .35;    # recovered
-                 .55    .62     .58     .4    .35;    # nil
-                 .55    .6      .5      .35   .28;    # mild
-                 .28   .35      .28     .18   .18;    # sick
-                 .18   .18      .18     .18   .18]   # severe
-    =#
-
-    return ret
-end
-
-
-#######################################################################################
-#  probability
-#######################################################################################
-
-
-# discrete integer histogram
-function bucket(x; vals)
-    if isempty(vals)
-        vals = range(minimum(x), stop = maximum(x))
-    end
-    [count(x .== i) for i in vals]
-end
-
-
-# range counts to discretize PDF of continuous outcomes
-function histo(x)
-    big = ceil(maximum(x))
-    bins = Int(big)
-    sm = floor(minimum(x))
-    ret = zeros(T_int[], bins)
-    binbounds = collect(1:bins)
-    @inbounds for i = 1:bins
-        n = count(x -> i-1 < x <= i,x)
-        ret[i] = T_int[](n)
-    end
-    return ret, binbounds
-end
-
-
-"""
-Returns continuous value that represents gamma outcome for a given
-approximate center point (scale value of gamma).  We can interpret this
-as a funny sort of probability or as a number outcome from a gamma
-distributed sample.
-1.2 provides a good shape with long tail right and big clump left
-"""
-function gamma_prob(target; shape=1.0)
-    @assert 0.0 <= target <= 99.0 "target must be between 0.0 and 99.0"
-    dgamma = Gamma(shape,target)
-    pr = rand(dgamma, 1)[1] / 100.0
-end
-
-
-"""
-Returns a single number of successes for a
-sampled outcome of cnt tries with the input pr of success.
-"""
-function binomial_one_sample(cnt, pr)::T_int[]
-    return rand.(Binomial.(cnt, pr))
-end
-
-
-function categorical_sample(probvec, trials)::Array{T_int[],1}
-    x = rand(Categorical(probvec), trials)
-end
-
-
 ####################################################################################
 #   convenience functions for reading and inputting population statistics
-#                in the simulation data matrices
+#                in the population data matrices
 ####################################################################################
 
 """
@@ -389,6 +261,143 @@ function minus!(val, condition, agegrp, lag, locale, dat)
     current = grab(condition, agegrp, lag, locale, dat)
     @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
+end
+
+
+#####################################################################################
+#  other functions used in simulation
+#####################################################################################
+
+# returns a single r0 value
+function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
+    # captures current population condition 
+    pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
+    sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
+
+    # if social_distancing case with split population
+    if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
+        compliance = env.sd_compliance
+        cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
+        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0
+
+        cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
+        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=all_decpoints,
+                             sa_pct=sa_pct, env=env).r0
+
+        # this works if all compliance values are the same; approximate otherwise
+        current_r0 = round(mean(compliance) * r0_comply + (1.0-mean(compliance)) * r0_nocomply, digits=2)
+    else
+        cf =  env.contact_factors
+        tf = env.touch_factors     
+        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0, digits=2)   
+    end
+    return current_r0
+end
+
+
+function empty_all_qs!()
+    # empty tracking queues
+    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   
+    !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
+    !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
+    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
+end
+
+function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
+
+    ret = SimEnv{T_int[]}(
+                geodata=geodata,
+                spreaders=zeros(T_int[], laglim, 4, agegrps),
+                all_accessible=zeros(T_int[], laglim, 6, agegrps),
+                contacts=zeros(T_int[], laglim, 4, agegrps),
+                simple_accessible=zeros(T_int[], 6, agegrps),
+                peeps=zeros(T_int[], 6, agegrps),
+                touched=zeros(T_int[], laglim, 6, agegrps),
+                lag_contacts=zeros(T_int[], laglim),
+                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
+                contact_factors = contact_factors,
+                touch_factors = touch_factors,
+                send_risk_by_lag = send_risk,
+                recv_risk_by_age = recv_risk,
+                sd_compliance = zeros(6, agegrps))
+
+    return ret
+end
+
+    # contact_factors and touch_factors look like:
+    #=
+        contact_factors = 
+                [ 1    1.8    1.8     1.5     1.0;    # nil
+                  1    1.7    1.7     1.4     0.9;    # mild
+                0.7    1.0    1.0     0.7     0.5;   # sick
+                0.5    0.8    0.8     0.5     0.3]  # severe
+
+      # agegrp    1     2      3       4       5
+
+        touch_factors = 
+                [.55    .62     .58     .4    .35;    # unexposed
+                 .55    .62     .58     .4    .35;    # recovered
+                 .55    .62     .58     .4    .35;    # nil
+                 .55    .6      .5      .35   .28;    # mild
+                 .28   .35      .28     .18   .18;    # sick
+                 .18   .18      .18     .18   .18]   # severe
+    =#
+
+
+#######################################################################################
+#  probability
+#######################################################################################
+
+
+# discrete integer histogram
+function bucket(x; vals)
+    if isempty(vals)
+        vals = range(minimum(x), stop = maximum(x))
+    end
+    [count(x .== i) for i in vals]
+end
+
+
+# range counts to discretize PDF of continuous outcomes
+function histo(x)
+    big = ceil(maximum(x))
+    bins = Int(big)
+    sm = floor(minimum(x))
+    ret = zeros(T_int[], bins)
+    binbounds = collect(1:bins)
+    @inbounds for i = 1:bins
+        n = count(x -> i-1 < x <= i,x)
+        ret[i] = T_int[](n)
+    end
+    return ret, binbounds
+end
+
+
+"""
+Returns continuous value that represents gamma outcome for a given
+approximate center point (scale value of gamma).  We can interpret this
+as a funny sort of probability or as a number outcome from a gamma
+distributed sample.
+1.2 provides a good shape with long tail right and big clump left
+"""
+function gamma_prob(target; shape=1.0)
+    @assert 0.0 <= target <= 99.0 "target must be between 0.0 and 99.0"
+    dgamma = Gamma(shape,target)
+    pr = rand(dgamma, 1)[1] / 100.0
+end
+
+
+"""
+Returns a single number of successes for a
+sampled outcome of cnt tries with the input pr of success.
+"""
+function binomial_one_sample(cnt, pr)::T_int[]
+    return rand.(Binomial.(cnt, pr))
+end
+
+
+function categorical_sample(probvec, trials)::Array{T_int[],1}
+    x = rand(Categorical(probvec), trials)
 end
 
 
