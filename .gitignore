@@ -3,5 +3,6 @@
 .idea
 .vscode
 *.plist
-.pdf
-.png
+*.pdf
+*.png
+*.DS_Store
