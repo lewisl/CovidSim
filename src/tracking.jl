@@ -233,4 +233,15 @@ function day_animate2(spreadseries)
     end
 end
 
+function catplot()
+    # groupedbar(datpct', bar_position=:stack,label=labels)
+    # plot!(xticks=(1:3,["one", "two", "three"]))
+    #= julia> datpct'
+                3×5 LinearAlgebra.Adjoint{Float64,Array{Float64,2}}:
+                 0.32036   0.30348    0.141939  0.155273  0.0789479
+                 0.199046  0.413894   0.201274  0.054734  0.131053
+                 0.252381  0.0677606  0.26775   0.161113  0.250996
+    =#
+end
+
 # Plots.AnimatedGif("/var/folders/mf/73qj_8c91dzg4sw459_7mchm0000gn/T/jl_Js4px6.gif")
