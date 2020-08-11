@@ -78,18 +78,23 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         spread_params = alldict["sp"]
         fips_locs = alldict["fips_locs"]
 
-    env = initialize_sim_env(geodata; spread_params...)
-    density_factors = Dict(loc => geodata[geodata[:, fips] .== loc, density_fac][1] for loc in locales)
+        env = initialize_sim_env(geodata; spread_params...)
+        density_factors = Dict(loc => 
+            geodata[geodata[:, fips] .== loc, density_fac][1] for loc in locales)
+
+        # initial data for building data series of simulation outcomes
+        starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
+        starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
+            Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
 
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
-    # initial data for building data series of simulation outcomes
-    starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
-    starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
-        Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
-
     locales = locales   # force local scope to be visible in the loop
+
+    ######################
+    # simulation loop
+    ######################
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
@@ -99,10 +104,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 case(loc, openmx, isolatedmx, testmx, env)   
             end
             spread!(loc, spreadcases, openmx, env,  density_factor)
-            transition!(dt, all_decpoints, loc, openmx)   # transition all infectious cases "in the open"
+            transition!(dt, all_decpoints, loc, openmx)   # transition infectious cases "in the open"
         end
-        transition!(dt, all_decpoints, isolatedmx)  # transition all infectious cases / locales in isolation
-        transition!(dt, all_decpoints, testmx) # transition tracked test to stay in sync with openmx
+        transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
+        transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
 
         # r0 displayed every 10 days
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -111,9 +116,11 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         end
 
         # println("day $(ctr[:day]) all locales ", keys(isolatedmx))
-        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, starting_unexposed=starting_unexposed)
+        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
+            starting_unexposed=starting_unexposed)
     end
-    println("Simulation completed for $(ctr[:day]) days.")
+    silent || println("Simulation completed for $(ctr[:day]) days.")
+    #######################
 
     # "history" series for plotting: NOT dataframes, but arrays
     series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
