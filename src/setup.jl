@@ -75,7 +75,7 @@ end
 
 
 # one locale at a time
-function data_dict(locales; lags=laglim, conds=length(conditions), agegrps=ages)
+function data_dict(locales; lags=laglim, conds=length(conditions), agegrps=n_agegrps)
     dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
         dat[loc] = zeros(T_int[], lags, conds, agegrps)
@@ -84,7 +84,7 @@ function data_dict(locales; lags=laglim, conds=length(conditions), agegrps=ages)
 end
 
 
-function hist_dict(locales, n_days; conds=length(conditions), agegrps=ages)
+function hist_dict(locales, n_days; conds=length(conditions), agegrps=n_agegrps)
     dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
         dat[loc] = zeros(T_int[], conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)

@@ -62,22 +62,41 @@ end
 #  Epidemiological Stats -- very preliminary
 #################################################################################
 
-function infection_outcome(series, locale)
+# outcomes per agegrp
+function virus_outcome(series, locale; conds=[recovered, dead, totinfected, unexposed],
+         agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
+
     n = size(series[locale][:cum],1)
-    total_recov = series[locale][:cum][n, map2series.recovered[total]]
-    total_dead = series[locale][:cum][n, map2series.dead[total]]
-    end_infected = series[locale][:cum][n, map2series.infectious[total]]
-    total_pop = series[locale][:cum][1, map2series.unexposed[total]]
+    outcomes = Dict{String, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
 
-    all_infected = (total_recov + total_dead + end_infected + end_infected)
-                    
-    infect_pop = all_infected / total_pop
-    death_pct = total_dead / all_infected
-    death_pop = total_dead / total_pop
+    # each denominator for data summary
+    total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]] + series[locale][:cum][1, map2series.infectious[agegrp]]
+    total_infected = series[locale][:cum][end, map2series.totinfected[agegrp]]
 
-    return (infect_pop = infect_pop, death_pct = death_pct, death_pop = death_pop)
+    denom = if base == :pop 
+                total_pop 
+            elseif base == :infected
+                total_infected
+            else  # :none or wrong entry
+                1
+            end
+
+    for cond in conds
+        outcomes[condnames[cond]] = series[locale][:cum][n, map2series[cond][agegrp]] / denom
+    end
+
+    return outcomes
 end
 
+
+function onecond(series, locale, cond; case=:new, agegrp=totalcol, filt=:pos)
+    datacol = series[locale][case][:,map2series[cond][agegrp]]
+    if filt == :pos
+        datacol[datacol .> 0]
+    else
+        datacol
+    end
+end
 
 ###########################################################################################
 #  Plotting
@@ -85,7 +104,7 @@ end
 
 
 function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; 
-    days="all",geo=[], thm=:wong2)
+    days="all", geo=[], thm=:wong2)
 
     pyplot()
     # theme(:ggplot2, foreground_color_border =:black, reuse = false)
@@ -97,17 +116,23 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     # the data
     n = size(series[locale][:cum],1)
     days = days == "all" ? (1:n) : days
-    cumseries = series[locale][:cum][days, [map2series[i][total] for i in plcols]]
+    cumseries = series[locale][:cum][days, [map2series[i][totalcol] for i in plcols]]
 
     # labels and annotations
     labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = series[locale][:cum][1, map2series[unexposed][total]] + series[locale][:cum][1,map2series[infectious][total]]
+    people = if !isempty(geo)
+                geo[geo[:,fips] .== locale, popsize][1]
+             else # this will off by a tiny bit because of rounding
+                series[locale][:cum][1, map2series[unexposed][totalcol]] + series[locale][:cum][1,map2series[infectious][totalcol]]
+             end   
     cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died = series[locale][:cum][end, map2series[dead][total]]
-    infected = series[locale][:cum][1,map2series[unexposed][total]] - series[locale][:cum][end,map2series[unexposed][total]]
+    died = series[locale][:cum][end, map2series[dead][totalcol]]
+    # infected = series[locale][:cum][1,map2series[unexposed][totalcol]] - series[locale][:cum][end,map2series[unexposed][totalcol]]
+    infected = people - series[locale][:cum][end,map2series[unexposed][totalcol]]
+
     firstseries = plcols[1]
-    half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][total]]) * 0.7)
+    half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][totalcol]]) * 0.7)
     co_pal = length(plcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
@@ -139,10 +164,10 @@ function newplot(series, locale, plcols=[infectious]; days="all")
     # the data and labels
     n = size(series[locale][:new],1)
     days = days == "all" ? (1:n) : days
-    newseries = series[locale][:new][days, [map2series[i][total] for i in plcols]]
+    newseries = series[locale][:new][days, [map2series[i][totalcol] for i in plcols]]
     labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = series[locale][:cum][1, map2series[unexposed][total]] + series[locale][:cum][1,map2series[infectious][total]]
+    people = series[locale][:cum][1, map2series[unexposed][totalcol]] + series[locale][:cum][1,map2series[infectious][totalcol]]
 
     # the plot
     groupedbar( days, newseries[days,1:end], 
@@ -182,7 +207,7 @@ function dayplot(spreadseries::DataFrame, plseries=[])
     pyplot()
     theme(:ggplot2, foreground_color_border =:black)
     
-    plot(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
+    pl = plot(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
             lw=2,
             size = (700,500),
             dpi=180,
@@ -195,7 +220,8 @@ function dayplot(spreadseries::DataFrame, plseries=[])
         lbl = titlecase(string(addlseries))
         plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, lw=2)
     end
-    gui()  # force instant plot window
+    # gui()  # force instant plot window
+    return pl
 end
 
 

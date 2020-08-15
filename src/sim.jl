@@ -143,17 +143,17 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     if thisday == 1
         @inbounds for locale in locales
             zerobase = zeros(T_int[], size(newhist[locale])[1:2])
-            zerobase[1,1:5] .+= starting_unexposed[locale]
-            zerobase[1,6] = sum(starting_unexposed[locale])
+            zerobase[1,agegrps] .+= starting_unexposed[locale]
+            zerobase[1,totalcol] = sum(starting_unexposed[locale])
 
-            @views cumhist[locale][:, 1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
-            @views cumhist[locale][:, 6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2)
+            @views cumhist[locale][:, agegrps, thisday] = reshape(sum(opendat[locale],dims=1), n_conditions, n_agegrps)
+            @views cumhist[locale][:, totalcol, thisday] = sum(cumhist[locale][:, agegrps, thisday], dims=2)
             newhist[locale][:,:,thisday] = cumhist[locale][:,:, thisday] .- zerobase
         end
     else  # on all other days...
         @inbounds for locale in locales
-            cumhist[locale][:,1:5, thisday] = reshape(sum(opendat[locale],dims=1), 8,5)
-            @views cumhist[locale][:,6, thisday] = sum(cumhist[locale][:, 1:5, thisday], dims=2) # @views 
+            cumhist[locale][:,agegrps, thisday] = reshape(sum(opendat[locale],dims=1), n_conditions, n_agegrps)
+            @views cumhist[locale][:,totalcol, thisday] = sum(cumhist[locale][:, agegrps, thisday], dims=2) # @views 
             @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1] # @views 
         end
     end

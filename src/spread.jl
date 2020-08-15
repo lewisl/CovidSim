@@ -315,7 +315,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
     # setup separate environment
     r0env = initialize_sim_env(env.geodata; contact_factors=env.contact_factors, touch_factors=env.touch_factors,
                                send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age);
-    r0mx = data_dict(1; lags=laglim, conds=length(conditions), agegrps=ages)  # single locale
+    r0mx = data_dict(1; lags=laglim, conds=length(conditions), agegrps=n_agegrps)  # single locale
     locale = 1
     population = convert(T_int[], 2_000_000)
     setup_unexposed!(r0mx, population, locale)
