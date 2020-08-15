@@ -91,7 +91,7 @@ export
     dayanimate2,
     review_history,
     make_series,
-    infection_outcome
+    virus_outcome
 
 # queues (variables) for tracking
 export            
@@ -165,7 +165,7 @@ export
     a4,
     a5,
     agegrps,
-    ages,
+    n_agegrps,
     recv_risk_by_age
 
 
@@ -222,9 +222,10 @@ const isolated = 11
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
-const total = 6
+const totalcol = 6
 
 const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
+const n_conditions = length(conditions)
 const condnames = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
                        5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
 const infectious_cases = [nil, mild, sick, severe]
@@ -245,7 +246,7 @@ const a3 = 3 # 40-59
 const a4 = 4 # 60-79
 const a5 = 5 # 80+
 const agegrps = 1:5
-const ages = length(agegrps)
+const n_agegrps = length(agegrps)
 
 
 # traveling constants

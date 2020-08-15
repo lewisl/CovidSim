@@ -33,7 +33,7 @@ function seed!(day, cnt, lag, conds, agegrps, locale, dat)
         for loc in locale
             for cond in conds
                 @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-                input!(cnt, cond, agegrps, lag, loc, dat)
+                plus!(cnt, cond, agegrps, lag, loc, dat)
                 minus!(cnt, unexposed, agegrps, 1, loc, dat)
                 update_infectious!(loc, dat)
             end
@@ -160,7 +160,7 @@ function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, lo
         @views plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat)  # dead to lag 1
         @views minus!(folks, fromcond, agegrp, lag, locale, dat)  # subtract what we moved from the current lag
 
-        @views push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp,   # @views primarily for debugging; can do some cool plots
+        push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp, fromcond=fromcond,  # @views primarily for debugging; can do some cool plots
                    newcond=distvec[map2pr.nil:map2pr.severe], recovered=distvec[map2pr.recovered],
                    dead=distvec[map2pr.dead], node=node, locale=locale))
     end
