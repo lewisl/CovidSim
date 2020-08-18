@@ -18,13 +18,14 @@ using CovidSim
 # %%
 using DataFrames
 using Plots
+using Printf
 pyplot()
 
 # %%
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.3), tf=(.18,.45))
+str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.2), tf=(.18,.41))
 
 # %%
 # working with specific locale
@@ -39,14 +40,17 @@ alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
 cumplot(series,seattle,geo=alldict["geo"])
 
 # %%
-infection_outcome(series,locale)
+sea_outcome = virus_outcome(series,seattle)
+for k in keys(sea_outcome)
+    @printf("%-12s %f\n", k, sea_outcome[k])
+end
 
 # %% [markdown]
 # #### Death Percentage Across Age Groups
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
-deadvals = series[locale][:cum][end,[map2series.dead]...]
+deadvals = series[seattle][:cum][end,[map2series.dead]...]
 pctvals = round.([deadvals[i] / deadvals[6] for i in 1:length(deadvals)], digits=3)
 death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 
@@ -54,16 +58,16 @@ death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # #### Death Percentage of Infected *Within* Each Age Group
 
 # %%
-dead = series[locale][:cum][end, map2series.dead] 
-infected = series[locale][:cum][1,map2series.unexposed] .- series[locale][:cum][end,map2series.unexposed]
+dead = series[seattle][:cum][end, map2series.dead] 
+infected = series[seattle][:cum][1,map2series.unexposed] .- series[seattle][:cum][end,map2series.unexposed]
 death_pct_infected_within_age = round.(dead ./ infected, digits=5)
-hcat(agelabels, death_pct_infected_within_age)
+cats = hcat(agelabels, death_pct_infected_within_age)
 
 # %% [markdown]
 # #### Death Percentage of Population *Within* Each Age Group
 
 # %%
-pop = series[locale][:cum][1,map2series.unexposed]
+pop = series[seattle][:cum][1,map2series.unexposed]
 death_pct_bypop_within_age = round.(dead ./ pop, digits=5)
 hcat(agelabels, death_pct_bypop_within_age)
 
@@ -71,15 +75,15 @@ hcat(agelabels, death_pct_bypop_within_age)
 # #### Severe Percentage of Infected *Within* Each Age Group
 
 # %%
-severe = sum(clamp.(series[locale][:new][:, map2series.severe], 0, 10_000_000), dims=1)'
-sev_pct_infected_byage = round.(severe ./ infected, digits=5)
+sev_outcome = sum(clamp.(series[seattle][:new][:, map2series.severe], 0, 10_000_000), dims=1)'
+sev_pct_infected_byage = round.(sev_outcome ./ infected, digits=5)
 hcat(agelabels, sev_pct_infected_byage)
 
-# %%
-#### Severe Percentage of Population *Within* Each Age Group
+# %% [markdown]
+# #### Severe Percentage of Population *Within* Each Age Group
 
 # %%
-sev_pct_pop_byage = round.(severe ./ pop, digits=5)
+sev_pct_pop_byage = round.(sev_outcome ./ pop, digits=5)
 hcat(agelabels, sev_pct_pop_byage)
 
 # %% [markdown]
@@ -87,7 +91,7 @@ hcat(agelabels, sev_pct_pop_byage)
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
-recovals = series[locale][:cum][end,[map2series.recovered]...]
+recovals = series[seattle][:cum][end,[map2series.recovered]...]
 pctvals = round.([recovals[i] / recovals[6] for i in 1:length(recovals)], digits=3)
 deadtbl = hcat(agelabels, recovals, pctvals)
 
@@ -96,7 +100,7 @@ deadtbl = hcat(agelabels, recovals, pctvals)
 
 # %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
-unexvals = series[locale][:cum][end,[map2series.unexposed]...]
+unexvals = series[seattle][:cum][end,[map2series.unexposed]...]
 pctvals = round.([unexvals[i] / unexvals[6] for i in 1:length(unexvals)], digits=3)
 deadtbl = hcat(agelabels, unexvals, pctvals)
 
@@ -111,7 +115,7 @@ deadtbl = hcat(agelabels, unexvals, pctvals)
 # <img src="attachment:image.png" width="700px">
 
 # %%
-deadseries = series[locale][:cum][:,[map2series.dead]...]
+deadseries = series[seattle][:cum][:,[map2series.dead]...]
 n = size(deadseries,1)
 
 # %%
@@ -119,22 +123,22 @@ ageserieslabels = [agelabels[1] agelabels[2] agelabels[3] agelabels[4] agelabels
 areaplot(1:n, deadseries[:,1:5],labels=ageserieslabels, title="Deaths by Age Group")
 
 # %%
-[deadseries[180,1:6] deadseries[180,1:6] ./ deadseries[180,6]]
+[deadseries[n,1:6] deadseries[n,1:6] ./ deadseries[n,6]]
 
 # %% [markdown]
 # ## Plots by Disease Condition
 
 # %%
-condseries = series[locale][:cum][:,[map2series.nil[6], map2series.mild[6], map2series.sick[6], 
+condseries = series[seattle][:cum][:,[map2series.nil[6], map2series.mild[6], map2series.sick[6], 
             map2series.severe[6]]]
 n = size(condseries,1);
 
 # %%
 condlabels = ["nil", "mild", "sick", "severe"]
 day = 180
-condday = series[locale][:cum][day,[map2series.nil[6], map2series.mild[6], map2series.sick[6], 
+condday = series[seattle][:cum][day,[map2series.nil[6], map2series.mild[6], map2series.sick[6], 
             map2series.severe[6]]]
-condend = series[locale][:cum][end,[map2series.nil[6], map2series.mild[6], map2series.sick[6], 
+condend = series[seattle][:cum][end,[map2series.nil[6], map2series.mild[6], map2series.sick[6], 
             map2series.severe[6]]]
 condpct = round.(condday ./ sum(condday), digits=2)
 println("Approximate Percentage Disease Condition\n(across all ages)")
@@ -167,8 +171,8 @@ newhistmx = alldict["dat"]["newhistmx"]
 openmx = alldict["dat"]["openmx"];
 
 # %%
-
-summary = (
+locale = seattle
+outcome = (
            total_infected = series[locale][:cum][1, 6] - series[locale][:cum][180,6],
            total_pop = series[locale][:cum][180,6] + series[locale][:cum][180,54],
            whos_left = series[locale][:cum][180,map2series.dead[6]] + series[locale][:cum][180,map2series.recovered[6]]
@@ -184,7 +188,7 @@ transeries = DataFrame(transq)
 trans = (dead = sum(transeries[:,:dead]), recovered = sum(transeries[:,:recovered]))
 
 # %%
-err = summary.total_infected - (trans.recovered + trans.dead + summary.end_infected)
+err = outcome.total_infected - (trans.recovered + trans.dead + outcome.end_infected)
 
 # %%
 spreadseries = day2df(spreadq)

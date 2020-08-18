@@ -130,6 +130,8 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     died = series[locale][:cum][end, map2series[dead][totalcol]]
     # infected = series[locale][:cum][1,map2series[unexposed][totalcol]] - series[locale][:cum][end,map2series[unexposed][totalcol]]
     infected = people - series[locale][:cum][end,map2series[unexposed][totalcol]]
+    recovered = infected - died
+    unexp = people - infected
 
     firstseries = plcols[1]
     half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][totalcol]]) * 0.7)
@@ -147,7 +149,9 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
             legendfontsize = 10,
             color_palette = co_pal,
             reuse = false,
-            annotate = ((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 11, :left)))
+            annotate = ((6,half_yscale,
+                Plots.text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
+                    11, :left)))
         )
     # annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
     # gui()
@@ -207,9 +211,10 @@ function dayplot(spreadseries::DataFrame, plseries=[])
     pyplot()
     theme(:ggplot2, foreground_color_border =:black)
     
-    pl = plot(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
-            lw=2,
-            size = (700,500),
+    pl = bar(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
+            lw=0.2,
+            bar_width=1,
+            size = (700,300),
             dpi=180,
             xlabel="Simulation Days", 
             ylabel="People", 

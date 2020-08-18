@@ -15,14 +15,14 @@
 # %% [markdown]
 # # Modeling COVID-19
 
-# %% hide_input=true jupyter={"outputs_hidden": true, "source_hidden": true}
+# %% hide_input=true jupyter={"source_hidden": true}
 using CovidSim
 using DataFrames
 using Plots
 using Printf
 gr()  
 
-# %% hide_input=true jupyter={"outputs_hidden": true}
+# %% hide_input=true
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)
 seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
 
@@ -37,7 +37,10 @@ alldict, env, series = run_a_sim(180, phoenix, silent=true,
 geo = alldict["geo"];
 
 # %%
-infection_rate = infection_outcome(series, phoenix)
+phoenix_outcome = virus_outcome(series, phoenix, base=:pop)
+for k in keys(phoenix_outcome)
+    @printf("%-12s %f\n", k, phoenix_outcome[k])
+end
 
 # %% hide_input=true
 cumplot(series,phoenix,geo=geo)
@@ -146,7 +149,10 @@ alldict, env, series, = run_a_sim(180,phoenix,showr0=false,silent=true,
 cumplot(series, phoenix, geo=geo)
 
 # %%
-infection_outcome(series, phoenix)
+phoenix_outcome = virus_outcome(series, phoenix, base=:pop)
+for k in keys(phoenix_outcome)
+    @printf("%-12s %f\n", k, phoenix_outcome[k])
+end
 
 # %%
 cumplot(series, phoenix, [infectious, dead], geo=geo)
@@ -185,7 +191,10 @@ cumplot(series, phoenix, geo=geo)
 # We cut not quite another 65% of infections compared to starting isolation 10 days later.  With exponential growth, when you start mitigation practices makes a big difference. 
 
 # %%
-infection_outcome(series, phoenix)
+phoenix_outcome = virus_outcome(series, phoenix, base=:pop)
+for k in keys(phoenix_outcome)
+    @printf("%-12s %f\n", k, phoenix_outcome[k])
+end
 
 # %% [markdown]
 # # Opening Up
@@ -204,7 +213,10 @@ alldict, env, series = run_a_sim(180,phoenix,showr0=false, silent=true,
 cumplot(series, phoenix, geo=geo)
 
 # %%
-infection_outcome(series, phoenix)
+phoenix_outcome = virus_outcome(series, phoenix, base=:pop)
+for k in keys(phoenix_outcome)
+    @printf("%-12s %f\n", k, phoenix_outcome[k])
+end
 
 # %% [markdown]
 # It's kind of like nothing happened because of social distancing. We stopped the rise early; then we started the rise.
@@ -230,10 +242,10 @@ infection_outcome(series, phoenix)
 
 # %%
 bismarck = 38015 # Bismarck
-open_all = sd_gen(start=100, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
+open_all = sd_gen(start=80, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
 alldict, env, series = run_a_sim(180,bismarck,showr0=false, silent=true,
        spreadcases=[str_60,open_all],  # strong social distancing, then open
-       runcases=[seed_1_6, seed_6_12]);
+       runcases=[seed_1_6]);
 
 # %%
 cumplot(series, bismarck, geo=geo)
@@ -242,7 +254,10 @@ cumplot(series, bismarck, geo=geo)
 cumplot(series, bismarck,[infectious, dead], geo=geo)
 
 # %%
-infection_outcome(series, bismarck)
+bis_outcome = virus_outcome(series, bismarck, base=:pop)
+for k in keys(bis_outcome)
+    @printf("%-12s %f\n", k, bis_outcome[k])
+end
 
 # %% [markdown]
 # With Bismarck's population of just a little bit over 2% of Phoenix, the 18 "seed" people start the curve growing sooner.
@@ -281,7 +296,10 @@ alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
 cumplot(series,seattle,geo=alldict["geo"])
 
 # %%
-infection_outcome(series,seattle)
+seattle_outcome = virus_outcome(series, seattle, base=:pop)
+for k in keys(seattle_outcome)
+    @printf("%-12s %f\n", k, seattle_outcome[k])
+end
 
 # %%
 
@@ -305,11 +323,14 @@ bar(agelabels[1:5], pctvals[1:5], legend=false, title="Death % by Age Group", fi
 deadcat = series[seattle][:cum][end, map2series.dead] 
 infected = series[seattle][:cum][1,map2series.unexposed] .- series[seattle][:cum][end,map2series.unexposed]
 death_pct_infected_within_age = round.(deadcat ./ infected, digits=5)
-hcat(agelabels, death_pct_infected_within_age)
+death_pct_within_age = hcat(agelabels, death_pct_infected_within_age)
 
-# create chart
-data = death_pct_infected_within_age[1:5]
-bar(xticks, data, legend=false, title="% Died within each Age Group", fillcolor=nothing, lw=3, ylims=[0.0,1.0])
+# create plot
+gr() # plotting backend
+bar(agelabels[1:5], death_pct_infected_within_age[1:5], legend=false, title="Death % Within Age Group", 
+    fillcolor=nothing, lw=3, ylims=[0.0,1.0])
+
+
 
 # %%
 deadseries = series[seattle][:cum][:,[map2series.dead]...]
@@ -328,6 +349,9 @@ areaplot(1:n, deadseries[:,1:5],labels=ageserieslabels, title="Cumulative Deaths
 # #### Death Percentage of Population *Within* Each Age Group
 
 # %%
+locale = seattle
+
+
 pop = series[locale][:cum][1,map2series.unexposed]
 death_pct_bypop_within_age = round.(dead ./ pop, digits=5)
 hcat(agelabels, death_pct_bypop_within_age)
@@ -336,12 +360,12 @@ hcat(agelabels, death_pct_bypop_within_age)
 # #### Severe Percentage of Infected *Within* Each Age Group
 
 # %%
-severe = sum(clamp.(series[locale][:new][:, map2series.severe], 0, 10_000_000), dims=1)'
-sev_pct_infected_byage = round.(severe ./ infected, digits=5)
+sev_outcome = sum(clamp.(series[locale][:new][:, map2series.severe], 0, 10_000_000), dims=1)'
+sev_pct_infected_byage = round.(sev_outcome ./ infected, digits=5)
 hcat(agelabels, sev_pct_infected_byage)
 
-# %%
-#### Severe Percentage of Population *Within* Each Age Group
+# %% [markdown]
+# #### Severe Percentage of Population *Within* Each Age Group
 
 # %%
 sev_pct_pop_byage = round.(severe ./ pop, digits=5)

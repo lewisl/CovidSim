@@ -53,7 +53,7 @@ tricities = hcat(sea, nyc, bis)
 dt = CovidSim.setup_dt("../parameters/dec_tree_all.csv");
 
 # %% [markdown]
-# #### Run a simulation for the tricities
+# ## Run a simulation for King County (Seattle)
 
 # %%
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
@@ -64,33 +64,30 @@ alldict, env, series = run_a_sim(n, seattle.fips, showr0=true, silent=true,
        spreadcases=[],
        runcases=[seed_1_6]);
 
-# %%
+# %% jupyter={"source_hidden": true}
 geo = alldict["geo"]
 
 # %%
 cumplot(series,seattle.fips,geo=geo)
 
 # %%
-cumplot(series,seattle.fips,[infectious, recovered, dead],geo=geo)
+cumplot(series,seattle.fips,[recovered, infectious, dead],geo=geo)
+
+# %% [markdown]
+# #### Outcome Fraction
 
 # %%
 sea_outcome = virus_outcome(series, seattle.fips, base=:pop)
 for k in keys(sea_outcome)
-    @printf("%12s %f\n", k, sea_outcome[k])
-end
-
-# %%
-sea_outcome = virus_outcome(series, seattle.fips, base=:none)
-for k in keys(sea_outcome)
-    @printf("%12s %d\n", k, sea_outcome[k])
+    @printf("%-12s %f\n", k, sea_outcome[k])
 end
 
 # %% [markdown]
-# #### Let's put some moderate social distancing in place around March 23
+# ## Let's put some moderate social distancing in place around March 23
 # This reduces R0 from around 2.0 to around 1.2. Still, some growth but much slower...
 
 # %%
-str_50 = sd_gen(start=50, comply=.75, cf=(.2,1.3), tf=(.18,.44))
+str_50 = sd_gen(start=50, comply=.85, cf=(.2,1.1), tf=(.18,.41))
 
 # %%
 alldict, env, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
@@ -102,13 +99,13 @@ alldict, env, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
 sim_r0(env, alldict["dt"], alldict["decpoints"])
 
 # %%
-cumplot(series,seattle.fips,[infectious, recovered, dead],geo=geo)
+cumplot(series,seattle.fips,geo=geo)
 
 # %% [markdown]
-# #### What is the difference between active cases and reported cases?
+# ## What is the difference between active cases and reported cases?
 
 # %%
-cumplot(series,seattle.fips,[infectious, totinfected], geo=geo)
+cumplot(series,seattle.fips,[totinfected, infectious], geo=geo)
 
 # %% [markdown]
 # #### What's going on here?
@@ -124,26 +121,28 @@ cumplot(series,seattle.fips,[infectious, totinfected], geo=geo)
 # #### Align simulation and reported series on a day when equal numbers of deaths were reached
 
 # %%
-target = 20
-sim_dead = Date("2020-01-22") + Day(findfirst(series[seattle.fips][:cum][:,map2series.dead[6]] .>= target))
-rpt_dead = Date("2020-01-22") + Day(findfirst(tricities[:, :sea_dead] .>= target))
-adjdays = Dates.value(sim_dead - rpt_dead)
-@show sim_dead, rpt_dead, adjdays
+# target = 20
+# sim_dead = Date("2020-01-22") + Day(findfirst(series[seattle.fips][:cum][:,map2series.dead[6]] .>= target))
+# rpt_dead = Date("2020-01-22") + Day(findfirst(tricities[:, :sea_dead] .>= target))
+# adjdays = Dates.value(sim_dead - rpt_dead)
+# @show sim_dead, rpt_dead, adjdays
 
 # %%
-println(Dates.value(rpt_dead - Date("2020-01-22")), " ", Dates.value(sim_dead - Date("2020-01-22")))
+target = 6
+sim_inf = Date("2020-01-22") + Day(findfirst(series[seattle.fips][:cum][:,map2series.totinfected[6]] .>= target))
+rpt_inf = Date("2020-01-22") + Day(findfirst(tricities[:, :sea_infected] .>= target))
+adjdays = Dates.value(sim_inf - rpt_inf)
+@show sim_inf, rpt_inf, adjdays
 
 # %%
-println(tricities[Dates.value(rpt_dead - Date("2020-01-22")),:sea_dead], " ", 
-    series[seattle.fips][:cum][Dates.value(sim_dead - Date("2020-01-22")),map2series.dead[6]])
+println(Dates.value(rpt_inf - Date("2020-01-22")), " ", Dates.value(sim_inf - Date("2020-01-22")))
+
+# %%
+println(tricities[Dates.value(rpt_inf - Date("2020-01-22")),:sea_dead], " ", 
+    series[seattle.fips][:cum][Dates.value(sim_inf - Date("2020-01-22")),map2series.dead[6]])
 
 # %%
 rundays = n + adjdays
-# rundays = if adjdays >= 0
-#                 n + adjdays
-#             else   # adjdays < 0
-#                 n - adjdays
-#             end
 
 # %%
 alldict, env, series = run_a_sim(rundays, seattle.fips, showr0=false, silent=true,
@@ -152,29 +151,36 @@ alldict, env, series = run_a_sim(rundays, seattle.fips, showr0=false, silent=tru
        runcases=[seed_1_6]);
 
 # %%
+cumplot(series, seattle.fips, geo=alldict["geo"])
+
+# %%
 
 plotcases = if adjdays >= 0
     series[seattle.fips][:cum][1+adjdays:n+adjdays,map2series.totinfected[6]] # offset towards past (left)
 else
-    vcat(zeros(Int, adjdays),series[seattle.fips][:cum][1:rundays, map2series.totinfected[6]]) # offset to future and pad left with zeros
+    vcat(zeros(Int, abs(adjdays)),series[seattle.fips][:cum][1:rundays, map2series.totinfected[6]]) # offset to future and pad left with zeros
 end
 
 # %% [markdown]
 # #### Simulated vs. Reported Cases
 
 # %%
-# plot(1:n, series[seattle.fips][:cum][1+adjdays:n+adjdays,map2series.totinfected[6]], label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
 plot(1:n, plotcases, label="Simulation",dpi=150, size=(400,260), tickfontsize=6)
 plot!(1:n, tricities[:,:sea_infected], label="Reported Cases",dpi=150, size=(400,260), tickfontsize=6)
 title!("King County Simulation vs. Reported Cases", titlefontsize=8)
-# xlabel!("Days: Feb. 1 to April 30", guidefontsize=8)
 
 
 # %%
 
 sea_outcome = virus_outcome(series, seattle.fips, base=:pop)
 for k in keys(sea_outcome)
-    @printf("%12s %f\n", k, sea_outcome[k])
+    @printf("%-12s %f\n", k, sea_outcome[k])
+end
+
+# %%
+sea_outcome = virus_outcome(series, seattle.fips, base=:none)
+for k in keys(sea_outcome)
+    @printf("%-12s %d\n", k, sea_outcome[k])
 end
 
 # %% [markdown]
@@ -192,7 +198,7 @@ end
 plotdeaths = if adjdays >= 0
     series[seattle.fips][:cum][1+adjdays:n+adjdays,map2series.dead[6]] # offset towards past (left)
 else
-    vcat(zeros(Int, adjdays),series[seattle.fips][:cum][1:rundays, map2series.dead[6]]) # offset to future and pad left with zeros
+    vcat(zeros(Int, abs(adjdays)),series[seattle.fips][:cum][1:rundays, map2series.dead[6]]) # offset to future and pad left with zeros
 end
 
 # %%
@@ -203,10 +209,10 @@ xlabel!("Days: Jan. 22 to May 23", guidefontsize=10)
 
 
 # %% [markdown]
-# ### Virtual New York City
+# # Virtual New York City
 
 # %%
-alldict, env, series = run_a_sim(122, newyork.fips, showr0=true, silent=true,
+alldict, env, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -220,15 +226,15 @@ cumplot(series,newyork.fips,geo=geo)
 # %%
 nyc_outcome = virus_outcome(series, newyork.fips, base=:pop)
 for k in keys(nyc_outcome)
-    @printf("%12s %f\n", k, nyc_outcome[k])
+    @printf("%-12s %f\n", k, nyc_outcome[k])
 end
 
 # %% [markdown]
 # ## Let's do some social distancing
 
 # %%
-str_45_nyc = sd_gen(start=45, comply=.80, cf=(.2,1.1), tf=(.18,.44))
-alldict, env, series = run_a_sim(n+adjdays, newyork.fips, showr0=true, silent=true,
+str_45_nyc = sd_gen(start=45, comply=.9, cf=(.2, 1.1), tf=(.18,.40))
+alldict, env, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_45_nyc],
        runcases=[seed_1_6]);
@@ -236,21 +242,35 @@ alldict, env, series = run_a_sim(n+adjdays, newyork.fips, showr0=true, silent=tr
 # %%
 nyc_outcome = virus_outcome(series, newyork.fips, base=:pop)
 for k in keys(nyc_outcome)
-    @printf("%12s %f\n", k, nyc_outcome[k])
+    @printf("%-12s %f\n", k, nyc_outcome[k])
 end
 
 # %%
-cumplot(series,newyork.fips,[infectious, recovered, dead], geo=geo)
+cumplot(series,newyork.fips,[recovered, infectious, dead], geo=geo)
+
+# %% [markdown]
+# ## Compare Cumulative Total Infected to Active Infected
+
+# %%
+cumplot(series,newyork.fips,[totinfected, infectious], geo=geo)
+
+# %%
+dayplot(spreadq)
 
 # %% [markdown]
 # #### Align simulation and reported series on the day when 50 deaths were reached
 
+# %% jupyter={"source_hidden": true}
+# sim_dead = Date("2020-01-22") + Day(findfirst(series[newyork.fips][:cum][:,map2series.dead[6]] .>= target))
+# rpt_dead = Date("2020-01-22") + Day(findfirst(tricities[:, :nyc_dead] .>= target))
+# adjdays = Dates.value(sim_dead - rpt_dead)
+# @show sim_dead, rpt_dead, adjdays
+
 # %%
-sim_dead = Date("2020-01-22") + Day(findfirst(series[newyork.fips][:cum][:,map2series.dead[6]] .>= target))
-rpt_dead = Date("2020-01-22") + Day(findfirst(tricities[:, :nyc_dead] .>= target))
-println("sim ", sim20dead," rept ", rpt20dead)
-adjdays = Dates.value(sim_dead - rpt_dead)
-@show sim_dead, rpt_dead, adjdays
+sim_inf = Date("2020-01-22") + Day(findfirst(series[newyork.fips][:cum][:,map2series.dead[6]] .>= target))
+rpt_inf = Date("2020-01-22") + Day(findfirst(tricities[:, :nyc_dead] .>= target))
+adjdays = Dates.value(sim_inf - rpt_inf)
+@show sim_inf, rpt_inf, adjdays
 
 # %%
 rundays = n + adjdays
