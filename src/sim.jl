@@ -64,7 +64,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     T_int[] = set_int_type # update the global type of ints with the input value
 
     # access input data and pre-allocate storage
-    alldict = setup(n_days; geofilename=geofilename, 
+    alldict = setup(n_days, locales; geofilename=geofilename, 
                     dectreefilename=dtfilename, spfilename=spfilename)
 
         dt = alldict["dt"]  # decision trees for transition
@@ -72,11 +72,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         openmx = alldict["dat"]["openmx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
-        isolatedmx = alldict["dat"]["isolatedmx"]
-        testmx = alldict["dat"]["testmx"]
+        # isolatedmx = alldict["dat"]["isolatedmx"]
+        # testmx = alldict["dat"]["testmx"]
         geodata = alldict["geo"]
         spread_params = alldict["sp"]
-        fips_locs = alldict["fips_locs"]
 
         env = initialize_sim_env(geodata; spread_params...)
         density_factors = Dict(loc => 
@@ -421,3 +420,99 @@ function printsp(xs...)
 end
 
 sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
+
+
+#############################################################
+#  experiments
+#############################################################
+
+
+function update!(dat; cnt=cnt, tests=[[cpop_status, ==, 1], [cpop_agegrp, ==, 3]], 
+                    todo=[[cpop_cond, 5], [cpop_lag, 1]])
+
+    tcnt = length(tests)
+
+    tests = [[tst[1], tst[2], tst[3]] for tst in tests]
+
+    @show typeof(tests)
+    @show typeof(todo)
+
+    truthtests = falses(tcnt)  # allocate once
+    @show typeof(truthtests)
+
+    did = 0
+    n_rows = size(dat, 1)
+    if cnt == 0
+        cnt = n_rows
+    end
+
+    @inbounds for i = 1:n_rows  
+        if did < cnt
+            @simd for j in 1:tcnt
+                truthtests[j] = tests[j][2](dat[i, tests[j][1]], tests[j][3])
+            end
+
+            if all(truthtests) 
+
+                @inbounds @simd for act in todo
+                    dat[i, act[1]] = act[2]
+                end
+
+                did += 1
+            end
+        else
+            break
+        end
+    end
+
+end
+
+
+function make_sick!(dat; cnt, tocond, tolag, tests=[])
+
+    push!(tests,[cpop_status, ==, 1])
+    update!(dat; cnt=cnt, tests=tests,
+            todo=[[cpop_status, infectious], [cpop_cond, tocond], [cpop_lag, tolag]])
+
+end
+
+
+function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)
+    append!(tests, 
+                [[cpop_cond, ==, fromcond], 
+                 [cpop_agegrp, ==, fromage],
+                 [cpop_lag, ==, fromlag], 
+                 [cpop_status, ==, infectious]])
+
+    todo = [[cpop_cond, tocond]]
+
+    update!(dat, cnt=cnt, tests=tests,todo=todo)
+end
+
+
+function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
+    append!(tests,
+                [[cpop_cond, ==, fromcond], 
+                 [cpop_agegrp, ==, fromage],
+                 [cpop_lag, ==, fromlag], 
+                 [cpop_status, ==, infectious]])
+
+    todo = [[cpop_status, dead]]
+
+    update!(dat, cnt=cnt, tests=tests, todo=todo)
+end
+
+
+function make_recovered!(dat; cnt, fromage, fromlag, fromcond, tests=[])
+    append!(tests,
+                [[cpop_cond, ==, fromcond], 
+                 [cpop_agegrp, ==, fromage],
+                 [cpop_lag, ==, fromlag], 
+                 [cpop_status, ==, infectious]])
+
+    todo = [[cpop_status, recovered]]
+
+    update!(dat, cnt=cnt, tests=tests, todo=todo)
+end
+
+
