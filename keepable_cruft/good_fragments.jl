@@ -154,3 +154,56 @@ end
     # newlyinfected = sum(byage)
     # onestep_r0 = newlyinfected / starters
     # @debug "Spreaders $starters to newly infected: $newlyinfected for r0: $onestep_r0"
+
+
+
+#################################################################################
+# not such a good way to update an ILM pop matrix
+#################################################################################
+
+
+function update!(dat; cnt=cnt, tests=[[cpop_status, ==, 1], [cpop_agegrp, ==, 3]], 
+                    todo=[[cpop_cond, 5], [cpop_lag, 1]])
+
+    tcnt = length(tests)
+
+    tests = [[tst[1], tst[2], tst[3]] for tst in tests]
+
+    @show typeof(tests)
+    @show typeof(todo)
+
+    truthtests = falses(tcnt)  # allocate once
+    @show typeof(truthtests)
+
+    did = 0
+    n_rows = size(dat, 1)
+    if cnt == 0
+        cnt = n_rows
+    end
+
+    @inbounds for i = 1:n_rows  
+        if did < cnt
+            @simd for j in 1:tcnt
+                truthtests[j] = tests[j][2](dat[i, tests[j][1]], tests[j][3])
+            end
+
+            if all(truthtests) 
+
+                @inbounds @simd for act in todo
+                    dat[i, act[1]] = act[2]
+                end
+
+                did += 1
+            end
+        else
+            break
+        end
+    end
+
+end
+
+# this is an alternative for filtering the ilm pop matrix
+    prefilt = [actions.cmps[i].(dat[:, actions.tests[i][1]], actions.tests[i][2]) for i in 1:length(actions.tests)]
+    filt[:] = .&(
+                 prefilt...
+                )

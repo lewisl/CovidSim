@@ -427,92 +427,126 @@ sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
 #############################################################
 
 
-function update!(dat; cnt=cnt, tests=[[cpop_status, ==, 1], [cpop_agegrp, ==, 3]], 
-                    todo=[[cpop_cond, 5], [cpop_lag, 1]])
+mutable struct actions
+   tests::Array{Array{Int,1},1}
+   cmps::Array{Function, 1}     # must have same number of elements as tests
+   todo::Array{Array{Int,1},1}
+   setters::Array{Function, 1}  # must have same number of elements as todo
+end
 
-    tcnt = length(tests)
 
-    tests = [[tst[1], tst[2], tst[3]] for tst in tests]
+mutable struct filts 
+   tests::Array{Array{Int,1},1}
+   cmps::Array{Function, 1}     # must have same number of elements as tests
+end
 
-    @show typeof(tests)
-    @show typeof(todo)
 
-    truthtests = falses(tcnt)  # allocate once
-    @show typeof(truthtests)
+function update!(dat, cnt, actions::actions)  
 
-    did = 0
-    n_rows = size(dat, 1)
-    if cnt == 0
-        cnt = n_rows
+    filt = falses(size(dat,1))   # put this in the env so only do once
+
+    filt[:] = actions.cmps[1].(dat[:, actions.tests[1][1]], actions.tests[1][2])
+    for i in 2:length(actions.tests)
+        filt[:] .&= actions.cmps[i].(dat[:, actions.tests[i][1]], actions.tests[i][2])
     end
 
-    @inbounds for i = 1:n_rows  
-        if did < cnt
-            @simd for j in 1:tcnt
-                truthtests[j] = tests[j][2](dat[i, tests[j][1]], tests[j][3])
-            end
+    rowsel = cnt == 0 ? (:) : 1:cnt  # (:) selects all matches
 
-            if all(truthtests) 
+    for i = 1:length(actions.todo)
+        sel = view(dat, filt, actions.todo[i][1])
 
-                @inbounds @simd for act in todo
-                    dat[i, act[1]] = act[2]
-                end
-
-                did += 1
-            end
-        else
-            break
+        try
+            sel[rowsel] =  actions.setters[i](sel[rowsel], actions.todo[i][2])
+        catch
+            @warn("no match or too many updates")
         end
     end
 
 end
 
 
-function make_sick!(dat; cnt, tocond, tolag, tests=[])
+function make_sick!(dat; cnt, fromstatus = unexposed, fromage, tocond, tolag=1, tests = filts([],[]))
 
-    push!(tests,[cpop_status, ==, 1])
-    update!(dat; cnt=cnt, tests=tests,
-            todo=[[cpop_status, infectious], [cpop_cond, tocond], [cpop_lag, tolag]])
+    ms_actions = actions([[cpop_status, fromstatus],[cpop_agegrp, fromage]], [==,==],  # tests, cmps
+                          [[cpop_status, infectious],[cpop_cond, tocond], [cpop_lag, tolag]], # todo
+                          [setval, setval, setval])  # setters
+
+    if isempty(tests.tests)
+    else
+        for i = 1:length(tests.tests)
+            push!(ms_actions.tests, tests.tests[i])
+            push!(ms_actions.cmps, tests.cmps[i])
+        end
+    end
+    update!(dat, cnt, ms_actions)
 
 end
 
 
 function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)
-    append!(tests, 
-                [[cpop_cond, ==, fromcond], 
-                 [cpop_agegrp, ==, fromage],
-                 [cpop_lag, ==, fromlag], 
-                 [cpop_status, ==, infectious]])
+    cs_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
+                              [cpop_lag, fromlag], [cpop_status, infectious]], # tests
+                      [==, ==, ==, ==],  # cmps
+                      [[cpop_cond, tocond]], # todo
+                      [setval])  # setters
 
-    todo = [[cpop_cond, tocond]]
+    update!(dat, cnt, cs_actions)
+end
 
-    update!(dat, cnt=cnt, tests=tests,todo=todo)
+
+function bump_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[])
+
+
+    bs_actions = actions([[cpop_status, infectious]], # tests
+                      [==],  # cmps
+                      [[cpop_lag, 1]], # todo
+                      [incr])  # setters
+
+    if fromcond != 0
+        push!(bs_actions.tests, [cpop_cond, fromcond])
+        push!(bs_actions.cmps, ==)
+    end
+    if fromage != 0
+        push!(bs_actions.tests, [cpop_agegrp, fromage])
+        push!(bs_actions.cmps, ==)
+    end
+    if fromlag != 0
+        push!(bs_actions.tests, [cpop_lag, fromlag])
+        push!(bs_actions.cmps, ==)
+    end
+
+
+    update!(dat, cnt, bs_actions)
 end
 
 
 function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    append!(tests,
-                [[cpop_cond, ==, fromcond], 
-                 [cpop_agegrp, ==, fromage],
-                 [cpop_lag, ==, fromlag], 
-                 [cpop_status, ==, infectious]])
+    md_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
+                                [cpop_lag, fromlag], [cpop_status, infectious]], # tests
+                          [==, ==, ==, ==],  # cmps
+                          [[cpop_status, dead]], # todo
+                          [setval])  # setters
 
-    todo = [[cpop_status, dead]]
-
-    update!(dat, cnt=cnt, tests=tests, todo=todo)
+    update!(dat, cnt, md_actions)
 end
 
 
 function make_recovered!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    append!(tests,
-                [[cpop_cond, ==, fromcond], 
-                 [cpop_agegrp, ==, fromage],
-                 [cpop_lag, ==, fromlag], 
-                 [cpop_status, ==, infectious]])
+    mr_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
+                                [cpop_lag, fromlag], [cpop_status, infectious]], # tests
+                          [==, ==, ==, ==],  # cmps
+                          [[cpop_status, recovered]], # todo
+                          [setval])  # setters
 
-    todo = [[cpop_status, recovered]]
-
-    update!(dat, cnt=cnt, tests=tests, todo=todo)
+    update!(dat, cnt, mr_actions)
 end
 
+
+function incr(a,b)
+    a .+= b
+end
+
+function setval(a,b)
+    a .= b
+end
 
