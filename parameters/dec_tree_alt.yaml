@@ -1,0 +1,49 @@
+---
+  -       
+    agegrp: 1
+    nodes:
+      -      
+        id: "(14, 6)"
+        branches:  
+          -
+            id      : "to 7"
+            tocond  : 7
+            pr      : 1.0
+            next    : (0, 0)
+          -
+            id      : "to 7"
+            tocond  : 7 
+            pr      : 0.85 
+            next    : (0, 0) 
+          - 
+            id      : "to 8"
+            tocond  : 8
+            pr      :  0.15
+            next    : (4, 4)
+  - 
+    agegrp: 2
+    nodes:   
+      -   
+        id: "(14, 6)"
+        branches: 
+          -
+            id      : "to 7"
+            tocond  : 7
+            pr      : 1.0
+            next    : (0, 0)
+      - 
+        id: "(14, 7)"
+        branches: 
+          -
+            id      : "to 7"
+            tocond  : 7 
+            pr      : 0.85 
+            next    : (0, 0) 
+          - 
+            id      : "to 8"
+            tocond  : 8
+            pr      :  0.15
+            next    : (4, 4)
+#
+#
+

@@ -16,6 +16,28 @@ previously unexposed people, by agegrp?  For a single locale...
 """
 function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
 
+
+    #=
+    find spreaders by condition: counts(dat[:,cpop_cond], 5:8)
+    or do by lag, one condition at a time
+
+    find conditions by lag (do we need this?)
+    foo = freqtable(Tables.table(ilmat[:,3:4]), :Column1, :Column2)
+  2.233 ms (100 allocations: 4.89 MiB)
+5×5 Named Array{Int64,2}
+Column1 ╲ Column2 │     0      2      9     15     19
+──────────────────┼──────────────────────────────────
+0                 │ 40000      0      0      0      0
+5                 │     0  10000  10000      0      0
+6                 │     0  10000  20000  10000      0
+7                 │     0  10000  10000      0      0
+8                 │     0  10000  10000  10000  10000
+
+foo[Name(0), Name(0)] = 4000
+    
+    =#
+
+
     if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
         cleanup_stash(spread_stash)
     end
@@ -171,8 +193,6 @@ function how_many_touched!(env)
     target_tf = env.touch_factors  # view(env.touch_factors, map2touch.unexposed, :)  w/o view (6,5)
 
     totaccessible = convert(T_int[], sum(target_accessible))
-
-    # peeps = zeros(T_int[], size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
