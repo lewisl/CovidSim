@@ -4,6 +4,13 @@
 # decision tree for transition
 #############################################################
 
+#= TODO
+- add sanity check that all branches at a node have same from condition
+
+=#
+
+
+
 using DelimitedFiles
 
 # columns of dec_tree_csv files 
@@ -26,13 +33,23 @@ struct Branch
 end
 
 
-function setup_dt(dtfname)
+function setup_dt_old(dtfname)
     arr = read_dectree_file(dtfname)
     dectrees = create_dec_trees(arr)
     all_decpoints = reduce(merge, dectrees[agegrp].dec_points for agegrp in agegrps)
     return dectrees, all_decpoints
 end
 
+
+function setup_dt(dtfilename)
+    treedict = YAML.load(dense_yaml)
+
+    decpoints = Dict{Int,Array{Int, 1}}()
+    for i in 1:5
+        decpoints[i] = unique([k[1] for k in keys(dense_test[i])])
+    end
+    return treedict, decpoints
+end
 
 function read_dectree_file(fname)
     # return the data at index 1, not the header at index 2
@@ -95,15 +112,15 @@ end
 function walktree(dt, top)
     done = []
     todo = [[top]]
-
     while !isempty(todo)
         currentpath = popfirst!(todo)
         endnode = currentpath[end]
         for br in dt[endnode]
-            if br.next[1] == 0
-                push!(done, vcat(currentpath, br.next))  # append without modifying currentpath
+            # if br.next[1] == 0
+            if br["next"][1] == 0
+                push!(done, vcat(currentpath, [br["next"]]))  # append without modifying currentpath
             else
-                push!(todo, vcat(currentpath, br.next))   
+                push!(todo, vcat(currentpath, [br["next"]]))   
             end
         end
     end
@@ -112,10 +129,10 @@ end
 
 
 function sanity_test_all(trees)
-    tbl = zeros(size(trees,1),4)
-    for (i, it) in enumerate(trees)
-        paths = walktree(it.tree,(1,1))
-        res = sanity_test(paths, it.tree)
+    tbl = zeros(length(trees),4)
+    for (i, tree) in trees
+        paths = walktree(tree,[5,5])
+        res = sanity_test(paths, tree)
         tbl[i, :] .= [i, res.total, res.recovered, res.dead]
     end
     return tbl
@@ -154,14 +171,14 @@ function get_the_probs(path, tree)
         it1, it2 = path[cnt], path[cnt+1]
         node = tree[it1]
         for br in node
-            if br.next == it2
-                push!(probs, br.pr)
+            if br["next"] == it2
+                push!(probs, br["pr"])
             end
         end
     end
-    if path[end] == (0,0)
+    if path[end] == [0,0]
         probs = ("recovered", probs)
-    elseif path[end] == (0,5)
+    elseif path[end] == [0,5]
         probs = ("dead", probs)
     end
     return probs
