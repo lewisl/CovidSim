@@ -42,11 +42,26 @@ end
 
 
 function setup_dt(dtfilename)
-    treedict = YAML.load(dense_yaml)
+    treedict = YAML.load_file(dtfilename)
+
+    # pre-calculate the array of probabilities for all branches at a node
+    # pre-calculate the array of outcome conditions ("tocond") for all branches at a node
+
+    for agegrp in agegrps
+        tree = treedict[agegrp]
+        for node in keys(tree)
+            probs = [branch["pr"] for branch in tree[node]]
+            outcomes = [branch["tocond"] for branch in tree[node]]
+            branches = [branch for branch in tree[node]]
+            tree[node] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+        end
+    end
+
+
 
     decpoints = Dict{Int,Array{Int, 1}}()
-    for i in 1:5
-        decpoints[i] = unique([k[1] for k in keys(dense_test[i])])
+    for i in agegrps
+        decpoints[i] = unique([k[1] for k in keys(treedict[i])])
     end
     return treedict, decpoints
 end
@@ -187,39 +202,39 @@ end
 
 #  what a tree looks like:
 
-#= type Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}  
-(1, 1) =>
-   CovidSim.Branch(5, 5, 0.2, (2, 1), "nil", "nil")
-   CovidSim.Branch(5, 6, 0.65, (2, 2), "nil", "mild")
-   CovidSim.Branch(5, 7, 0.15, (2, 3), "nil", "sick")
-(2, 1) =>
-   CovidSim.Branch(5, 3, 0.8, (0, 0), "nil", "recovered")
-   CovidSim.Branch(5, 7, 0.2, (3, 3), "nil", "sick")
-(2, 2) =>
-   CovidSim.Branch(6, 6, 1.0, (3, 2), "mild", "mild")
-(2, 3) =>
-   CovidSim.Branch(7, 7, 0.85, (3, 3), "sick", "sick")
-   CovidSim.Branch(7, 8, 0.15, (3, 4), "sick", "severe")
-(3, 2) =>
-   CovidSim.Branch(6, 3, 1.0, (0, 0), "mild", "recovered")
-(3, 3) =>
-   CovidSim.Branch(7, 3, 0.8, (0, 0), "sick", "recovered")
-   CovidSim.Branch(7, 7, 0.1, (5, 3), "sick", "sick")
-   CovidSim.Branch(7, 8, 0.1, (4, 4), "sick", "severe")
-(3, 4) =>
-   CovidSim.Branch(8, 3, 0.45, (0, 0), "severe", "recovered")
-   CovidSim.Branch(8, 8, 0.5, (4, 4), "severe", "severe")
-   CovidSim.Branch(8, 4, 0.05, (0, 5), "severe", "dead")
-(4, 4) =>
-   CovidSim.Branch(8, 3, 0.85, (0, 0), "severe", "recovered")
-   CovidSim.Branch(8, 8, 0.1, (5, 4), "severe", "severe")
-   CovidSim.Branch(8, 4, 0.05, (0, 5), "severe", "dead")
-(5, 3) =>
-   CovidSim.Branch(7, 3, 0.9, (0, 0), "sick", "recovered")
-   CovidSim.Branch(7, 4, 0.1, (0, 5), "sick", "dead")
-(5, 4) =>
-   CovidSim.Branch(8, 3, 0.6, (0, 0), "severe", "recovered")
-   CovidSim.Branch(8, 4, 0.4, (0, 5), "severe", "dead")
+#= type Dict{Array{Int64, 1}, Array{Dict, 1}}  
+[5, 5] =>
+   Dict("tocond" => 5, "pr" = > 0.2, "next" => [2, 1])
+   Dict("tocond" => 6, "pr" = > 0.65, "next" => [2, 2])
+   Dict("tocond" => 7, "pr" = > 0.15, "next" => [2, 3])
+[9, 5] =>
+   Dict("tocond" => 3, "pr" = > 0.8, "next" => [0, 0])
+   Dict("tocond" => 7, "pr" = > 0.2, "next" => [3, 3])
+[9, 6] =>
+   Dict("tocond" => 6, "pr" = > 1.0, "next" => [3, 2])
+[9, 7] =>
+   Dict("tocond" => 7, "pr" = > 0.85, "next" => [3, 3])
+   Dict("tocond" => 8, "pr" = > 0.15, "next" => [3, 4])
+[14, 6] =>
+   Dict("tocond" => 3, "pr" = > 1.0, "next" => [0, 0])
+[14, 7] =>
+   Dict("tocond" => 3, "pr" = > 0.8, "next" => [0, 0])
+   Dict("tocond" => 7, "pr" = > 0.1, "next" => [5, 3])
+   Dict("tocond" => 8, "pr" = > 0.1, "next" => [4, 4])
+[14, 8] =>
+   Dict("tocond" => 3, "pr" = > 0.45, "next" => [0, 0])
+   Dict("tocond" => 8, "pr" = > 0.5, "next" => [4, 4])
+   Dict("tocond" => 4, "pr" = > 0.05, "next" => [0, 5])
+[19, 8] =>
+   Dict("tocond" => 3, "pr" = > 0.85, "next" => [0, 0])
+   Dict("tocond" => 8, "pr" = > 0.1, "next" => [5, 4])
+   Dict("tocond" => 4, "pr" = > 0.05, "next" => [0, 5])
+[25, 7] =>
+   Dict("tocond" => 3, "pr" = > 0.9, "next" => [0, 0])
+   Dict("tocond" => 4, "pr" = > 0.1, "next" => [0, 5])
+[25, 8] =>
+   Dict("tocond" => 3, "pr" = > 0.6, "next" => [0, 0])
+   Dict("tocond" => 4, "pr" = > 0.4, "next" => [0, 5])
 =#
 
 
@@ -227,18 +242,18 @@ end
 
 #= type Dict{Int64, Array{Tuple{Int64, Int64}, 1}}   
     5 => 
-        (1, 1)
+        [1, 1]
     9 => 
-        (2, 1)
-        (2, 2)
-        (2, 3)
+        [2, 1]
+        [2, 2]
+        [2, 3]
     14 => 
-        (3, 2)
-        (3, 3)
-        (3, 4)
+        [3, 2]
+        [3, 3]
+        [3, 4]
     19 => 
-        (4, 4)
+        [4, 4]
     25 => 
-        (5, 3)
-        (5, 4)
+        [5, 3]
+        [5, 4)
 =#

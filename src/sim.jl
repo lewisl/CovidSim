@@ -53,7 +53,7 @@ end
 
 function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
-            dtfilename="../parameters/dec_tree_all_25.csv",
+            dtfilename="../parameters/dec_tree_all_25.yml",
             spfilename="../parameters/spread_params.toml")
 #=
     see cases.jl for runcases and spreadcases
@@ -81,15 +81,22 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         density_factors = Dict(loc => 
             geodata[geodata[:, fips] .== loc, density_fac][1] for loc in locales)
 
+        @show locales
+
         # initial data for building data series of simulation outcomes
-        starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
-        starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
-            Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
+        starting_unexposed = [sum(openmx[loc][:,cpop_status]) for loc in locales]
+        # starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
+        starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed[1]) : 
+            Dict(locales[i]=>starting_unexposed[i] for i in 1:size(locales,1)))
 
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
+
+
+    return alldict, env, starting_unexposed
+
 
     ######################
     # simulation loop
@@ -115,8 +122,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         end
 
         # println("day $(ctr[:day]) all locales ", keys(isolatedmx))
-        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
-            starting_unexposed=starting_unexposed)
+        # do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
+        #     starting_unexposed=starting_unexposed)
     end
     silent || println("Simulation completed for $(ctr[:day]) days.")
     #######################
@@ -428,7 +435,7 @@ sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
 
 
 mutable struct actions
-   tests::Array{Array{Int,1},1}
+   tests::Array{Array{Int,1},1}  # [[column index, value]]
    cmps::Array{Function, 1}     # must have same number of elements as tests
    todo::Array{Array{Int,1},1}
    setters::Array{Function, 1}  # must have same number of elements as todo
@@ -465,20 +472,22 @@ function update!(dat, cnt, actions::actions)
 end
 
 
-function make_sick!(dat; cnt, fromstatus = unexposed, fromage, tocond, tolag=1, tests = filts([],[]))
+function make_sick!(dat; cnt, fromage, tocond, tolag=1)
 
-    ms_actions = actions([[cpop_status, fromstatus],[cpop_agegrp, fromage]], [==,==],  # tests, cmps
-                          [[cpop_status, infectious],[cpop_cond, tocond], [cpop_lag, tolag]], # todo
-                          [setval, setval, setval])  # setters
+    @assert size(cnt, 1) == size(fromage, 1)
 
-    if isempty(tests.tests)
-    else
-        for i = 1:length(tests.tests)
-            push!(ms_actions.tests, tests.tests[i])
-            push!(ms_actions.cmps, tests.cmps[i])
-        end
+    filt_unexp = findall((dat[:,cpop_status] .== unexposed)) # must be unexposed
+
+    for i in 1:size(fromage, 1)  # by target age groups
+
+        filt_age = dat[filt_unexp, cpop_agegrp] .== fromage[i] # age of the unexposed
+        rowrange = 1:cnt[i]
+        filt_all = filt_unexp[filt_age][rowrange]
+        cols = [cpop_status, cpop_cond, cpop_lag]
+
+        dat[filt_all, cols] .= [infectious tocond tolag]
     end
-    update!(dat, cnt, ms_actions)
+
 
 end
 

@@ -13,7 +13,7 @@
 # ---
 
 # %% [markdown]
-# # Prototype Spread and Transition with ILM Approach
+# # New approach to decision trees for transition
 
 # %%
 using CovidSim
@@ -32,14 +32,15 @@ refresh = copy(ilmat)
 # ## New Approach to Decision Trees
 
 # %%
-dectreefilename="../parameters/dec_tree_all.csv"
+dectreefilename="../parameters/dec_tree_all_25.csv"
 
 # %%
 using JSON
 using Pkg.TOML
+using YAML
 
 # %%
-dt, all_decpoints = setup_dt(dectreefilename)
+dt, all_decpoints = CovidSim.setup_dt_old(dectreefilename)
 
 # %%
 newdict1 = Dict(string(k) => dt[1].tree[k] for k in keys(dt[1].tree))
@@ -837,8 +838,50 @@ dense_yaml = """
 """
 
 # %%
-dense_test = YAML.load_file("../parameters/yaml_dense.yml")
-dense_test[1]
+dense_literal_yaml = YAML.load(dense_yaml)
+
+# %%
+hand_yaml = """
+3:
+  (5,5):
+    - {tocond: 5, next: [9, 5], pr: 0.2}
+    - {tocond: 6, next: [9, 6], pr: 0.7}
+    - {tocond: 7, next: [9, 7], pr: 0.1}
+  (9,5):
+    - {tocond: 3, next: [0,0], pr: 0.85}
+    - {tocond: 7, next: [14, 7], pr: 0.15}
+  (9,6):
+    - {tocond: 6, next: [14,6], pr: 1.0}
+  (9,7):
+    - {tocond: 7, next: [14, 7], pr: 0.9}
+    - {tocond: 8, next: [14, 8], pr: 0.1}
+  (14,6):
+    - {tocond: 3, next: [0,0], pr: 1.0}
+  (14,7):
+    - {tocond: 3, next: [0, 0], pr: 0.83}
+    - {tocond: 8, next: [19, 7], pr: 0.1}
+    - {tocond: 8, next: [19, 8], pr: 0.07}
+  (14,8):
+    - {tocond: 3, next: [0,0], pr: 0.474}
+    - {tocond: 8, next: [19, 8], pr: 0.514}
+    - {tocond: 4, next: [0,5], pr: 0.012}
+  (19,8):
+    - {tocond: 3, next: [0,0], pr: 0.922}
+    - {tocond: 8, next: [0,5], pr: 0.072}
+    - {tocond: 4, next: [0,5], pr: 0.006}
+  (25,7):
+    - {tocond: 3, next: [0,0], pr: 0.964}
+    - {tocond: 4, next: [0,5], pr: 0.036}
+  (25,8):
+    - {tocond: 3, next: [0,0], pr: 0.964}
+    - {tocond: 4, next: [0,5], pr: 0.036}
+"""
+
+# %%
+hand_test = YAML.load(hand_yaml)
+
+# %%
+dense_test = YAML.load_file("../parameters/dec_tree_all_25.yml")
 
 # %%
 decpoints = Dict{Int,Array{Int, 1}}()
@@ -858,5 +901,20 @@ length(dense_test)
 
 # %%
 CovidSim.sanity_test_all(dense_test)
+
+# %%
+std_file = "../parameters/dec_tree_all_25.yml"
+
+# %% jupyter={"outputs_hidden": true}
+treedict, decpoints = setup_dt(std_file)
+
+# %%
+treedict
+
+# %%
+treedict[1][[9,5]]
+
+# %%
+decpoints
 
 # %%

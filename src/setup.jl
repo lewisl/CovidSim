@@ -5,7 +5,7 @@
 
 function setup(n_days, locales; 
     geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/dec_tree_all.csv",
+    dectreefilename="../parameters/dec_tree_all_25.yml",
     spfilename="../parameters/spread_params.toml")
 
     # geodata
@@ -70,10 +70,12 @@ function pop_data(pop; age_dist=age_dist, intype=Int16)
     vax_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
     test = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
     test_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+    quar = zeros(intype, pop)
+    quar_day = zeros(intype, pop)
 
-    dat = (status=status, agegrp=agegrp, cond=cond, lag=lag,
-        recov_day=recov_day, dead_day=dead_day, cluster=cluster, 
-        vax=vax, vax_day=vax_day, test=test, test_day=test_day)
+    dat = hcat(status, agegrp, cond, lag, cluster, recov_day, dead_day, vax, 
+        vax_day, test, test_day, quar, quar_day)
+
     return dat       
 end
 
@@ -103,7 +105,7 @@ end
 
 
 function read_spread_params(spfilename)
-    spread_params = TOML.parsefile(spfilename)
+    spread_params = YAML.load_file(spfilename)
 
     required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors"]
     has_all = true
