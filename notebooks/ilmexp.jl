@@ -204,7 +204,7 @@ count((ilmat - refresh) .!= 0)
 # # Seed
 
 # %%
-CovidSim.make_sick!(ilmat; cnt=[3,3], fromage=[2,3], tocond=nil)
+time_it = @elapsed CovidSim.make_sick!(ilmat; cnt=[3,3], fromage=[2,3], tocond=nil)
 
 #=
 function seed!(day, cnt, lag, cond, agegrps, dat)  #  locale,
@@ -215,6 +215,7 @@ function seed!(day, cnt, lag, cond, agegrps, dat)  #  locale,
     end 
 end
 =#
+@show time_it
 
 # %%
 count((ilmat - refresh) .!= 0)

@@ -1,51 +1,4 @@
 
-"""
-Struct for variables used by many functions = the simulation environment
-    
-- pre-allocate large arrays, accessed and modified frequently
-- hold complex parameter sets
-"""
-struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
-    geodata::Array{Any, 2}
-    spreaders::Array{T, 3} # laglim,4,5
-    all_accessible::Array{T, 3} # laglim,6,5
-    contacts::Array{T, 3} # laglim,4,5
-    simple_accessible::Array{T, 2} # 6,5
-    peeps::Array{T, 2} # 6,5
-    touched::Array{T, 3} # laglim,6,5
-    lag_contacts::Array{T, 1} # laglim,
-    riskmx::Array{Float64, 2} # laglim,5
-    contact_factors::Array{Float64, 2}  # 4,5 parameters for spread!
-    touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
-    send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
-    recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
-    sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
-
-    # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
-    # T_int[] should be one of Int64, Int32 when calling the constructor
-    function SimEnv{T}(; 
-                                geodata=[T(0) "" ], # geodata
-                                spreaders=zeros(T, 0,0,0),   # semicolon for all keyword (named) arguments)
-                                all_accessible=zeros(T, 0,0,0),
-                                contacts=zeros(T, 0,0,0),
-                                simple_accessible=zeros(T, 0,0),
-                                peeps=zeros(T, 0,0),
-                                touched=zeros(T, 0,0,0),
-                                lag_contacts=zeros(T, laglim),
-                                riskmx=zeros(Float64, 0,0),
-                                contact_factors=zeros(Float64, 0,0),
-                                touch_factors=zeros(Float64, 0,0),
-                                send_risk_by_lag=zeros(Float64,laglim),
-                                recv_risk_by_age=zeros(Float64, 5),
-                                sd_compliance=ones(Float64, 6,5)    
-                            ) where T<:Integer
-        return new(geodata, spreaders, all_accessible, contacts, simple_accessible, peeps,
-                   touched, lag_contacts, riskmx, contact_factors,
-                   touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
-    end
-end
-
-
 ####################################################################################
 #   simulation runner
 ####################################################################################
@@ -94,10 +47,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
     locales = locales   # force local scope to be visible in the loop
 
-
-    return alldict, env, starting_unexposed
-
-
     ######################
     # simulation loop
     ######################
@@ -112,8 +61,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             spread!(loc, spreadcases, openmx, env,  density_factor)
             transition!(dt, all_decpoints, loc, openmx)   # transition infectious cases "in the open"
         end
-        transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
-        transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
+        # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
+        # transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
 
         # r0 displayed every 10 days
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -316,46 +265,6 @@ function empty_all_qs!()
     !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
 end
 
-function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
-
-    ret = SimEnv{T_int[]}(
-                geodata=geodata,
-                spreaders=zeros(T_int[], laglim, 4, agegrps),
-                all_accessible=zeros(T_int[], laglim, 6, agegrps),
-                contacts=zeros(T_int[], laglim, 4, agegrps),
-                simple_accessible=zeros(T_int[], 6, agegrps),
-                peeps=zeros(T_int[], 6, agegrps),
-                touched=zeros(T_int[], laglim, 6, agegrps),
-                lag_contacts=zeros(T_int[], laglim),
-                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
-                contact_factors = contact_factors,
-                touch_factors = touch_factors,
-                send_risk_by_lag = send_risk,
-                recv_risk_by_age = recv_risk,
-                sd_compliance = zeros(6, agegrps))
-
-    return ret
-end
-
-    # contact_factors and touch_factors look like:
-    #=
-        contact_factors = 
-                [ 1    1.8    1.8     1.5     1.0;    # nil
-                  1    1.7    1.7     1.4     0.9;    # mild
-                0.7    1.0    1.0     0.7     0.5;   # sick
-                0.5    0.8    0.8     0.5     0.3]  # severe
-
-      # agegrp    1     2      3       4       5
-
-        touch_factors = 
-                [.55    .62     .58     .4    .35;    # unexposed
-                 .55    .62     .58     .4    .35;    # recovered
-                 .55    .62     .58     .4    .35;    # nil
-                 .55    .6      .5      .35   .28;    # mild
-                 .28   .35      .28     .18   .18;    # sick
-                 .18   .18      .18     .18   .18]   # severe
-    =#
-
 
 #######################################################################################
 #  probability
@@ -503,6 +412,7 @@ function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)
 end
 
 
+# this isn't going to work
 function bump_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[])
 
 
@@ -528,7 +438,7 @@ function bump_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[])
     update!(dat, cnt, bs_actions)
 end
 
-
+# this isn't going to work
 function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
     md_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
                                 [cpop_lag, fromlag], [cpop_status, infectious]], # tests
@@ -539,7 +449,7 @@ function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
     update!(dat, cnt, md_actions)
 end
 
-
+# this isn't going to work
 function make_recovered!(dat; cnt, fromage, fromlag, fromcond, tests=[])
     mr_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
                                 [cpop_lag, fromlag], [cpop_status, infectious]], # tests
