@@ -1,4 +1,51 @@
 
+"""
+Struct for variables used by many functions = the simulation environment
+    
+- pre-allocate large arrays, accessed and modified frequently
+- hold complex parameter sets
+"""
+struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
+    geodata::Array{Any, 2}
+    spreaders::Array{T, 3} # laglim,4,5
+    all_accessible::Array{T, 3} # laglim,6,5
+    contacts::Array{T, 3} # laglim,4,5
+    simple_accessible::Array{T, 2} # 6,5
+    peeps::Array{T, 2} # 6,5
+    touched::Array{T, 3} # laglim,6,5
+    lag_contacts::Array{T, 1} # laglim,
+    riskmx::Array{Float64, 2} # laglim,5
+    contact_factors::Array{Float64, 2}  # 4,5 parameters for spread!
+    touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
+    send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
+    recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
+    sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
+
+    # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
+    # T_int[] should be one of Int64, Int32 when calling the constructor
+    function SimEnv{T}(; 
+                                geodata=[T(0) "" ], # geodata
+                                spreaders=zeros(T, 0,0,0),   # semicolon for all keyword (named) arguments)
+                                all_accessible=zeros(T, 0,0,0),
+                                contacts=zeros(T, 0,0,0),
+                                simple_accessible=zeros(T, 0,0),
+                                peeps=zeros(T, 0,0),
+                                touched=zeros(T, 0,0,0),
+                                lag_contacts=zeros(T, laglim),
+                                riskmx=zeros(Float64, 0,0),
+                                contact_factors=zeros(Float64, 0,0),
+                                touch_factors=zeros(Float64, 0,0),
+                                send_risk_by_lag=zeros(Float64,laglim),
+                                recv_risk_by_age=zeros(Float64, 5),
+                                sd_compliance=ones(Float64, 6,5)    
+                            ) where T<:Integer
+        return new(geodata, spreaders, all_accessible, contacts, simple_accessible, peeps,
+                   touched, lag_contacts, riskmx, contact_factors,
+                   touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
+    end
+end
+
+
 ####################################################################################
 #   simulation runner
 ####################################################################################
@@ -6,7 +53,7 @@
 
 function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
-            dtfilename="../parameters/dec_tree_all_25.yml",
+            dtfilename="../parameters/dec_tree_all_25.csv",
             spfilename="../parameters/spread_params.toml")
 #=
     see cases.jl for runcases and spreadcases
@@ -17,7 +64,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     T_int[] = set_int_type # update the global type of ints with the input value
 
     # access input data and pre-allocate storage
-    alldict = setup(n_days, locales; geofilename=geofilename, 
+    alldict = setup(n_days; geofilename=geofilename, 
                     dectreefilename=dtfilename, spfilename=spfilename)
 
         dt = alldict["dt"]  # decision trees for transition
@@ -25,22 +72,20 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         openmx = alldict["dat"]["openmx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
-        # isolatedmx = alldict["dat"]["isolatedmx"]
-        # testmx = alldict["dat"]["testmx"]
+        isolatedmx = alldict["dat"]["isolatedmx"]
+        testmx = alldict["dat"]["testmx"]
         geodata = alldict["geo"]
         spread_params = alldict["sp"]
+        fips_locs = alldict["fips_locs"]
 
         env = initialize_sim_env(geodata; spread_params...)
         density_factors = Dict(loc => 
             geodata[geodata[:, fips] .== loc, density_fac][1] for loc in locales)
 
-        @show locales
-
         # initial data for building data series of simulation outcomes
-        starting_unexposed = [sum(openmx[loc][:,cpop_status]) for loc in locales]
-        # starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
-        starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed[1]) : 
-            Dict(locales[i]=>starting_unexposed[i] for i in 1:size(locales,1)))
+        starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
+        starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed) : 
+            Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
 
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
@@ -61,8 +106,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             spread!(loc, spreadcases, openmx, env,  density_factor)
             transition!(dt, all_decpoints, loc, openmx)   # transition infectious cases "in the open"
         end
-        # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
-        # transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
+        transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
+        transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
 
         # r0 displayed every 10 days
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -71,8 +116,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         end
 
         # println("day $(ctr[:day]) all locales ", keys(isolatedmx))
-        # do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
-        #     starting_unexposed=starting_unexposed)
+        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
+            starting_unexposed=starting_unexposed)
     end
     silent || println("Simulation completed for $(ctr[:day]) days.")
     #######################
@@ -265,6 +310,46 @@ function empty_all_qs!()
     !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
 end
 
+function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
+
+    ret = SimEnv{T_int[]}(
+                geodata=geodata,
+                spreaders=zeros(T_int[], laglim, 4, agegrps),
+                all_accessible=zeros(T_int[], laglim, 6, agegrps),
+                contacts=zeros(T_int[], laglim, 4, agegrps),
+                simple_accessible=zeros(T_int[], 6, agegrps),
+                peeps=zeros(T_int[], 6, agegrps),
+                touched=zeros(T_int[], laglim, 6, agegrps),
+                lag_contacts=zeros(T_int[], laglim),
+                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
+                contact_factors = contact_factors,
+                touch_factors = touch_factors,
+                send_risk_by_lag = send_risk,
+                recv_risk_by_age = recv_risk,
+                sd_compliance = zeros(6, agegrps))
+
+    return ret
+end
+
+    # contact_factors and touch_factors look like:
+    #=
+        contact_factors = 
+                [ 1    1.8    1.8     1.5     1.0;    # nil
+                  1    1.7    1.7     1.4     0.9;    # mild
+                0.7    1.0    1.0     0.7     0.5;   # sick
+                0.5    0.8    0.8     0.5     0.3]  # severe
+
+      # agegrp    1     2      3       4       5
+
+        touch_factors = 
+                [.55    .62     .58     .4    .35;    # unexposed
+                 .55    .62     .58     .4    .35;    # recovered
+                 .55    .62     .58     .4    .35;    # nil
+                 .55    .6      .5      .35   .28;    # mild
+                 .28   .35      .28     .18   .18;    # sick
+                 .18   .18      .18     .18   .18]   # severe
+    =#
+
 
 #######################################################################################
 #  probability
@@ -336,136 +421,3 @@ function printsp(xs...)
 end
 
 sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
-
-
-#############################################################
-#  experiments
-#############################################################
-
-
-mutable struct actions
-   tests::Array{Array{Int,1},1}  # [[column index, value]]
-   cmps::Array{Function, 1}     # must have same number of elements as tests
-   todo::Array{Array{Int,1},1}
-   setters::Array{Function, 1}  # must have same number of elements as todo
-end
-
-
-mutable struct filts 
-   tests::Array{Array{Int,1},1}
-   cmps::Array{Function, 1}     # must have same number of elements as tests
-end
-
-
-function update!(dat, cnt, actions::actions)  
-
-    filt = falses(size(dat,1))   # put this in the env so only do once
-
-    filt[:] = actions.cmps[1].(dat[:, actions.tests[1][1]], actions.tests[1][2])
-    for i in 2:length(actions.tests)
-        filt[:] .&= actions.cmps[i].(dat[:, actions.tests[i][1]], actions.tests[i][2])
-    end
-
-    rowsel = cnt == 0 ? (:) : 1:cnt  # (:) selects all matches
-
-    for i = 1:length(actions.todo)
-        sel = view(dat, filt, actions.todo[i][1])
-
-        try
-            sel[rowsel] =  actions.setters[i](sel[rowsel], actions.todo[i][2])
-        catch
-            @warn("no match or too many updates")
-        end
-    end
-
-end
-
-
-function make_sick!(dat; cnt, fromage, tocond, tolag=1)
-
-    @assert size(cnt, 1) == size(fromage, 1)
-
-    filt_unexp = findall((dat[:,cpop_status] .== unexposed)) # must be unexposed
-
-    for i in 1:size(fromage, 1)  # by target age groups
-
-        filt_age = dat[filt_unexp, cpop_agegrp] .== fromage[i] # age of the unexposed
-        rowrange = 1:cnt[i]
-        filt_all = filt_unexp[filt_age][rowrange]
-        cols = [cpop_status, cpop_cond, cpop_lag]
-
-        dat[filt_all, cols] .= [infectious tocond tolag]
-    end
-
-
-end
-
-
-function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)
-    cs_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
-                              [cpop_lag, fromlag], [cpop_status, infectious]], # tests
-                      [==, ==, ==, ==],  # cmps
-                      [[cpop_cond, tocond]], # todo
-                      [setval])  # setters
-
-    update!(dat, cnt, cs_actions)
-end
-
-
-# this isn't going to work
-function bump_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[])
-
-
-    bs_actions = actions([[cpop_status, infectious]], # tests
-                      [==],  # cmps
-                      [[cpop_lag, 1]], # todo
-                      [incr])  # setters
-
-    if fromcond != 0
-        push!(bs_actions.tests, [cpop_cond, fromcond])
-        push!(bs_actions.cmps, ==)
-    end
-    if fromage != 0
-        push!(bs_actions.tests, [cpop_agegrp, fromage])
-        push!(bs_actions.cmps, ==)
-    end
-    if fromlag != 0
-        push!(bs_actions.tests, [cpop_lag, fromlag])
-        push!(bs_actions.cmps, ==)
-    end
-
-
-    update!(dat, cnt, bs_actions)
-end
-
-# this isn't going to work
-function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    md_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
-                                [cpop_lag, fromlag], [cpop_status, infectious]], # tests
-                          [==, ==, ==, ==],  # cmps
-                          [[cpop_status, dead]], # todo
-                          [setval])  # setters
-
-    update!(dat, cnt, md_actions)
-end
-
-# this isn't going to work
-function make_recovered!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    mr_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
-                                [cpop_lag, fromlag], [cpop_status, infectious]], # tests
-                          [==, ==, ==, ==],  # cmps
-                          [[cpop_status, recovered]], # todo
-                          [setval])  # setters
-
-    update!(dat, cnt, mr_actions)
-end
-
-
-function incr(a,b)
-    a .+= b
-end
-
-function setval(a,b)
-    a .= b
-end
-

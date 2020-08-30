@@ -25,7 +25,7 @@ Transition probability indices that return -1 are not used and will raise an err
 """
 const map2pr = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3, sick=4, severe=5)
 
-function seed_old!(day, cnt, lag, conds, agegrps, locale, dat)
+function seed!(day, cnt, lag, conds, agegrps, locale, dat)
     @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
     if day == ctr[:day]
@@ -42,15 +42,12 @@ function seed_old!(day, cnt, lag, conds, agegrps, locale, dat)
 end
 
 
-
-
 # method to run through all existing locales in isolation
 function transition!(dt, all_decpoints, dat)
     for locale in keys(dat)
         transition!(dt, all_decpoints, locale, dat)
     end
 end
-
 
 
 """
@@ -64,56 +61,6 @@ recovered or dead.
 Works for a single locale.
 """
 function transition!(dt, all_decpoints, locale, dat)  
-
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
-    
-    for agegrp in agegrps
-        tree = dt[agegrp]
-        for node in keys(tree)
-            nodelag, fromcond = node
-            for branch in tree[node]["branches"]
-                filt = ( (dat[:,cpop_cond] .== fromcond) .& 
-                         (dat[:,cpop_status] .== infectious) .&
-                         (dat[:, cpop_lag] .== nodelag) .&
-                         (dat[:,cpop_agegrp] .== agegrp) )
-                cnt_transition = count(filt)                
-                if cnt_transition > 0
-                    probs = tree[node]["probs"]
-                    outcomes = tree[node]["outcomes"]
-                    
-                    choices = rand(Categorical(probs), cnt_transition) # returns ordinal Int index to outcomes
-                                        
-                    for (idx, person) in enumerate(findall(filt))                        
-                        new_stat_cond = outcomes[choices[idx]]
-                        if new_stat_cond in (dead, recovered)  # change status
-                            dat[person, cpop_status] = new_stat_cond
-                        else   # change disease condition
-                            dat[person, cpop_cond] = new_stat_cond
-                        end  # if/else
-                    end  # for (idx, person)
-                    
-                end  # if cnt_transition
-            end  # for branch
-        end  # for node
-    end  #for agegrp
-
-    # bump everyone who is still infectious all at once in one go
-    filt = (dat[:,cpop_status] .== infectious)
-    dat[filt, cpop_lag] .+= 1   
-end  
-    
-
-"""
-    transition!(dt, all_decpoints, locale, dat)
-
-People who have become infectious transition through cases from
-nil (asymptomatic) to mild to sick to severe, depending on their
-agegroup, days of being exposed, and some probability; then to 
-recovered or dead.
-
-Works for a single locale.
-"""
-function transition_old!(dt, all_decpoints, locale, dat)  
 
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     iszero(dat[locale]) && (return)
@@ -136,7 +83,7 @@ function transition_old!(dt, all_decpoints, locale, dat)
                         toprobs[map2pr[branch.tocond]] = branch.pr
                     end
                     @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
-                    fromcond = node[2]  # tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
+                    fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
                     
                     # age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
                     removeit!(age_bump, fromcond)
