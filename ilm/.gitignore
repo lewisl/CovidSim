@@ -1,8 +1,0 @@
-# Specify filepatterns you want git to ignore.
-.ipynb_checkpoints
-.idea
-.vscode
-*.plist
-*.pdf
-*.png
-*.DS_Store
