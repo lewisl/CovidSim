@@ -6,7 +6,7 @@
 function setup(n_days; 
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/dec_tree_all.csv",
-    spfilename="../parameters/spread_params.toml")
+    spfilename="../parameters/spread_params.yml")
 
     # geodata
         geodata = readgeodata(geofilename)
@@ -99,7 +99,7 @@ end
 
 
 function read_spread_params(spfilename)
-    spread_params = TOML.parsefile(spfilename)
+    spread_params = YAML.load_file(spfilename)
 
     required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors"]
     has_all = true
