@@ -8,7 +8,7 @@ recv_risk: [0.1, 0.39, 0.44, 0.54, 0.56]
 
 # contact_factors and touch_factors reshaped after loaded 
 # to look like the arrangements below
-  # size(contact_factors) to (4,5) => input in TOML is (20, ) made to look 4 x 5
+  # size(contact_factors) to (4,5) => input in yaml is (20, ) made to look 4 x 5
   # size(touch_factors) to (6,5) => input in TOML is (30,) made to look 6 x 5
 
 contact_factors:        [ 1.1,    2.0,    2.0,     1.6,   1.0,    # nil

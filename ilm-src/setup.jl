@@ -6,7 +6,7 @@
 function setup(n_days, locales; 
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/dec_tree_all_25.yml",
-    spfilename="../parameters/spread_params.toml")
+    spfilename="../parameters/spread_params.yml")
 
     # geodata
         geodata = buildgeodata(geofilename)
@@ -47,10 +47,13 @@ function build_data(locales, geodata, n_days)
     # isolatedmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
     # testmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
+    agegrp_filt_idx = Dict(loc => precalc_agegrp_filt(openmx[loc])[2] for loc in locales)
+
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
-    return Dict("openmx"=>openmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
+    return Dict("openmx"=>openmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx,
+                "agegrp_filt_idx"=>agegrp_filt_idx)
 end
 
 
@@ -105,6 +108,7 @@ end
 
 
 function read_spread_params(spfilename)
+
     spread_params = YAML.load_file(spfilename)
 
     required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors"]
@@ -141,6 +145,21 @@ function shifter(x, newmin=0.9, newmax=1.5)
     oldmax = maximum(x)
     shifter(x, oldmin, oldmax, newmin, newmax)
 end
+
+
+######################################################################################
+# precalculate agegrp indices--these do not change during the simulation
+######################################################################################
+
+
+function precalc_agegrp_filt(dat)  # dat for a single locale
+    agegrp_filt_bit = Dict(agegrp => dat[:, cpop_agegrp] .== agegrp for agegrp in agegrps)
+    agegrp_filt_idx = Dict(agegrp => findall(agegrp_filt_bit[agegrp]) for agegrp in agegrps)
+    return agegrp_filt_bit, agegrp_filt_idx
+end
+# agegrp_filt_bit, agegrp_filt_idx = precalc_agegrp_filt(ilmat);
+
+
 
 
 ######################################################################################

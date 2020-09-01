@@ -7,12 +7,18 @@
         # UW virology, expansion of deaths by state on log chart
     # fix all the travel functions to latest APIs
     # put in an inflection measure
+
+# TODO for individual level model
+    # preset the agegrp filters in env: by agegrp (in a dict) for each locale (in a dict)
+    # get rid of indirection for lowlevel population updates
+    # test loop vs. broadcast update of pop matrix
+
 # Done
 
 
 __precompile__(true)
 
-module CovidSim
+module CovidSim_ilm
 
 # experimental
 using StaticArrays
@@ -21,6 +27,7 @@ using LoopVectorization
 using DelimitedFiles
 using DataStructures
 using DataFrames
+using CSV
 using Random
 using Distributions
 using StatsBase
@@ -44,7 +51,8 @@ include("cases.jl")
 include("johns_hopkins_data.jl")
 
 # functions for simulation
-export                  
+export    
+    setup,              
     run_a_sim,
     seed!,
     transition!,
@@ -165,7 +173,20 @@ export
     a5,
     agegrps,
     n_agegrps,
-    recv_risk_by_age
+    recv_risk_by_age,
+    cpop_status,
+    cpop_agegrp,
+    cpop_cond,
+    cpop_lag,
+    cpop_cluster,
+    cpop_recov_day,
+    cpop_dead_day,
+    cpop_vax,
+    cpop_vax_day,
+    cpop_test,
+    cpop_test_day,
+    cpop_quar,
+    cpop_quar_day
 
 
 ###########################################################################
@@ -205,18 +226,33 @@ const small = 4
 const smaller = 5
 const rural = 6
 
-# condition_outcome columns and stat series columns
-const unexposed = 1
-const infectious = 2
-const recovered = 3
-const dead = 4
-const nil = 5
-const mild = 6
-const sick = 7
-const severe = 8
-const totinfected = 9
-const travelers = 10
-const isolated = 11
+# stats series/dataframe columns
+const unexposed         = 1
+const infectious        = 2
+const recovered         = 3
+const dead              = 4
+const nil               = 5
+const mild              = 6
+const sick              = 7
+const severe            = 8
+const totinfected       = 9
+const travelers         = 10
+const isolated          = 11
+
+# columns of population matrix
+const cpop_status       = 1
+const cpop_agegrp       = 2
+const cpop_cond         = 3
+const cpop_lag          = 4
+const cpop_cluster      = 5
+const cpop_recov_day    = 6
+const cpop_dead_day     = 7
+const cpop_vax          = 8
+const cpop_vax_day      = 9
+const cpop_test         = 10
+const cpop_test_day     = 11
+const cpop_quar         = 12
+const cpop_quar_day     = 13
 
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
