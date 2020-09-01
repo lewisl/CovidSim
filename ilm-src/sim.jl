@@ -7,7 +7,7 @@
 function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.yml",
-            spfilename="../parameters/spread_params.toml")
+            spfilename="../parameters/spread_params.yml")
 #=
     see cases.jl for runcases and spreadcases
 =#
@@ -23,18 +23,15 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         dt = alldict["dt"]  # decision trees for transition
         all_decpoints = alldict["decpoints"]
         openmx = alldict["dat"]["openmx"]
-        cumhistmx = alldict["dat"]["cumhistmx"]
-        newhistmx = alldict["dat"]["newhistmx"]
+        agegrp_filt_idx = alldict["dat"]["agegrp_filt_idx"]
+        # cumhistmx = alldict["dat"]["cumhistmx"]
+        # newhistmx = alldict["dat"]["newhistmx"]
         # isolatedmx = alldict["dat"]["isolatedmx"]
         # testmx = alldict["dat"]["testmx"]
-        geodata = alldict["geo"]
+        geodf = alldict["geo"]
         spread_params = alldict["sp"]
 
-        env = initialize_sim_env(geodata; spread_params...)
-        density_factors = Dict(loc => 
-            geodata[geodata[:, fips] .== loc, density_fac][1] for loc in locales)
-
-        @show locales
+        env = initialize_sim_env(geodf; spread_params...)
 
         # initial data for building data series of simulation outcomes
         starting_unexposed = [sum(openmx[loc][:,cpop_status]) for loc in locales]
@@ -43,23 +40,26 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             Dict(locales[i]=>starting_unexposed[i] for i in 1:size(locales,1)))
 
     # start the day counter at zero
-    reset!(ctr, :day)  # return and reset key :day leftover from prior runs
+    reset!(ctr, :day)  # return and reset key to 0 :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
 
     ######################
     # simulation loop
     ######################
+    sptime = 0
+    trtime = 0
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
         @inbounds for loc in locales
-            density_factor = density_factors[loc]
+            density_factor = geodf[geodf[:fips] .== loc, :density_factor][]
             for case in runcases
-                case(loc, openmx, isolatedmx, testmx, env)   
+                # case(loc, openmx, isolatedmx, testmx, env)   
+                case(loc, openmx, [], [], env)   
             end
-            spread!(loc, spreadcases, openmx, env,  density_factor)
-            transition!(dt, all_decpoints, loc, openmx)   # transition infectious cases "in the open"
+            sptime += @elapsed spread!(loc, spreadcases, openmx, env,  density_factor)
+            trtime += @elapsed transition!(dt, all_decpoints, loc, openmx, agegrp_filt_idx)   # transition infectious cases "in the open"
         end
         # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
         # transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
@@ -78,12 +78,14 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     #######################
 
     # "history" series for plotting: NOT dataframes, but arrays
-    series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
-    for loc in locales
-        add_totinfected_series!(series, loc)
-    end
+    # series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
+    # for loc in locales
+    #     add_totinfected_series!(series, loc)
+    # end
 
-    return alldict, env, series
+    @show sptime, trtime
+
+    return alldict, env #, series
 end
 
 

@@ -10,11 +10,75 @@ Stash for temporary values changed during simulation cases
 """
 const spread_stash = Dict{Symbol, Array}()
 
+
 """
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
-function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
+function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
+    riskmx = env.riskmx
+    contact_factors = env.contact_factors
+    touch_factors = env.touch_factors
+    locdat = dat[locale]
+
+
+    # index of all spreaders
+    filt_spread_idx = findall(locdat[:, cpop_status] .== infectious)
+    n_spreaders = size(filt_spread_idx, 1);
+
+    # how many contacts?
+    contacts_per_spreader = zeros(Int, size(filt_spread_idx,1),2) # second column for lag of the spreader
+    for i in 1:size(contacts_per_spreader, 1)  # cond, agegrp
+        scale = density_factor * contact_factors[locdat[filt_spread_idx[i], cpop_cond]-4, locdat[filt_spread_idx[i], cpop_agegrp]]
+        contacts_per_spreader[i, 1] = round(Int,rand(Gamma(1.0, scale))) # assume density_factor = 1.0
+        contacts_per_spreader[i, 2] = locdat[filt_spread_idx[i], cpop_lag]   # lag of the spreader who made this contact
+    end
+    n_contacts = sum(contacts_per_spreader[:,1])
+
+    # assign the contacts 
+    filt_contactable_idx = findall(locdat[:, cpop_status] .!= dead)
+    n_contactable = size(filt_contactable_idx, 1)
+    n_target_contacts = min(n_contacts, n_contactable)
+    # @show n_contactable
+    contact_people = sample(filt_contactable_idx, n_target_contacts, replace=false)
+
+    # which contacts are consequential touches? which touches get infected?
+    n_touched = 0
+    n_newly_infected = 0
+
+    stop = 0
+    for (nc, lag) in eachrow(contacts_per_spreader)  # nc=numContacts, lag=lag of spreader
+        start = stop + 1; stop = stop + nc
+
+        if stop <= n_target_contacts
+            for person in contact_people[start:stop]
+                status = locdat[person, cpop_status]  # TODO below crap needs to be fixed
+                characteristic =  status in [1,3] ? [1,0,2][status] : locdat[person, cpop_cond]-2 # max(0,ilmat[person, cpop_cond]-2
+                @debug characteristic < 1 && error("bad characteristic value")
+                agegrp = locdat[person, cpop_agegrp]
+                touched = rand(Binomial(1.0, touch_factors[characteristic, agegrp]))
+                n_touched += touched
+                if touched == 1 && characteristic == unexposed
+                    prob = riskmx[lag, agegrp]
+                    newly_infected = rand(Binomial(1, prob))
+                    if newly_infected == 1
+                        locdat[person, cpop_cond] = nil # nil === asymptomatic or pre-symptomatic
+                        locdat[person, cpop_status] = infectious
+                    end
+                    n_newly_infected += newly_infected
+                end
+            end
+        end
+
+    end
+end
+
+
+"""
+How far do the infectious people spread the virus to
+previously unexposed people, by agegrp?  For a single locale...
+"""
+function spread_old!(locale, spreadcases, dat, env, density_factor = [1.0])
 
 
     #=
@@ -23,17 +87,17 @@ function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
 
     find conditions by lag (do we need this?)
     foo = freqtable(Tables.table(ilmat[:,3:4]), :Column1, :Column2)
-  2.233 ms (100 allocations: 4.89 MiB)
-5×5 Named Array{Int64,2}
-Column1 ╲ Column2 │     0      2      9     15     19
-──────────────────┼──────────────────────────────────
-0                 │ 40000      0      0      0      0
-5                 │     0  10000  10000      0      0
-6                 │     0  10000  20000  10000      0
-7                 │     0  10000  10000      0      0
-8                 │     0  10000  10000  10000  10000
+      2.233 ms (100 allocations: 4.89 MiB)
+    5×5 Named Array{Int64,2}
+    Column1 ╲ Column2 │     0      2      9     15     19
+    ──────────────────┼──────────────────────────────────
+    0                 │ 40000      0      0      0      0
+    5                 │     0  10000  10000      0      0
+    6                 │     0  10000  20000  10000      0
+    7                 │     0  10000  10000      0      0
+    8                 │     0  10000  10000  10000  10000
 
-foo[Name(0), Name(0)] = 4000
+    foo[Name(0), Name(0)] = 4000
     
     =#
 
