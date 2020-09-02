@@ -23,7 +23,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         dt = alldict["dt"]  # decision trees for transition
         all_decpoints = alldict["decpoints"]
         openmx = alldict["dat"]["openmx"]
-        agegrp_filt_idx = alldict["dat"]["agegrp_filt_idx"]
+        agegrp_idx = alldict["dat"]["agegrp_idx"]
         # cumhistmx = alldict["dat"]["cumhistmx"]
         # newhistmx = alldict["dat"]["newhistmx"]
         # isolatedmx = alldict["dat"]["isolatedmx"]
@@ -59,7 +59,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 case(loc, openmx, [], [], env)   
             end
             sptime += @elapsed spread!(loc, spreadcases, openmx, env,  density_factor)
-            trtime += @elapsed transition!(dt, all_decpoints, loc, openmx, agegrp_filt_idx)   # transition infectious cases "in the open"
+            trtime += @elapsed transition!(dt, all_decpoints, loc, openmx, agegrp_idx)   # transition infectious cases "in the open"
         end
         # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
         # transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
@@ -153,79 +153,6 @@ function add_totinfected_series!(series, locale)
     return
 end
 
-
-####################################################################################
-#   convenience functions for reading and inputting population statistics
-#                in the population data matrices
-####################################################################################
-
-"""
-    function grab(condition, agegrp, lag, locale, dat)
-
-Inputs condition, agegrp and lag can be single or multiple (array or range).
-Only one locale can be accessed. Caller should loop over locales to retrieve
-data from multiple locales.
-
-The returned array has dimensions (lag, condition, agegrp).
-"""
-function grab(condition, agegrp, lag, locale, dat)
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-
-    return dat[locale][lag, condition, agegrp]
-end
-
-
-"""
-    function input!(val, condition, agegrp, lag, locale, dat)
-
-Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
-Only one locale can be provided.
-
-ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
-
-Inputs overwrite existing data at the referenced location of the target population matrix dat.
-"""
-function input!(val, condition, agegrp, lag, locale, dat)
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale, dat)
-    dat[locale][lag, condition, agegrp] = val
-end
-
-
-"""
-    function plus!(val, condition, agegrp, lag, locale, dat)
-
-Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
-Only one locale can be provided.
-
-ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
-
-Inputs are added to the existing data at the referenced location of the target population matrix dat.
-"""
-function plus!(val, condition, agegrp, lag, locale, dat) 
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-
-    dat[locale][lag, condition, agegrp] += val    # T(val)
-end
-
-
-"""
-    function minus!(val, condition, agegrp, lag, locale, dat)
-
-Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
-Only one locale can be provided.
-
-ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
-
-If subtraction from the existing data would result in negative values at the referenced locations of the target population matrix dat,
-an error will be raised. The population matrix must contain positive integer values.
-"""
-function minus!(val, condition, agegrp, lag, locale, dat)
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale, dat)
-    @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
-    dat[locale][lag, condition, agegrp] -= val
-end
 
 
 #####################################################################################
@@ -344,6 +271,11 @@ sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
 #  experiments
 #############################################################
 
+
+####################################################################################
+#   convenience functions for reading and inputting population statistics
+#                in the population data matrices
+####################################################################################
 
 mutable struct actions
    tests::Array{Array{Int,1},1}  # [[column index, value]]

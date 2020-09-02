@@ -47,13 +47,14 @@ function build_data(locales, geodata, n_days)
     # isolatedmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
     # testmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
-    agegrp_filt_idx = Dict(loc => precalc_agegrp_filt(openmx[loc])[2] for loc in locales)
+    # precalculate agegrp indices
+    agegrp_idx = Dict(loc => precalc_agegrp_filt(openmx[loc])[2] for loc in locales)
 
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
     return Dict("openmx"=>openmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx,
-                "agegrp_filt_idx"=>agegrp_filt_idx)
+                "agegrp_idx"=>agegrp_idx)
 end
 
 

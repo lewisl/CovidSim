@@ -9,9 +9,9 @@
     # put in an inflection measure
 
 # TODO for individual level model
-    # preset the agegrp filters in env: by agegrp (in a dict) for each locale (in a dict)
     # get rid of indirection for lowlevel population updates
     # test loop vs. broadcast update of pop matrix
+    # implement spreadcases for ILM simulation
 
 # Done
 

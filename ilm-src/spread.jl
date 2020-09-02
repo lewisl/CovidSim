@@ -52,10 +52,12 @@ function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
 
         if stop <= n_target_contacts
             for person in contact_people[start:stop]
+                # person's characteristics
                 status = locdat[person, cpop_status]  # TODO below crap needs to be fixed
+                agegrp = locdat[person, cpop_agegrp]
                 characteristic =  status in [1,3] ? [1,0,2][status] : locdat[person, cpop_cond]-2 # max(0,ilmat[person, cpop_cond]-2
                 @debug characteristic < 1 && error("bad characteristic value")
-                agegrp = locdat[person, cpop_agegrp]
+
                 touched = rand(Binomial(1.0, touch_factors[characteristic, agegrp]))
                 n_touched += touched
                 if touched == 1 && characteristic == unexposed
