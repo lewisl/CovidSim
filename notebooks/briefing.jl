@@ -7,20 +7,23 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.1
 #   kernelspec:
-#     display_name: Julia 1.5.0
+#     display_name: Julia 1.5.1
 #     language: julia
-#     name: julia-1.5.0-1.5
+#     name: julia-1.5
 # ---
 
 # %% [markdown]
 # # Modeling COVID-19
 
-# %% hide_input=true jupyter={"source_hidden": true}
+# %% hide_input=true
 using CovidSim
 using DataFrames
 using Plots
 using Printf
 gr()  
+
+# %%
+pwd()
 
 # %% hide_input=true
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)

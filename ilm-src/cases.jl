@@ -105,104 +105,10 @@ end
 # spread cases
 ####################################################################
 
-
-"""
-- define a cases as mycase=Spreadcase(15,cf_array,tf_array,compliance_array_or_float)
-- pass these cases to run_a_sim in kwarg spreadcases as a list--they'll be run in function spread!
-scases = [mycase, case_2, ...]  then run_a_sim(geofilename, n_days, locales; spreadcases=scases)
-- cases above can be combined with these passing in both runcases and spreadcases
-"""
-struct Spreadcase
-    day::Int
-    cf::Array{Float64,2}  # (4,5)
-    tf::Array{Float64,2}  # (6,5)
-    compliance::Union{Float64, Array{Float64,2}}
-end
+        # all in spread.jl
 
 
-function spread_case_setter(cases=[]; env=env)
-    for case in cases
-        c = case(env=env)
-        if c.day == ctr[:day]
-            # before the case starts--ignore it
-            # after the case--it's already in effect--nothing to change
-            if iszero(c.compliance)  # signal to shutdown cases and restore defaults
-                # restore defaults for spread!  
-                default_env = initialize_sim_env(env.geodata; touch_factors=env.touch_factors, contact_factors=env.contact_factors,
-                                                 send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age)
-                env.sd_compliance[:] = default_env.sd_compliance
-                env.contact_factors[:] = default_env.contact_factors
-                env.touch_factors[:] = default_env.touch_factors
-                delete!(spread_stash, :case_cf)
-                delete!(spread_stash, :case_tf)
-            else
-            # set contact_factors, touch_factors to the case values
-                # copy c.cf to spread_stash
-                # copy c.cf to env.contact_factors->active contact_factors  => when running spreadsteps
-                if !haskey(spread_stash, :default_cf)  # should only ever happen once for an entire simulation
-                    spread_stash[:default_cf] = copy(env.contact_factors)
-                end
-                if !haskey(spread_stash, :default_tf)
-                    spread_stash[:default_tf] = copy(env.touch_factors)
-                end
 
-                spread_stash[:case_cf] = copy(c.cf)  # shouldn't need copy, but it's safer
-                spread_stash[:case_tf] = copy(c.tf)  #             "
-
-            # set the compliance note: compliance is the same for spreaders and accessible
-                    # it varies by agegrp and condition if desired
-                # check all compliance values in [0.0, 1.0]
-                @assert c.compliance .>= 0.0 "compliance values must be positive"
-                @assert c.compliance .<= 1.0 "compliance values must be in [0.0,1.0]"
-                env.sd_compliance .= copy(c.compliance)  # TODO do we need to copy? takes 2x time
-            end # if for current day case
-        end  # if test for today
-    end # case for loop
-end  # function case_setter
-
-
-function spread_case_runner(density_factor, all_unexposed; env=env)
-    spread_stash[:spreaders] = copy(env.spreaders)  # stash today's spreaders--isolated from env
-    spread_stash[:simple_accessible] = copy(env.simple_accessible) # stash today's accessible--isolated from env
-    newinfected = []  # capture infected for comply and nocomply groups
-    for i in [:comply,:nocomply]
-        if i == :comply  # split the spreaders and accessible, set the case factors
-            env.spreaders[:]= round.(T_int[], permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
-                                       env.sd_compliance[3:6,:], [3,1,2]))
-            env.simple_accessible[:]= round.(T_int[], copy(spread_stash[:simple_accessible]) .*
-                                             env.sd_compliance)
-            env.contact_factors[:] = spread_stash[:case_cf] # copy(spread_stash[:case_cf])
-            env.touch_factors[:] = spread_stash[:case_tf] # copy(spread_stash[:case_tf])
-        else  # i == :nocomply other split of spreaders and accessible, restore default factors
-            env.spreaders[:]= round.(T_int[], permutedims(permutedims(copy(spread_stash[:spreaders]),[2,3,1]) .*
-                                        (1.0 .- env.sd_compliance[3:6,:]), [3,1,2]))
-            env.simple_accessible[:]= round.(T_int[], copy(spread_stash[:simple_accessible]) .*
-                                             (1.0 .- env.sd_compliance))
-            # set the default contact_factors and touch_factors
-            env.contact_factors[:] = copy(spread_stash[:default_cf])
-            env.touch_factors[:] = copy(spread_stash[:default_tf])
-        end  # if
-
-        push!(newinfected, spreadsteps(density_factor, all_unexposed, env))
-        if i == :comply
-            spread_stash[:comply_contacts] = copy(env.contacts)
-            spread_stash[:comply_touched] = copy(env.touched)
-            spread_stash[:comply_spreaders] = copy(env.spreaders)
-        end
-    end  # for loop
-    # total values for comply + nocomply
-    newinfected = newinfected[1] .+ newinfected[2]
-end
-
-
-function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
-    function sd_mod(;env=env)
-        sd_mod = Spreadcase(start,
-                        round.(shifter(env.contact_factors, cf...),digits=2),
-                        round.(shifter(env.touch_factors, tf...),digits=2),
-                        comply)
-    end
-end
 
 # copy beyond the comment and run in the REPL, use as input
 #
