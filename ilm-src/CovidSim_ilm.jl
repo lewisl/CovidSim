@@ -44,10 +44,10 @@ include("dec_tree.jl")
 include("setup.jl")
 include("sim.jl")
 include("tracking.jl")
+include("cases.jl")
 include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
-include("cases.jl")
 include("johns_hopkins_data.jl")
 
 # functions for simulation

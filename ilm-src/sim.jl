@@ -12,7 +12,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     see cases.jl for runcases and spreadcases
 =#
 
-    empty_all_qs!() # from previous runs
+    empty_all_caches!() # from previous runs
 
     T_int[] = set_int_type # update the global type of ints with the input value
 
@@ -58,7 +58,11 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, openmx, isolatedmx, testmx, env)   
                 case(loc, openmx, [], [], env)   
             end
-            sptime += @elapsed spread!(loc, spreadcases, openmx, env,  density_factor)
+            if isempty(spreadcases)
+                sptime += @elapsed spread!(openmx, loc, env,  density_factor)
+            else
+                sptime += @elapsed spread!(openmx, loc, spreadcases, env,  density_factor)
+            end
             trtime += @elapsed transition!(dt, all_decpoints, loc, openmx, agegrp_idx)   # transition infectious cases "in the open"
         end
         # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
@@ -186,12 +190,13 @@ function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
 end
 
 
-function empty_all_qs!()
+function empty_all_caches!()
     # empty tracking queues
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   
     !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
     !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
-    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
+    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))  
+    cleanup_stash(spread_stash) 
 end
 
 
