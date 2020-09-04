@@ -8,9 +8,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.yml",
             spfilename="../parameters/spread_params.yml")
-#=
-    see cases.jl for runcases and spreadcases
-=#
 
     empty_all_caches!() # from previous runs
 
@@ -24,8 +21,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         all_decpoints = alldict["decpoints"]
         openmx = alldict["dat"]["openmx"]
         agegrp_idx = alldict["dat"]["agegrp_idx"]
-        # cumhistmx = alldict["dat"]["cumhistmx"]
-        # newhistmx = alldict["dat"]["newhistmx"]
+        cumhistmx = alldict["dat"]["cumhistmx"]
+        newhistmx = alldict["dat"]["newhistmx"]
         # isolatedmx = alldict["dat"]["isolatedmx"]
         # testmx = alldict["dat"]["testmx"]
         geodf = alldict["geo"]
@@ -74,22 +71,23 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             println("at day $(ctr[:day]) r0 = $current_r0")
         end
 
-        # println("day $(ctr[:day]) all locales ", keys(isolatedmx))
-        # do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
-        #     starting_unexposed=starting_unexposed)
+        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
+            starting_unexposed=starting_unexposed)
+
     end
     silent || println("Simulation completed for $(ctr[:day]) days.")
     #######################
 
     # "history" series for plotting: NOT dataframes, but arrays
-    # series = Dict(loc=>Dict(:cum=>make_series(cumhistmx[loc]), :new=>make_series(newhistmx[loc])) for loc in locales)
+    series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
+
     # for loc in locales
     #     add_totinfected_series!(series, loc)
     # end
 
     @show sptime, trtime
 
-    return alldict, env #, series
+    return alldict, env, series
 end
 
 
@@ -98,28 +96,56 @@ end
 #  Build and update daily history series
 ################################################################################
 
-function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
-    # capture a snapshot of the end-of-day population matrix
-    thisday = ctr[:day]
-    if thisday == 1
-        @inbounds for locale in locales
-            zerobase = zeros(T_int[], size(newhist[locale])[1:2])
-            zerobase[1,agegrps] .+= starting_unexposed[locale]
-            zerobase[1,totalcol] = sum(starting_unexposed[locale])
 
-            @views cumhist[locale][:, agegrps, thisday] = reshape(sum(opendat[locale],dims=1), n_conditions, n_agegrps)
-            @views cumhist[locale][:, totalcol, thisday] = sum(cumhist[locale][:, agegrps, thisday], dims=2)
-            newhist[locale][:,:,thisday] = cumhist[locale][:,:, thisday] .- zerobase
+# const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
+#                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
+
+function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
+    thisday = ctr[:day]
+    for loc in locales
+        dat = opendat[loc]  # source
+        cumdat = cumhist[loc]   # sink
+        newdat = newhist[loc]   # sink
+
+        statusday = countmap(dat[:, cpop_status])    # outcomes for thisday
+        sickday = countmap(dat[dat[:,cpop_status] .== infectious, cpop_cond])  # ditto
+
+        for i in unexposed:dead  # 1:4
+            cumdat[thisday, map2series[i][totalcol]] = get(statusday, i, 0)
         end
-    else  # on all other days...
-        @inbounds for locale in locales
-            cumhist[locale][:,agegrps, thisday] = reshape(sum(opendat[locale],dims=1), n_conditions, n_agegrps)
-            @views cumhist[locale][:,totalcol, thisday] = sum(cumhist[locale][:, agegrps, thisday], dims=2) # @views 
-            @views newhist[locale][:,:,thisday] = cumhist[locale][:,:,thisday] .- cumhist[locale][:,:,thisday-1] # @views 
+
+        for i in nil:severe # 5:8
+            cumdat[thisday, map2series[i][totalcol]] = get(sickday, i, 0)
+        end
+
+        # new today
+            # dead = today:dead - yesterday:dead
+            # recovered = today:recovered - yesterday:recovered
+            # infectious = today:infectious - yesterday:infectious + newdead + newrecovered
+            # little bit harder for nil, mild, sick, severe
+            # TODO getting it working for each agegrp
+        for i in [dead, recovered]
+            if thisday == 1
+                newdat[thisday, map2series[i][totalcol]] = get(statusday, i, 0)
+            else  # on all other days
+                newdat[thisday, map2series[i][totalcol]] = (
+                    cumdat[thisday, map2series[i][totalcol]] 
+                    - cumdat[thisday - 1, map2series[i][totalcol]]
+                    )         
+            end
+        end
+        if thisday == 1
+            newdat[thisday, map2series[infectious][totalcol]] = get(statusday, infectious, 0)
+        else
+            newdat[thisday, map2series[infectious][totalcol]] = (
+                cumdat[thisday, map2series[infectious][totalcol]]
+                - cumdat[thisday - 1, map2series[infectious][totalcol]]
+                + newdat[thisday, map2series[recovered][totalcol]]
+                + newdat[thisday, map2series[dead][totalcol]]
+                )
         end
     end
 end
-
 
 function review_history(histmx)
     for i in 1:size(histmx, 3)
@@ -132,13 +158,13 @@ end
 
 
 # a single locale, either cumulative or new
-function make_series(histmx)
-    s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2]))
-    for i in 1:size(histmx, 3)
-        @views s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
-    end
-    return s
-end
+# function make_series(histmx)
+#     s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2]))
+#     for i in 1:size(histmx, 3)
+#         @views s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
+#     end
+#     return s
+# end
 
 # a single locale that already has both new and cum series
 function add_totinfected_series!(series, locale)

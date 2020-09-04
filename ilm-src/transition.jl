@@ -70,10 +70,6 @@ function transition!(dt, all_decpoints, locale, dat, agegrp_idx)
         for node in keys(tree)
             nodelag, fromcond = node
             for branch in tree[node]["branches"]
-                # filt = ( (locdat[:,cpop_cond] .== fromcond) .& 
-                #          (locdat[:,cpop_status] .== infectious) .&
-                #          (locdat[:, cpop_lag] .== nodelag) .&
-                #          (locdat[:,cpop_agegrp] .== agegrp) )
 
                 # reduce the size of pop matrix to a single agegrp then do logical filters
                 filt = ( (locdat[locagegrp_idx[agegrp],cpop_cond] .== fromcond) .& 

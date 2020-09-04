@@ -68,22 +68,26 @@ function transition!(dt, all_decpoints, locale, dat)
     #pre-allocate variables updated in loop
     toprobs = @MVector zeros(Float64, 6)
     distvec = @MVector zeros(T_int[], 6)  #  
-    tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
-    age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
+    # tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
+    # age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
 
-    @inbounds for lag = laglim:-1:1
-        if lag in keys(all_decpoints) # check if a decision tree applies to this lag
-            for agegrp in agegrps
-                tree = dt[agegrp].tree
-                age_decpoints = dt[agegrp].dec_points
+    @inbounds for agegrp in agegrps
+        for lag = laglim:-1:1
+            if lag in all_decpoints[agegrp] # check if a decision tree applies to this lag           
+                tree = dt[agegrp]    # .tree
+                # age_decpoints = all_decpoints[agegrp]
                 age_bump = copy(infectious_cases)
-                for node in get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
+                for node in [node for node in keys(tree) if first(node) == lag] # get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
+                    # println(ctr[:day],": node: ", node)
+                    age_bump = copy(infectious_cases)
                     toprobs = @MVector zeros(Float64, 6)
-                    for branch in tree[node]  # agegroup index in array, node key in agegroup dict
-                        toprobs[map2pr[branch.tocond]] = branch.pr
+                    for branch in tree[node]["branches"]  # agegroup index in array, node key in agegroup dict
+                        toprobs[map2pr[branch["tocond"]]] = branch["pr"]
                     end
-                    @assert isapprox(sum(toprobs), 1.0, atol=1e-6) "toprobs not equal 1.0, got $(sum(toprobs))"
-                    fromcond = tree[node][1].fromcond  # all branches of a node MUST have the same fromcond
+                    @assert isapprox(sum(toprobs), 1.0, atol=1e-6) """\ntoprobs not equal 1.0, 
+                                                                        got $(sum(toprobs)) \nfor $node
+                                                                        \nbranches: $(tree[node]["branches"])"""
+                    fromcond = node[2]   # .fromcond  # all branches of a node MUST have the same fromcond
                     
                     # age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
                     removeit!(age_bump, fromcond)
@@ -96,10 +100,10 @@ function transition!(dt, all_decpoints, locale, dat)
                 if !isempty(age_bump)  # bump people in conds that didn't get distributed above
                     bump_up!(age_bump, agegrp, lag, locale, dat) 
                 end
+            else 
+                # when no decision tree, bump up every infected person one day within the same condition
+                bump_up!(infectious_cases, agegrps, lag, locale, dat)
             end
-        else 
-            # when no decision tree, bump up every infected person one day within the same condition
-            bump_up!(infectious_cases, agegrps, lag, locale, dat)
         end
     end
 

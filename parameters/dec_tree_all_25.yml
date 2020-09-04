@@ -48,7 +48,7 @@
     - {tocond: 3, next: [0,0], pr: 1.0}
   [14,7]:
     - {tocond: 3, next: [0, 0], pr: 0.83}
-    - {tocond: 8, next: [25, 7], pr: 0.1}
+    - {tocond: 7, next: [25, 7], pr: 0.1}
     - {tocond: 8, next: [19, 8], pr: 0.07}
   [14,8]:
     - {tocond: 3, next: [0,0], pr: 0.474}
@@ -115,7 +115,7 @@
     - {tocond: 3, next: [0,0], pr: 1.0}
   [14,7]:
     - {tocond: 3, next: [0, 0], pr: 0.8}
-    - {tocond: 8, next: [25, 7], pr: 0.1}
+    - {tocond: 7, next: [25, 7], pr: 0.1}
     - {tocond: 8, next: [19, 8], pr: 0.1}
   [14,8]:
     - {tocond: 3, next: [0,0], pr: 0.165}
@@ -123,7 +123,7 @@
     - {tocond: 4, next: [0,5], pr: 0.12}
   [19,8]:
     - {tocond: 3, next: [0,0], pr: 0.81}
-    - {tocond: 4, next: [25,8], pr: 0.13}
+    - {tocond: 8, next: [25,8], pr: 0.13}
     - {tocond: 4, next: [0,5], pr: 0.06}
   [25,7]:
     - {tocond: 3, next: [0,0], pr: 0.76}
@@ -141,13 +141,13 @@
     - {tocond: 7, next: [14,7], pr: 0.5}
   [9,6]:
     - {tocond: 6, next: [14,6], pr: 0.4}
-    - {tocond: 6, next: [14,7], pr: 0.6}
+    - {tocond: 7, next: [14,7], pr: 0.6}
   [9,7]:
     - {tocond: 7, next: [14, 7], pr: 0.6}
     - {tocond: 8, next: [14, 8], pr: 0.4}
   [14,6]:
     - {tocond: 3, next: [0,0], pr: 0.7}
-    - {tocond: 3, next: [25,7], pr: 0.3}
+    - {tocond: 7, next: [25,7], pr: 0.3}
   [14,7]:
     - {tocond: 3, next: [0, 0], pr: 0.7}
     - {tocond: 7, next: [25, 7], pr: 0.1}
@@ -158,7 +158,7 @@
     - {tocond: 4, next: [0,5], pr: 0.21}
   [19,8]:
     - {tocond: 3, next: [0,0], pr: 0.49}
-    - {tocond: 4, next: [25,8], pr: 0.24}
+    - {tocond: 8, next: [25,8], pr: 0.24}
     - {tocond: 4, next: [0,5], pr: 0.27}
   [25,7]:
     - {tocond: 3, next: [0,0], pr: 0.682}

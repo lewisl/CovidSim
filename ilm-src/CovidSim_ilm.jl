@@ -11,7 +11,14 @@
 # TODO for individual level model
     # get rid of indirection for lowlevel population updates
     # test loop vs. broadcast update of pop matrix
-    # implement spreadcases for ILM simulation
+    # implement history tracking for ilm: by agegrp, add nil, mild, sick, severe to new
+    # do quarantine for ilm
+
+# TODO for group level model
+    # make sure it still works!
+    # change Spreadcase struct to match ilm
+    # take env out of sd_gen--just return a Spreadcase
+    # run_a_sim to choose spread! method based on whether there are any spreadcases
 
 # Done
 
@@ -186,7 +193,8 @@ export
     cpop_test,
     cpop_test_day,
     cpop_quar,
-    cpop_quar_day
+    cpop_quar_day,
+    totalcol
 
 
 ###########################################################################
