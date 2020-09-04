@@ -151,7 +151,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
             reuse = false,
             annotate = ((6,half_yscale,
                 Plots.text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
-                    11, :left)))
+                    fontsize=9, :left)))
         )
     # annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
     # gui()

@@ -44,8 +44,6 @@ function build_data(locales, geodata, n_days)
     pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
 
     openmx = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
-    # isolatedmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
-    # testmx = data_dict(locales, lags=size(lags,1), conds=size(conditions,1), agegrps=size(agegrps,1))
 
     # precalculate agegrp indices
     agegrp_idx = Dict(loc => precalc_agegrp_filt(openmx[loc])[2] for loc in locales)
@@ -53,8 +51,7 @@ function build_data(locales, geodata, n_days)
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
     # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
-    return Dict("openmx"=>openmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx,
-                "agegrp_idx"=>agegrp_idx)
+    return Dict("openmx"=>openmx, "agegrp_idx"=>agegrp_idx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
 
@@ -87,7 +84,7 @@ end
 function hist_dict(locales, n_days; conds=length(conditions), agegrps=n_agegrps)
     dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
-        dat[loc] = zeros(T_int[], conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+        dat[loc] = zeros(T_int[], n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end
