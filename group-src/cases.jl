@@ -106,27 +106,13 @@ end
 ####################################################################
 
 
-"""
-- define a cases as mycase=Spreadcase(15,cf_array,tf_array,compliance_array_or_float)
-- pass these cases to run_a_sim in kwarg spreadcases as a list--they'll be run in function spread!
-scases = [mycase, case_2, ...]  then run_a_sim(geofilename, n_days, locales; spreadcases=scases)
-- cases above can be combined with these passing in both runcases and spreadcases
-"""
-struct Spreadcase
-    day::Int
-    cf::Array{Float64,2}  # (4,5)
-    tf::Array{Float64,2}  # (6,5)
-    compliance::Union{Float64, Array{Float64,2}}
-end
-
-
 function spread_case_setter(cases=[]; env=env)
     for case in cases
-        c = case(env=env)
-        if c.day == ctr[:day]
+        # c = case(env=env)
+        if case.day == ctr[:day]
             # before the case starts--ignore it
             # after the case--it's already in effect--nothing to change
-            if iszero(c.compliance)  # signal to shutdown cases and restore defaults
+            if iszero(case.comply)  # signal to shutdown cases and restore defaults
                 # restore defaults for spread!  
                 default_env = initialize_sim_env(env.geodata; touch_factors=env.touch_factors, contact_factors=env.contact_factors,
                                                  send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age)
@@ -146,15 +132,15 @@ function spread_case_setter(cases=[]; env=env)
                     spread_stash[:default_tf] = copy(env.touch_factors)
                 end
 
-                spread_stash[:case_cf] = copy(c.cf)  # shouldn't need copy, but it's safer
-                spread_stash[:case_tf] = copy(c.tf)  #             "
+                spread_stash[:case_cf] = shifter(env.contact_factors, case.cf...)  # copy(c.cf)  # shouldn't need copy, but it's safer
+                spread_stash[:case_tf] = shifter(env.touch_factors, case.tf...)  # copy(c.tf)  #             "
 
             # set the compliance note: compliance is the same for spreaders and accessible
                     # it varies by agegrp and condition if desired
                 # check all compliance values in [0.0, 1.0]
-                @assert c.compliance .>= 0.0 "compliance values must be positive"
-                @assert c.compliance .<= 1.0 "compliance values must be in [0.0,1.0]"
-                env.sd_compliance .= copy(c.compliance)  # TODO do we need to copy? takes 2x time
+                @assert case.comply .>= 0.0 "comply values must be positive"
+                @assert case.comply .<= 1.0 "comply values must be in [0.0,1.0]"
+                env.sd_compliance .= copy(case.comply)  # TODO do we need to copy? takes 2x time
             end # if for current day case
         end  # if test for today
     end # case for loop
@@ -195,14 +181,6 @@ function spread_case_runner(density_factor, all_unexposed; env=env)
 end
 
 
-function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
-    function sd_mod(;env=env)
-        sd_mod = Spreadcase(start,
-                        round.(shifter(env.contact_factors, cf...),digits=2),
-                        round.(shifter(env.touch_factors, tf...),digits=2),
-                        comply)
-    end
-end
 
 # copy beyond the comment and run in the REPL, use as input
 #
