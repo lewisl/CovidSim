@@ -50,6 +50,7 @@ function transition!(dt, all_decpoints, dat)
 end
 
 
+
 """
     transition!(dt, all_decpoints, locale, dat)
 
@@ -61,6 +62,65 @@ recovered or dead.
 Works for a single locale.
 """
 function transition!(dt, all_decpoints, locale, dat)  
+
+    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
+    # iszero(dat[locale]) && (return)
+
+    #pre-allocate variables updated in loop
+    # toprobs = @MVector zeros(Float64, 6)
+    # distvec = @MVector zeros(T_int[], 6)  #  
+    # tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
+    # age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
+
+    for agegrp in agegrps
+        tree = dt[agegrp]
+        for node in sort(collect(keys(tree)), rev=true)  
+            nodelag, fromcond = node
+            folks = grab(fromcond, agegrp, nodelag, locale, dat)
+
+            # if (ctr[:day] == 5) | (ctr[:day] == 9)
+            #     println("day: $(ctr[:day]), agegrp: $agegrp, node: $node, folks: $folks")
+            # end
+
+            if folks > 0
+                probs = tree[node]["probs"]
+                outcomes = tree[node]["outcomes"]
+
+                distrib = countmap(rand(Categorical(probs), folks))
+
+                for i in keys(distrib)
+                    if outcomes[i] in [recovered, dead]
+                        plus!(distrib[i], outcomes[i], agegrp, 1, locale, dat)
+                        minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
+                    else  # in infectious conditions nil:severe
+                        plus!(distrib[i], outcomes[i], agegrp, nodelag, locale, dat)
+                        minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
+                    end
+                end
+            end
+        end
+    end
+
+    for lag in laglim-1:-1:1
+        bump_up!(infectious_cases, agegrps, lag, locale, dat)
+    end
+    update_infectious!(locale, dat)
+end
+
+
+
+
+"""
+    transition!(dt, all_decpoints, locale, dat)
+
+People who have become infectious transition through cases from
+nil (asymptomatic) to mild to sick to severe, depending on their
+agegroup, days of being exposed, and some probability; then to 
+recovered or dead.
+
+Works for a single locale.
+"""
+function transition_old!(dt, all_decpoints, locale, dat)  
 
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     iszero(dat[locale]) && (return)
@@ -78,7 +138,6 @@ function transition!(dt, all_decpoints, locale, dat)
                 # age_decpoints = all_decpoints[agegrp]
                 age_bump = copy(infectious_cases)
                 for node in [node for node in keys(tree) if first(node) == lag] # get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
-                    # println(ctr[:day],": node: ", node)
                     age_bump = copy(infectious_cases)
                     toprobs = @MVector zeros(Float64, 6)
                     for branch in tree[node]["branches"]  # agegroup index in array, node key in agegroup dict
@@ -126,12 +185,12 @@ function bump-up!
 
 Bump people from one lag to lag + 1 in the same disease condition.
 """
-function bump_up!(to_bump, agegrp, lag, locale, dat)
-    bump = grab(to_bump, agegrp, lag, locale, dat)
+function bump_up!(to_cond, agegrp, lag, locale, dat)
+    bump = grab(to_cond, agegrp, lag, locale, dat)
 
     if sum(bump) > T_int[](0)
-        plus!(bump, to_bump, agegrp, lag+1, locale, dat)
-        minus!(bump, to_bump, agegrp, lag,   locale, dat)
+        plus!(bump, to_cond, agegrp, lag+1, locale, dat)
+        minus!(bump, to_cond, agegrp, lag,   locale, dat)
     end
 end
 

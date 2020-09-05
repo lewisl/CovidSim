@@ -51,3 +51,21 @@ julia> methods(spread!)
 [4] spread!(dat, locale::Int64, env, density_factor::Float64) in CovidSim_ilm at /Users/lewis/.julia-local-packages/CovidSim_ilm/spread.jl:21
 
 This does not seem like a problem with method dispatch; seems like a problem with type inference.
+
+
+# KeySets don't work like AbstractArrays
+foo = keys(tree1)
+Base.KeySet for a Dict{Any,Any} with 10 entries. Keys:
+  [9, 5]
+  [25, 8]
+  [9, 7]
+  [14, 7]
+  [5, 5]
+  [9, 6]
+  [14, 8]
+  [19, 8]
+  [25, 7]
+  [14, 6]
+
+julia> sort(foo)
+ERROR: MethodError: no method matching sort(::Base.KeySet{Any,Dict{Any,Any}})
