@@ -2,7 +2,9 @@
 
 This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. [Look at some preliminary results...](https://github.com/lewisl/CovidSim/blob/master/reports/report%201/report%201.ipynb)
 
-The model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The groups are:
+There are now both a group model, in the group-src folder, and an individual level model, in the ilm-src folder.
+
+The group model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The groups are:
 
 - Unexposed
 - Infectious (summary of the 4 disease conditions)
@@ -14,6 +16,8 @@ The model tracks groups of people in 8 categories by day in a given locale (city
 - Severe
 
 The groups are further divided by age groups (0-20, 20-40, 40-60, 60-80, 80+) and "lag," which refers to the number of days an infected person has had the disease. It is very easy to reduce or extend the maximum lag and to run a simulation for any duration.
+
+The individual level model ("ilm" from now on) tracks each individual in a locale with an individual's specific traits and outcomes. Because a simulation doesn't know the individual people we use the same age groups, disease status conditions, and lags as in the group model. But, the ilm enables more complex policy scenarios to be simulated with more understandable logic. But, the ilm runs slower than the group model because each individual must be queried and updated.
 
 The basic processes of the simulation are:
 - Spread
