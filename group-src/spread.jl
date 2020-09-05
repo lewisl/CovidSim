@@ -8,7 +8,22 @@ Stash for temporary values changed during simulation cases
 - it is the users responsibility to empty the stash
 - there may be (will be) side effects if you don't empty the stash between simulations
 """
-const spread_stash = Dict{Symbol, Array}()
+const spread_stash = Dict{Symbol, Any}()
+
+
+struct Spreadcase
+    day::Int
+    cf::Tuple{Float64,Float64}  # (4,5)
+    tf::Tuple{Float64,Float64}  # (6,5)
+    comply::Float64
+end
+
+
+function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
+    Spreadcase(start, cf, tf, comply)
+end
+
+
 
 """
 How far do the infectious people spread the virus to

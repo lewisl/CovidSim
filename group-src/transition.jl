@@ -66,31 +66,21 @@ function transition!(dt, all_decpoints, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     # iszero(dat[locale]) && (return)
 
-    #pre-allocate variables updated in loop
-    # toprobs = @MVector zeros(Float64, 6)
-    # distvec = @MVector zeros(T_int[], 6)  #  
-    # tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
-    # age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
-
     for agegrp in agegrps
         tree = dt[agegrp]
         for node in sort(collect(keys(tree)), rev=true)  
             nodelag, fromcond = node
             folks = grab(fromcond, agegrp, nodelag, locale, dat)
 
-            # if (ctr[:day] == 5) | (ctr[:day] == 9)
-            #     println("day: $(ctr[:day]), agegrp: $agegrp, node: $node, folks: $folks")
-            # end
-
             if folks > 0
-                probs = tree[node]["probs"]
-                outcomes = tree[node]["outcomes"]
+                pr = tree[node]["probs"] # pr for all branches at the node
+                outcomes = tree[node]["outcomes"] # outcomes for all branches at the node
 
-                distrib = countmap(rand(Categorical(probs), folks))
+                distrib = countmap(rand(Categorical(pr), folks))
 
                 for i in keys(distrib)
                     if outcomes[i] in [recovered, dead]
-                        plus!(distrib[i], outcomes[i], agegrp, 1, locale, dat)
+                        plus!(distrib[i], outcomes[i], agegrp, 1, locale, dat) # lag is 1
                         minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
                     else  # in infectious conditions nil:severe
                         plus!(distrib[i], outcomes[i], agegrp, nodelag, locale, dat)
@@ -108,78 +98,6 @@ function transition!(dt, all_decpoints, locale, dat)
 end
 
 
-
-
-"""
-    transition!(dt, all_decpoints, locale, dat)
-
-People who have become infectious transition through cases from
-nil (asymptomatic) to mild to sick to severe, depending on their
-agegroup, days of being exposed, and some probability; then to 
-recovered or dead.
-
-Works for a single locale.
-"""
-function transition_old!(dt, all_decpoints, locale, dat)  
-
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
-    iszero(dat[locale]) && (return)
-
-    #pre-allocate variables updated in loop
-    toprobs = @MVector zeros(Float64, 6)
-    distvec = @MVector zeros(T_int[], 6)  #  
-    # tree = Dict{Tuple{Int64, Int64}, Array{CovidSim.Branch, 1}}() 
-    # age_decpoints = Dict{Int64, Array{Tuple{Int64, Int64}, 1}}()
-
-    @inbounds for agegrp in agegrps
-        for lag = laglim:-1:1
-            if lag in all_decpoints[agegrp] # check if a decision tree applies to this lag           
-                tree = dt[agegrp]    # .tree
-                # age_decpoints = all_decpoints[agegrp]
-                age_bump = copy(infectious_cases)
-                for node in [node for node in keys(tree) if first(node) == lag] # get(age_decpoints, lag, []) # skip the loop is this agegrp doesn't have this decpoint
-                    age_bump = copy(infectious_cases)
-                    toprobs = @MVector zeros(Float64, 6)
-                    for branch in tree[node]["branches"]  # agegroup index in array, node key in agegroup dict
-                        toprobs[map2pr[branch["tocond"]]] = branch["pr"]
-                    end
-                    @assert isapprox(sum(toprobs), 1.0, atol=1e-6) """\ntoprobs not equal 1.0, 
-                                                                        got $(sum(toprobs)) \nfor $node
-                                                                        \nbranches: $(tree[node]["branches"])"""
-                    fromcond = node[2]   # .fromcond  # all branches of a node MUST have the same fromcond
-                    
-                    # age_bump = filter(x->x!=fromcond,age_bump)   # remove fromcond distributed to new condition
-                    removeit!(age_bump, fromcond)
-                    folks = grab(fromcond,agegrp,lag,locale, dat) 
-
-                    if folks > T_int[](0)
-                        distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, distvec, dat)
-                    end
-                end  
-                if !isempty(age_bump)  # bump people in conds that didn't get distributed above
-                    bump_up!(age_bump, agegrp, lag, locale, dat) 
-                end
-            else 
-                # when no decision tree, bump up every infected person one day within the same condition
-                bump_up!(infectious_cases, agegrps, lag, locale, dat)
-            end
-        end
-    end
-
-    update_infectious!(locale, dat) # total all people who are nil, mild, sick, severe across all lags
-    return
-end
-
-
-function removeit!(x,y)  # performs ok for tiny vectors
-   kill = 1
-   for i in eachindex(x)
-       if x[i] == y; kill = i; break; end
-   end
-   deleteat!(x, kill)
-end
-
-
 """
 function bump-up!
 
@@ -192,42 +110,6 @@ function bump_up!(to_cond, agegrp, lag, locale, dat)
         plus!(bump, to_cond, agegrp, lag+1, locale, dat)
         minus!(bump, to_cond, agegrp, lag,   locale, dat)
     end
-end
-
-
-"""
-function distribute_to_new_conditions!
-
-Based on decision trees for each age group, at specific decision points (in days), change
-people's disease condition, or move them to recovered or dead.
-"""
-function distribute_to_new_conditions!(folks, fromcond, toprobs, agegrp, lag, locale, node, distvec, dat, lastlag=laglim)
-    
-    @inbounds begin
-        @debug "day $(ctr[:day])  folks $folks lag $lag age $agegrp cond $fromcond"
-
-        # set vector of folks to each outcome (6 outcomes): 1: recovered 2: nil 3: mild 4: sick 5: severe 6: dead
-        @assert isapprox(sum(toprobs), 1.0, atol=1e-4) "target vector must sum to 1.0; submitted $toprobs"
-        x = categorical_sample(toprobs, folks)  # integer results
-
-        # distvec = static_bucket(x, vals=1:length(toprobs))   # toprobs ALWAYS = 6     # [count(x .== i) for i in 1:size(toprobs,1)]
-
-        distvec[:] = [count(x .== i) for i in 1:6]  # length(toprobs)
-
-        # @assert sum(distvec) == folks "someone got lost $res != $folks"
-
-        if lag != lastlag  # infectious cases to next lag
-            @views plus!(distvec[map2pr.nil:map2pr.severe], infectious_cases, agegrp, lag+1, locale, dat) # @views 
-        end
-        @views plus!(distvec[map2pr.recovered], recovered, agegrp, 1, locale, dat)  # recovered to lag 1
-        @views plus!(distvec[map2pr.dead], dead, agegrp, 1, locale, dat)  # dead to lag 1
-        @views minus!(folks, fromcond, agegrp, lag, locale, dat)  # subtract what we moved from the current lag
-
-        push!(transq, (day=ctr[:day], lag=lag, agegrp=agegrp, fromcond=fromcond,  # @views primarily for debugging; can do some cool plots
-                   newcond=distvec[map2pr.nil:map2pr.severe], recovered=distvec[map2pr.recovered],
-                   dead=distvec[map2pr.dead], node=node, locale=locale))
-    end
-    return
 end
 
 

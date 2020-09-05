@@ -7,8 +7,15 @@
         # UW virology, expansion of deaths by state on log chart
     # fix all the travel functions to latest APIs
     # put in an inflection measure
-# Done
 
+# TODO for group level model
+    # wouldn't hurt to re-write spreadcase handling and spread--later
+    # run_a_sim to choose spread! method based on whether there are any spreadcases
+
+
+# Done
+    # change Spreadcase struct to match ilm
+    # take env out of sd_gen--just return a Spreadcase
 
 __precompile__(true)
 

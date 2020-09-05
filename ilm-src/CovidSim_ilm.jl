@@ -14,11 +14,7 @@
     # implement history tracking for ilm: by agegrp, add nil, mild, sick, severe to new
     # do quarantine for ilm
 
-# TODO for group level model
-    # make sure it still works!
-    # change Spreadcase struct to match ilm
-    # take env out of sd_gen--just return a Spreadcase
-    # run_a_sim to choose spread! method based on whether there are any spreadcases
+
 
 # Done
 
