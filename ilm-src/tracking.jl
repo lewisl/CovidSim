@@ -70,7 +70,7 @@ function virus_outcome(series, locale; conds=[recovered, dead, totinfected, unex
     outcomes = Dict{String, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
 
     # each denominator for data summary
-    total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]] + series[locale][:cum][1, map2series.infectious[agegrp]]
+    total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]]  # + series[locale][:cum][1, map2series.infectious[agegrp]]
     total_infected = series[locale][:cum][end, map2series.totinfected[agegrp]]
 
     denom = if base == :pop 
@@ -130,7 +130,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     died = series[locale][:cum][end, map2series[dead][totalcol]]
     # infected = series[locale][:cum][1,map2series[unexposed][totalcol]] - series[locale][:cum][end,map2series[unexposed][totalcol]]
     infected = people - series[locale][:cum][end,map2series[unexposed][totalcol]]
-    recovered = infected - died
+    recovered = series[locale][:cum][end, map2series.recovered[totalcol]]
     unexp = people - infected
 
     firstseries = plcols[1]

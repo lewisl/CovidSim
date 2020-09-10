@@ -40,8 +40,16 @@ function spread!(dat, locale::Int, env, density_factor::Float64 = 1.0)  # no spr
     contactable_idx = findall(locdat[:, cpop_status] .!= dead) # index of all potential contacts
     n_contactable = size(contactable_idx, 1)
 
-    return _spread!(locdat, spread_idx, contactable_idx, env.contact_factors, env.touch_factors, env.riskmx, density_factor)
+    n_spreaders, n_contacts, n_touched, n_newly_infected =  _spread!(locdat, spread_idx, 
+                contactable_idx, env.contact_factors, env.touch_factors, env.riskmx, 
+                density_factor, env.shape)
 
+    push!(spreadq,
+            (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
+                touched=n_touched, infected=n_newly_infected)
+            )
+    
+    return n_spreaders, n_contacts, n_touched, n_newly_infected
 end
 
 
@@ -68,7 +76,8 @@ function spread!(dat, locale::Int, spreadcases::Array{Spreadcase, 1}, env, densi
 
 
     if !(get(spread_stash, :do_case, false)) # we've never had a case or we shut down the previous case
-        newly_infected = spread!(dat, locale, env, density_factor) # use defaults with no cases
+        # use defaults with no cases
+        n_spreaders, n_contacts, n_touched, n_newly_infected = spread!(dat, locale, env, density_factor) 
 
     elseif spread_stash[:comply] == 1.0 # we have a case that applies to all with case parameters
         spread_idx = findall(locdat[:, cpop_status] .== infectious)
@@ -76,10 +85,11 @@ function spread!(dat, locale::Int, spreadcases::Array{Spreadcase, 1}, env, densi
         contactable_idx = findall(locdat[:, cpop_status] .!= dead)
         n_contactable = size(contactable_idx, 1)
 
-        newly_infected = _spread!(locdat, spread_idx, contactable_idx, spread_stash[:cf], 
-                                  spread_stash[:tf], env.riskmx, density_factor)
+        n_spreaders, n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, 
+                        contactable_idx, spread_stash[:cf], spread_stash[:tf], 
+                        env.riskmx, density_factor, env.shape)
 
-    else # 0.0 < comply < 1.0: split the population into comply and nocomply
+    else # split the population into comply and nocomply for 0.0 < comply < 1.0: 
         spread_idx = findall(locdat[:, cpop_status] .== infectious)
         n_spreaders = size(spread_idx, 1)
         n_spreaders_comply = round(Int, spread_stash[:comply] * n_spreaders)
@@ -88,7 +98,7 @@ function spread!(dat, locale::Int, spreadcases::Array{Spreadcase, 1}, env, densi
         n_contactable = size(spread_idx, 1)
         n_contactable_comply = round(Int, spread_stash[:comply] * n_contactable)
 
-        newly_infected = 0
+        n_newly_infected = 0
 
         for pass in [:comply, :nocomply]
             if pass == :comply  # use case input factors
@@ -108,65 +118,77 @@ function spread!(dat, locale::Int, spreadcases::Array{Spreadcase, 1}, env, densi
             pass_spread_idx = sample(spread_idx, nsp, replace=false)
             pass_contactable_idx = sample(contactable_idx, ncon, replace=false)
 
-            newly_infected += _spread!(locdat, pass_spread_idx, pass_contactable_idx, pass_cf, pass_tf, env.riskmx, density_factor)
+            n_spreaders, n_contacts, n_touched, n_newly_infected = .+((n_spreaders, n_contacts, n_touched, n_newly_infected),
+                        _spread!(locdat, pass_spread_idx, pass_contactable_idx, pass_cf, pass_tf, env.riskmx, density_factor, env.shape))
         end
         
     end
 
-    return newly_infected
+    push!(spreadq,
+            (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
+                touched=n_touched, infected=n_newly_infected)
+            )
+
+    return n_spreaders, n_contacts, n_touched, n_newly_infected
 
 end
 
 
-function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_factors, riskmx, density_factor)
+function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_factors, riskmx, density_factor, shape)
+    # how many spreaders
+    n_spreaders = size(spread_idx,1)
+
     # how many contacts?
-    contacts_per_spreader = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
-    for i in 1:size(contacts_per_spreader, 1)  # cond, agegrp
+    spreaders_to_contacts = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
+    for i in 1:size(spreaders_to_contacts, 1)  # for each spreader
         scale = density_factor * contact_factors[locdat[spread_idx[i], cpop_cond]-4, locdat[spread_idx[i], cpop_agegrp]]
-        contacts_per_spreader[i, 1] = round(Int,rand(Gamma(1.0, scale))) # assume density_factor = 1.0
-        contacts_per_spreader[i, 2] = locdat[spread_idx[i], cpop_lag]   # lag of the spreader who made this contact
+        spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
+        spreaders_to_contacts[i, 2] = locdat[spread_idx[i], cpop_lag]   # lag of this spreader 
     end
-    n_contacts = sum(contacts_per_spreader[:,1])
+    n_contacts = sum(spreaders_to_contacts[:,1])
     n_contactable = size(contactable_idx, 1)
 
     # assign the contacts 
     n_target_contacts = min(n_contacts, n_contactable)
-    # @show n_contactable
-    contact_people = sample(contactable_idx, n_target_contacts, replace=false)
+    contact_people = sample(contactable_idx, n_target_contacts, replace=false) # specific people contacted
 
-    # which contacts are consequential touches? which touches get infected?
+    # which contacts are consequential touches? which touched get infected?
     n_touched = 0
     n_newly_infected = 0
 
     stop = 0
-    for (nc, lag) in eachrow(contacts_per_spreader)  # nc=numContacts, lag=lag of spreader
+    for (nc, lag) in eachrow(spreaders_to_contacts)  # nc=numContacts, lag=lag of spreader
         start = stop + 1; stop = stop + nc
 
-        if stop <= n_target_contacts
-            for person in contact_people[start:stop]
-                # person's characteristics
-                status = locdat[person, cpop_status]  # TODO below crap needs to be fixed
-                agegrp = locdat[person, cpop_agegrp]
-                characteristic =  status in [1,3] ? [1,0,2][status] : locdat[person, cpop_cond]-2 # max(0,ilmat[person, cpop_cond]-2
-                @debug characteristic < 1 && error("bad characteristic value")
+        stop = stop > n_target_contacts ? n_target_contacts : stop  
 
-                touched = rand(Binomial(1.0, touch_factors[characteristic, agegrp]))
-                n_touched += touched
-                if touched == 1 && characteristic == unexposed
-                    prob = riskmx[lag, agegrp]
-                    newly_infected = rand(Binomial(1, prob))
-                    if newly_infected == 1
-                        locdat[person, cpop_cond] = nil # nil === asymptomatic or pre-symptomatic
-                        locdat[person, cpop_status] = infectious
-                    end
-                    n_newly_infected += newly_infected
+        for person in contact_people[start:stop]
+            # person's characteristics
+            status = locdat[person, cpop_status]  # TODO below crap needs to be fixed
+            agegrp = locdat[person, cpop_agegrp]
+            characteristic =  status in [1,3] ? [1,0,2][status] : locdat[person, cpop_cond]-2 # max(0,ilmat[person, cpop_cond]-2
+            @debug characteristic < 1 && error("bad characteristic value")
+
+            # touch outcome
+            touched = rand(Binomial(1, touch_factors[characteristic, agegrp]))
+            n_touched += touched
+
+            # infection outcome
+            if touched == 1 && characteristic == unexposed
+                prob = riskmx[lag, agegrp]
+                newly_infected = rand(Binomial(1, prob))
+                if newly_infected == 1
+                    locdat[person, cpop_cond] = nil # nil === asymptomatic or pre-symptomatic
+                    locdat[person, cpop_status] = infectious
                 end
+                n_newly_infected += newly_infected
             end
         end
-
     end
 
-    return n_newly_infected
+    # println("ratio of infected to spreaders: $(n_newly_infected/n_spreaders)")
+
+    return n_spreaders, n_contacts, n_touched, n_newly_infected
 end
 
 

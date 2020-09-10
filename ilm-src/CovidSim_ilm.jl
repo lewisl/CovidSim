@@ -9,14 +9,18 @@
     # put in an inflection measure
 
 # TODO for individual level model
+    # ilm spreads slower, fewer infected, higher death rate than group model: something about rounding
+    # add totinfected (total new active) history series
+    # r0_sim
     # get rid of indirection for lowlevel population updates
     # test loop vs. broadcast update of pop matrix
-    # implement history tracking for ilm: by agegrp, add nil, mild, sick, severe to new
     # do quarantine for ilm
-
-
+    # add transq to ilm and test
 
 # Done
+    # add spreadq to ilm
+    # implement history tracking for ilm: by agegrp, add nil, mild, sick, severe to new
+
 
 
 __precompile__(true)

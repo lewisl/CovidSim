@@ -16,6 +16,7 @@
 # Done
     # change Spreadcase struct to match ilm
     # take env out of sd_gen--just return a Spreadcase
+    # round contacts per spreader rather than rounding the total: reduces contacts by 1.8%
 
 __precompile__(true)
 
@@ -170,6 +171,7 @@ export
     a3,
     a4,
     a5,
+    totalcol,
     agegrps,
     n_agegrps,
     recv_risk_by_age

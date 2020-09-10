@@ -29,7 +29,7 @@ end
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
-function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
+function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
 
     if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
         cleanup_stash(spread_stash)
@@ -77,6 +77,8 @@ function spread!(locale, spreadcases, dat, env, density_factor = [1.0])
             minus!(newinfected, unexposed, agegrps, lag1, locale, dat)
         end
 
+        # println("ratio of infected to spreaders: $(sum(newinfected) / sum(spreaders))")
+
         push!(spreadq, (day=ctr[:day], locale=locale,
                     spreaders = sum(spreaders) + sum(get(spread_stash, :comply_spreaders, 0)),
                     contacts = sum(contacts) + sum(get(spread_stash, :comply_contacts, 0)),
@@ -117,15 +119,14 @@ spreaders.
 """
 function how_many_contacts!(contacts, spreaders, target_accessible, contact_factors, 
     density_factor, env)
-    #=  how_many_contacts--assumes anyone not isolated is equally likely to be touched.
+    #=  how_many_contacts--assumes anyone not isolated or dead is equally likely to be touched.
         how_many_touched corrects this by allocating contacts in each cell by population proportion.
         Spreaders is usually small compared to all_accessible but there is a check.
     =#
 
-    # if sum(env.simple_accessible) == T_int[](0)   # this can happen with a social distancing case with 100% compliance
-    if iszero(env.simple_accessible)  # this can happen with a social distancing case with 100% compliance
+    if iszero(target_accessible)
         contacts[:] .= T_int[](0)
-        return
+        return contacts
     end
 
     # how many people are contacted by each spreader?  Think of this as reaching out...
@@ -134,22 +135,21 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
     sp_lags, sp_conds, sp_ages = size(spreaders)
     for agegrp in 1:sp_ages
         for cond in 1:sp_conds
-            @inbounds for lag in 1:sp_lags
-                scale = contact_factors[cond, agegrp]
+            for lag in 1:sp_lags   
+                scale = density_factor * contact_factors[cond, agegrp]
                 spcount = spreaders[lag, cond, agegrp]
                 if spcount == T_int[](0)
                     contacts[lag, cond, agegrp] = T_int[](0)
-                    continue
+                else
+                    x = round.(T_int[], rand(Gamma(env.shape, scale), spcount)) # round per person rather rounding total
+                    contacts[lag, cond, agegrp] = sum(x)
                 end
-                dgamma = Gamma(1.0, density_factor * scale)  #shape, scale
-                x = rand(dgamma,spcount)
-                contacts[lag, cond, agegrp] = round(T_int[], sum(x))
             end
         end
     end
 
     # correct over contacting: may rarely happen with high scale around the high point of infection
-    oc_ratio = sum(contacts) / sum(env.all_accessible)
+    oc_ratio = sum(contacts) / sum(target_accessible)
     if oc_ratio > 1.0
         @warn "day: $(ctr[:day]) warning: overcontact ratio > 1.0: $oc_ratio"
         contacts[:] = round.(T_int[], 1.0/oc_ratio .* contacts)
@@ -202,7 +202,7 @@ function how_many_touched!(env)
     map2touch = (unexposed= 1, infectious=3, recovered=2, dead=-1,
                  nil= -1, mild= -1, sick= -1, severe= -1)
 
-    # t_a_pct is dist. of accessible by agegrp and target conds (15,)
+    # t_a_pct is dist. of accessible by agegrp and target conds (30,)
     t_a_pct = round.(reshape(target_accessible ./ totaccessible, length(target_accessible)), digits=10) # % for each cell
 
     if !isapprox(sum(t_a_pct), 1.0)
