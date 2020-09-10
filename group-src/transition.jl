@@ -87,6 +87,15 @@ function transition!(dt, all_decpoints, locale, dat)
                         minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
                     end
                 end
+                push!(transq, (day=ctr[:day], lag=nodelag, agegrp=agegrp, node=node, locale=locale,   # @views primarily for debugging; can do some cool plots
+                                recovered=get(distrib, indexin(recovered,outcomes)[], 0),
+                                dead=   get(distrib, indexin(dead,outcomes)[], 0),
+                                nil=    get(distrib, indexin(nil,outcomes)[], 0),
+                                mild=   get(distrib, indexin(mild,outcomes)[], 0),
+                                sick=   get(distrib, indexin(sick,outcomes)[], 0),
+                                severe= get(distrib, indexin(severe,outcomes)[], 0))
+                       )
+
             end
         end
     end
@@ -94,6 +103,8 @@ function transition!(dt, all_decpoints, locale, dat)
     for lag in laglim-1:-1:1
         bump_up!(infectious_cases, agegrps, lag, locale, dat)
     end
+
+
     update_infectious!(locale, dat)
 end
 

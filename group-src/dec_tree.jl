@@ -23,24 +23,6 @@ const prob_col = 6
 const next_col = 7
 
 
-struct Branch 
-    fromcond::Int 
-    tocond::Int
-    pr::Float64
-    next::Tuple{Int,Int}
-    fromcondname::String
-    tocondname::String
-end
-
-
-function setup_dt_old(dtfname)
-    arr = read_dectree_file(dtfname)
-    dectrees = create_dec_trees(arr)
-    all_decpoints = reduce(merge, dectrees[agegrp].dec_points for agegrp in agegrps)
-    return dectrees, all_decpoints
-end
-
-
 function setup_dt(dtfilename)
     treedict = YAML.load_file(dtfilename)
 
@@ -57,60 +39,11 @@ function setup_dt(dtfilename)
         end
     end
 
-
-
     decpoints = Dict{Int,Array{Int, 1}}()
     for i in agegrps
         decpoints[i] = unique([k[1] for k in keys(treedict[i])])
     end
     return treedict, decpoints
-end
-
-function read_dectree_file(fname)
-    # return the data at index 1, not the header at index 2
-    arr=readdlm(fname, ',', header=true, comments=true, comment_char='#')[1] # [1] selects the array, not the header
-end
-
-
-function create_dec_trees(arr::Array) # this wants to be recursive--another time...
-    arrdectrees = []  # array of decision trees (dicts); keys are agegrps (1:5)
-    ages = unique!(arr[:,1])
-    for agegrp in ages
-        xx = view(arr, arr[:, agegrp_col] .== agegrp, :) # view selecting one agegrp
-        # tree is Dict of nodes.  each node is array of branches
-        tree = Dict{Tuple{Int64,Int64},Array{Any,1}}()  # start a new tree for each agegrp
-        dec_points = Dict{Int64, Array{Tuple{Int64,Int64},1}}()   # start dict of dec_points for each agregrp
-        nodelist = unique!(xx[:,node_col])
-        arrbranches = CovidSim.Branch[]  # set outer scope
-        for strnode in nodelist
-            node = eval(Meta.parse(strnode))  # convert the string to a tuple
-            rr = xx[xx[:, node_col].==strnode,:]  # rows for the branches of this node
-            arrbranches = []   # array of branches
-            lag = 0 # start lag (a day) as Int in [1, laglim]
-            for br in 1:size(rr,1)  # make a branch
-                # field values
-                lag = rr[br, lag_col] # NOTE: last one in wins--start should be the same for all branches of a node--sorry for the redundancy
-                fromcond = eval(Symbol(rstrip(rr[br,4])))  # convert a string to a variable name, which holds an Int
-                tocond = eval(Symbol(rstrip(rr[br,5])))
-                pr = rr[br, prob_col]    # float
-                next = eval(Meta.parse(rr[br, next_col]))  # convert a string to a tuple
-                fromcondname = condnames[fromcond]  # lookup text name for the numeric index
-                tocondname = condnames[tocond]    
-                newbr = Branch(fromcond, tocond, pr, next, fromcondname, tocondname)
-                push!(arrbranches, newbr)  
-            end
-            if !haskey(dec_points, lag)  # doesn't have it: it's new
-                dec_points[lag] =  [node] 
-            else
-                push!(dec_points[lag], node)
-            end 
-            tree[node] = arrbranches
-        end
-        agegrp_tpl = (dec_points=dec_points, tree=tree)  # put all branches for this node in the dict for the agegrp
-        push!(arrdectrees, agegrp_tpl) # done with all of the nodes, put the tree in the array
-    end
-
-    return arrdectrees
 end
 
 
@@ -130,7 +63,7 @@ function walktree(dt, top)
     while !isempty(todo)
         currentpath = popfirst!(todo)
         endnode = currentpath[end]
-        for br in dt[endnode]
+        for br in dt[endnode]["branches"]
             # if br.next[1] == 0
             if br["next"][1] == 0
                 push!(done, vcat(currentpath, [br["next"]]))  # append without modifying currentpath
@@ -154,7 +87,7 @@ function sanity_test_all(trees)
 end
 
 function sanity_test_all(dtfname::String)
-    trees = setup_dt(dtfname)
+    trees, decpoints = setup_dt(dtfname)
     sanity_test_all(trees)
 end
 
@@ -185,7 +118,7 @@ function get_the_probs(path, tree)
     for cnt in 1:length(path)-1
         it1, it2 = path[cnt], path[cnt+1]
         node = tree[it1]
-        for br in node
+        for br in node["branches"]
             if br["next"] == it2
                 push!(probs, br["pr"])
             end

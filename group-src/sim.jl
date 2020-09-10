@@ -15,7 +15,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     see cases.jl for runcases and spreadcases
 =#
 
-    empty_all_qs!() # from previous runs
+    empty_all_caches!() # from previous runs
 
     T_int[] = set_int_type # update the global type of ints with the input value
 
@@ -47,6 +47,13 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     reset!(ctr, :day)  # return and reset key :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
+
+
+    # check age distribution
+    # dat = openmx[first(locales)]
+    # println(dat[1, unexposed, :])
+    # println(sum(dat[1, unexposed, :]))
+
 
     ######################
     # simulation loop
@@ -127,10 +134,10 @@ end
 
 
 # a single locale, either cumulative or new
-function make_series(histmx)
-    s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2]))
-    for i in 1:size(histmx, 3)
-        @views s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
+function make_series(histmx)  # this function just changes the shape and indexing of the data
+    s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2])) # days, conds * (agegrps + 1)
+    for day in 1:size(histmx, 3)
+        @views s[day, :] = reduce(vcat,[histmx[cond, :, day] for cond in 1:size(histmx,1)])'
     end
     return s
 end
@@ -258,12 +265,13 @@ function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
 end
 
 
-function empty_all_qs!()
+function empty_all_caches!()
     # empty tracking queues
     !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   
     !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
     !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
-    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))   
+    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))  
+    cleanup_stash(spread_stash)  
 end
 
 

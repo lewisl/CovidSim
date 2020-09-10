@@ -30,16 +30,17 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
         env = initialize_sim_env(geodf; spread_params...)
 
-        # initial data for building data series of simulation outcomes
-        starting_unexposed = [sum(openmx[loc][:,cpop_status]) for loc in locales]
-        # starting_unexposed = reduce(hcat, [grab(unexposed, agegrps, 1, loc, openmx) for loc in locales])
-        starting_unexposed = (size(locales,1) == 1 ? Dict(locales[1]=>starting_unexposed[1]) : 
-            Dict(locales[i]=>starting_unexposed[i] for i in 1:size(locales,1)))
-
     # start the day counter at zero
     reset!(ctr, :day)  # return and reset key to 0 :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
+
+
+    # check age distribution
+    # dat = openmx[first(locales)]
+    # agedist = countmap(dat[:,cpop_agegrp])
+    # println(agedist)
+    # println(sum(values(agedist)))
 
     ######################
     # simulation loop
@@ -49,7 +50,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
-        @inbounds for loc in locales
+        for loc in locales     # @inbounds
+
             density_factor = geodf[geodf[:fips] .== loc, :density_factor][]
             for case in runcases
                 # case(loc, openmx, isolatedmx, testmx, env)   
@@ -72,14 +74,17 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         end
 
         do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
-            starting_unexposed=starting_unexposed)
+            agegrp_idx=agegrp_idx)
 
     end
     silent || println("Simulation completed for $(ctr[:day]) days.")
     #######################
 
-    # "history" series for plotting: NOT dataframes, but arrays
+    # simulatio history series for plotting: arrays NOT dataframes
     series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
+
+    # sum agegrps to total for all conditions
+    hist_total_agegrps!(series, locales)
 
     # for loc in locales
     #     add_totinfected_series!(series, loc)
@@ -100,52 +105,88 @@ end
 # const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
 #                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
 
-function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
+function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
     thisday = ctr[:day]
     for loc in locales
         dat = opendat[loc]  # source
         cumdat = cumhist[loc]   # sink
         newdat = newhist[loc]   # sink
 
-        statusday = countmap(dat[:, cpop_status])    # outcomes for thisday
-        sickday = countmap(dat[dat[:,cpop_status] .== infectious, cpop_cond])  # ditto
+        #
+        # cumulative data
+        #
+        for age in agegrps
+            # get the source data: status
+            dat_age = dat[agegrp_idx[loc][age], :]
+            status_today = countmap(dat_age[:, cpop_status])    # outcomes for thisday
 
-        for i in unexposed:dead  # 1:4
-            cumdat[thisday, map2series[i][totalcol]] = get(statusday, i, 0)
-        end
-
-        for i in nil:severe # 5:8
-            cumdat[thisday, map2series[i][totalcol]] = get(sickday, i, 0)
-        end
-
-        # new today
-            # dead = today:dead - yesterday:dead
-            # recovered = today:recovered - yesterday:recovered
-            # infectious = today:infectious - yesterday:infectious + newdead + newrecovered
-            # little bit harder for nil, mild, sick, severe
-            # TODO getting it working for each agegrp
-        for i in [dead, recovered]
-            if thisday == 1
-                newdat[thisday, map2series[i][totalcol]] = get(statusday, i, 0)
-            else  # on all other days
-                newdat[thisday, map2series[i][totalcol]] = (
-                    cumdat[thisday, map2series[i][totalcol]] 
-                    - cumdat[thisday - 1, map2series[i][totalcol]]
-                    )         
+            # get the source data: conditions in (nil, mild, sick, severe)
+            filt_infectious = findall(dat[:,cpop_status] .== infectious)
+            if size(filt_infectious, 1) > 0
+                sick_today = countmap(dat[filt_infectious, cpop_cond])  # ditto
+            else   # there can be days when no one is infected
+                sick_today = Dict()
             end
-        end
-        if thisday == 1
-            newdat[thisday, map2series[infectious][totalcol]] = get(statusday, infectious, 0)
-        else
-            newdat[thisday, map2series[infectious][totalcol]] = (
-                cumdat[thisday, map2series[infectious][totalcol]]
-                - cumdat[thisday - 1, map2series[infectious][totalcol]]
-                + newdat[thisday, map2series[recovered][totalcol]]
-                + newdat[thisday, map2series[dead][totalcol]]
-                )
+
+            # insert into sink: cum
+            for i in unexposed:dead  # 1:4
+                cumdat[thisday, map2series[i][age]] = get(status_today, i, 0)
+            end
+
+            for i in nil:severe # 5:8
+                cumdat[thisday, map2series[i][age]] = get(sick_today, i, 0)
+            end
+
+            #
+            # insert into sink: new 
+                # dead = today:dead - yesterday:dead
+                # recovered = today:recovered - yesterday:recovered
+                # for infectious equivalent to newly sick, which we can get from spreadq:
+                        # infectious = today:infectious - yesterday:infectious + newdead + newrecovered
+                # for net (e.g., there can be negatives) below is ok
+                # unexposed new adds = always zero; unexposed only goes down, as shown in cum data
+                # little bit harder for nil, mild, sick, severe
+                # TODO getting it working for each agegrp
+            for i in infectious:severe
+                if thisday == 1
+                    newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
+                else  # on all other days
+                    newdat[thisday, map2series[i][age]] = (
+                        cumdat[thisday, map2series[i][age]] 
+                        - cumdat[thisday - 1, map2series[i][age]]
+                        )         
+                end
+            end
+            # for infectious and infectious conditions
+            # for i in [infectious, nil, mild, sick, severe]
+            #     if thisday == 1
+            #         newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
+            #     else
+            #         newdat[thisday, map2series[i][age]] = (
+            #             cumdat[thisday, map2series[i][age]]
+            #             - cumdat[thisday - 1, map2series[i][age]]
+            #             + newdat[thisday, map2series[recovered][age]]
+            #             + newdat[thisday, map2series[dead][age]]
+            #             )
+            #     end
+            # end
+        end # for age in agegrps
+
+    end # for loc in locales
+
+end # function
+
+
+function hist_total_agegrps!(series, locales)
+    for loc in locales
+        for kind in [:cum, :new]
+            for cond in conditions
+                series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][agegrps]],dims=2)
+            end
         end
     end
 end
+
 
 function review_history(histmx)
     for i in 1:size(histmx, 3)

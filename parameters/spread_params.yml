@@ -6,10 +6,13 @@ send_risk:  [0.0, 0.3, 0.65, 0.75, 0.85, 0.85, 0.75, 0.7, 0.65, 0.6,
 # recv_risk must have 5 entries between 0.0 and 1.0
 recv_risk: [0.1, 0.39, 0.44, 0.54, 0.56]
 
+# shape parameter of gamma distribution used to calculate contacts
+shape: 1.0
+
 # contact_factors and touch_factors reshaped after loaded 
 # to look like the arrangements below
-  # size(contact_factors) to (4,5) => input in yaml is (20, ) made to look 4 x 5
-  # size(touch_factors) to (6,5) => input in TOML is (30,) made to look 6 x 5
+  # size(contact_factors) to (4,5) => input in yaml is (20, ) reshaped to 4 x 5
+  # size(touch_factors) to (6,5) => input in yaml is (30,) reshaped to 6 x 5
 
 contact_factors:        [ 1.1,    2.0,    2.0,     1.6,   1.0,    # nil
                           1.1,    1.9,    1.9,     1.5,   0.9,    # mild

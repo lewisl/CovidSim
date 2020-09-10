@@ -5,7 +5,7 @@
 
 function setup(n_days; 
     geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/dec_tree_all.csv",
+    dectreefilename="../parameters/dec_tree_all_25.csv",
     spfilename="../parameters/spread_params.yml")
 
     # geodata
@@ -56,8 +56,10 @@ end
 
 # method for single locale, pop is Int
 function setup_unexposed!(dat, pop, loc)
+    parts = apportion(pop, age_dist)
     for agegrp in agegrps
-        dat[loc][1, unexposed, agegrp] = floor(T_int[],age_dist[agegrp] * pop)
+        # dat[loc][1, unexposed, agegrp] = floor(T_int[],age_dist[agegrp] * pop)
+        dat[loc][1, unexposed, agegrp] = parts[agegrp]
     end
 end
 
@@ -137,6 +139,15 @@ function shifter(x, newmin=0.9, newmax=1.5)
 end
 
 
+function apportion(x::Int, splits::Array)
+    @assert isapprox(sum(splits), 1.0)
+    maxidx = argmax(splits)
+    parts = round.(Int, splits .* x)
+    diff = sum(parts) - x
+    parts[maxidx] -= diff
+    return parts
+end
+
 ######################################################################################
 # SimEnv: simulation environment
 ######################################################################################
@@ -162,6 +173,7 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
     send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
     recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
+    shape::Float64                      # parameter for spread!
     sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
@@ -180,16 +192,17 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
                                 touch_factors=zeros(Float64, 0,0),
                                 send_risk_by_lag=zeros(Float64,laglim),
                                 recv_risk_by_age=zeros(Float64, 5),
+                                shape=1.0,
                                 sd_compliance=ones(Float64, 6,5)    
                             ) where T<:Integer
         return new(geodata, spreaders, all_accessible, contacts, simple_accessible, peeps,
                    touched, lag_contacts, riskmx, contact_factors,
-                   touch_factors, send_risk_by_lag, recv_risk_by_age, sd_compliance)
+                   touch_factors, send_risk_by_lag, recv_risk_by_age, shape, sd_compliance)
     end
 end
 
 
-function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk)
+function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk, shape)
 
     ret = SimEnv{T_int[]}(
                 geodata=geodata,
@@ -205,6 +218,7 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
                 touch_factors = touch_factors,
                 send_risk_by_lag = send_risk,
                 recv_risk_by_age = recv_risk,
+                shape = shape,
                 sd_compliance = zeros(6, agegrps))
 
     return ret

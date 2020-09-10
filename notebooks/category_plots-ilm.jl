@@ -7,13 +7,13 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.1
 #   kernelspec:
-#     display_name: Julia 1.5.0
+#     display_name: Julia 1.5.1
 #     language: julia
-#     name: julia-1.5.0-1.5
+#     name: julia-1.5
 # ---
 
 # %%
-using CovidSim
+using CovidSim_ilm
 
 # %%
 using DataFrames
@@ -40,7 +40,8 @@ alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
 cumplot(series,seattle,geo=alldict["geo"])
 
 # %%
-sea_outcome = virus_outcome(series,seattle)
+sea_outcome = virus_outcome(series,seattle, base=:pop)
+println(sea_outcome)
 for k in keys(sea_outcome)
     @printf("%-12s %f\n", k, sea_outcome[k])
 end
@@ -185,6 +186,9 @@ outcome = (
 
 # %%
 transeries = DataFrame(transq)
+
+
+# %%
 trans = (dead = sum(transeries[:,:dead]), recovered = sum(transeries[:,:recovered]))
 
 # %%

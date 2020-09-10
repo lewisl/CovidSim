@@ -64,44 +64,51 @@ function transition!(dt, all_decpoints, locale, dat, agegrp_idx)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     locdat = dat[locale]
     locagegrp_idx = agegrp_idx[locale]
+    filt_agegrp = [falses(size(locagegrp_idx[age],1)) for age in agegrps]
+
 
     for agegrp in agegrps
         tree = dt[agegrp]
-        for node in keys(tree)
+        for node in sort(collect(keys(tree)), rev=true)
             nodelag, fromcond = node
-            for branch in tree[node]["branches"]
+            filt = ( (locdat[locagegrp_idx[agegrp],cpop_cond] .== fromcond) .& 
+                     (locdat[locagegrp_idx[agegrp],cpop_status] .== infectious) .&
+                     (locdat[locagegrp_idx[agegrp], cpop_lag] .== nodelag)  )
 
-                # reduce the size of pop matrix to a single agegrp then do logical filters
-                filt = ( (locdat[locagegrp_idx[agegrp],cpop_cond] .== fromcond) .& 
-                         (locdat[locagegrp_idx[agegrp],cpop_status] .== infectious) .&
-                         (locdat[locagegrp_idx[agegrp], cpop_lag] .== nodelag)  )
-                
-                # indices for the entire population by agegrp and the anded logical filters
-                filt = locagegrp_idx[agegrp][filt]
+            # indices for the entire population by agegrp and the anded logical filters
+            filt = locagegrp_idx[agegrp][filt]
+            cnt_transition = size(filt,1)      
 
-                cnt_transition = size(filt,1)    # count(filt)                
-                if cnt_transition > 0
-                    probs = tree[node]["probs"]
-                    outcomes = tree[node]["outcomes"]
-                    
-                    choices = rand(Categorical(probs), cnt_transition) # returns ordinal Int index to outcomes
-                                        
-                    for (idx, person) in enumerate(filt)       # findall(filt)                 
-                        new_stat_cond = outcomes[choices[idx]]
-                        if new_stat_cond in (dead, recovered)  # change status
-                            locdat[person, cpop_status] = new_stat_cond
-                        else   # change disease condition
-                            locdat[person, cpop_cond] = new_stat_cond
-                        end  # if/else
-                    end  # for (idx, person)
-                    
-                end  # if cnt_transition
-            end  # for branch
+            if cnt_transition > 0
+                probs = tree[node]["probs"]
+                outcomes = tree[node]["outcomes"]
+                choices = rand(Categorical(probs), cnt_transition) # returns ordinal Int index to outcomes     
+                distrib = countmap(choices)
+                for (i, person) in enumerate(filt)       # findall(filt)                 
+                    tocond = outcomes[choices[i]]
+                    if tocond in (dead, recovered)  # change status
+                        locdat[person, cpop_status] = tocond
+                        # leave disease condition and lag alone so we can see last state before death or recovery
+                    else   # change disease condition
+                        locdat[person, cpop_cond] = tocond
+                    end  # if/else
+                end  # for (idx, person)
+                push!(transq, (day=ctr[:day], lag=nodelag, agegrp=agegrp, node=node, locale=locale,   # @views primarily for debugging; can do some cool plots
+                                recovered=get(distrib, indexin(recovered,outcomes)[], 0),
+                                dead=   get(distrib, indexin(dead,outcomes)[], 0),
+                                nil=    get(distrib, indexin(nil,outcomes)[], 0),
+                                mild=   get(distrib, indexin(mild,outcomes)[], 0),
+                                sick=   get(distrib, indexin(sick,outcomes)[], 0),
+                                severe= get(distrib, indexin(severe,outcomes)[], 0))
+                       )
+
+            end  # if cnt_transition
+
         end  # for node
     end  #for agegrp
 
     # bump everyone who is still infectious all at once in one go
-    filt = (locdat[:,cpop_status] .== infectious)
+    filt = findall(locdat[:,cpop_status] .== infectious)
     locdat[filt, cpop_lag] .+= 1   
 end  
     
