@@ -57,11 +57,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, openmx, isolatedmx, testmx, env)   
                 case(loc, openmx, [], [], env)   
             end
-            if isempty(spreadcases)
-                sptime += @elapsed spread!(openmx, loc, env,  density_factor)
-            else
-                sptime += @elapsed spread!(openmx, loc, spreadcases, env,  density_factor)
-            end
+            sptime += @elapsed spread!(openmx, loc, spreadcases, env, density_factor)
             trtime += @elapsed transition!(dt, all_decpoints, loc, openmx, agegrp_idx)   # transition infectious cases "in the open"
         end
         # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
