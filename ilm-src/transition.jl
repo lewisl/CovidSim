@@ -103,7 +103,6 @@ function transition!(dt, all_decpoints, locale, dat, agegrp_idx)
                        )
 
             end  # if cnt_transition
-
         end  # for node
     end  #for agegrp
 

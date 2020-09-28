@@ -34,6 +34,7 @@ using Distributions
 using StatsBase
 using Printf
 using Plots
+using PlotThemes
 using StatsPlots
 using Debugger
 using Dates
