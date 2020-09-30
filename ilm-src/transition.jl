@@ -41,16 +41,16 @@ end
 
 
 # method to run through all existing locales in isolation
-function transition!(dt, all_decpoints, dat)
+function transition!(dat, dt_dict, agegrp_idx)
     for locale in keys(dat)
-        transition!(dt, all_decpoints, locale, dat)
+        transition!(dat, locale, dt_dict, agegrp_idx)
     end
 end
 
 
-
+    
 """
-    transition!(dt, all_decpoints, locale, dat)
+    transition!(dat, locale, dt_dict, agegrp_idx)
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
@@ -59,58 +59,52 @@ recovered or dead.
 
 Works for a single locale.
 """
-function transition!(dt, all_decpoints, locale, dat, agegrp_idx)  
-
-    # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
+function transition!(dat, locale, dt_dict, agegrp_idx)
     locdat = dat[locale]
-    locagegrp_idx = agegrp_idx[locale]
-    filt_agegrp = [falses(size(locagegrp_idx[age],1)) for age in agegrps]
 
+    lags_by_age = dt_dict["lags"]
+    fromconds_by_age = dt_dict["fromconds"]
+    dt = dt_dict["dt"]
 
-    for agegrp in agegrps
-        tree = dt[agegrp]
-        for node in sort(collect(keys(tree)), rev=true)
-            nodelag, fromcond = node
-            filt = ( (locdat[locagegrp_idx[agegrp],cpop_cond] .== fromcond) .& 
-                     (locdat[locagegrp_idx[agegrp],cpop_status] .== infectious) .&
-                     (locdat[locagegrp_idx[agegrp], cpop_lag] .== nodelag)  )
+    infected_idx = findall(locdat[:,1] .== 2)
+    sorted_by_lag = sortperm(locdat[infected_idx,4], rev=true)
 
-            # indices for the entire population by agegrp and the anded logical filters
-            filt = locagegrp_idx[agegrp][filt]
-            cnt_transition = size(filt,1)      
+    for p in infected_idx[sorted_by_lag]  # p is the index to the person
+        (pstat, page, plag, pcond) = locdat[p, [cpop_status, cpop_agegrp, cpop_lag, cpop_cond]]
 
-            if cnt_transition > 0
-                probs = tree[node]["probs"]
-                outcomes = tree[node]["outcomes"]
-                choices = rand(Categorical(probs), cnt_transition) # returns ordinal Int index to outcomes     
-                distrib = countmap(choices)
-                for (i, person) in enumerate(filt)       # findall(filt)                 
-                    tocond = outcomes[choices[i]]
-                    if tocond in (dead, recovered)  # change status
-                        locdat[person, cpop_status] = tocond
-                        # leave disease condition and lag alone so we can see last state before death or recovery
-                    else   # change disease condition
-                        locdat[person, cpop_cond] = tocond
-                    end  # if/else
-                end  # for (idx, person)
-                push!(transq, (day=ctr[:day], lag=nodelag, agegrp=agegrp, node=node, locale=locale,   # @views primarily for debugging; can do some cool plots
-                                recovered=get(distrib, indexin(recovered,outcomes)[], 0),
-                                dead=   get(distrib, indexin(dead,outcomes)[], 0),
-                                nil=    get(distrib, indexin(nil,outcomes)[], 0),
-                                mild=   get(distrib, indexin(mild,outcomes)[], 0),
-                                sick=   get(distrib, indexin(sick,outcomes)[], 0),
-                                severe= get(distrib, indexin(severe,outcomes)[], 0))
-                       )
-
-            end  # if cnt_transition
-        end  # for node
-    end  #for agegrp
-
-    # bump everyone who is still infectious all at once in one go
-    filt = findall(locdat[:,cpop_status] .== infectious)
-    locdat[filt, cpop_lag] .+= 1   
-end  
-    
+        lagfound = findall(x->x==plag, lags_by_age[page])
+        if isempty(lagfound)  # person's lag doesn't match any decision point lag
+            # test against laglim, then increment
+            if plag == laglim
+                @error "Person made it to end of laglim and was not removed"
+            else
+                locdat[p,cpop_lag] += 1
+            end
+        else
+            condfound = findall(x->x==pcond, fromconds_by_age[page][lagfound])
+            if isempty(condfound)
+                if plag == laglim
+                    @error "Person made it to end of laglim and was not removed"
+                else
+                    locdat[p,cpop_lag] += 1
+                end
+            else
+                # do the transition for lag and from cond and the probabilities of all outcomes at this branch
+                dtkey = [plag, pcond]
+                probs = dt[page][dtkey]["probs"]
+                outcomes = dt[page][dtkey]["outcomes"]
+                choice = rand(Categorical(probs), 1)
+                tocond = outcomes[choice][]
+                if tocond in [dead, recovered]  # change status, leave cond and lag as last state before death or recovery
+                    locdat[p, cpop_status] = tocond
+                else   # change disease condition
+                    locdat[p, cpop_cond] = tocond
+                    locdat[p, cpop_lag] += 1  
+                end                      
+            end
+        end    
+    end
+end
 
 
 """
