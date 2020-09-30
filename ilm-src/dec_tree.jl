@@ -33,12 +33,13 @@ end
 
 function setup_dt(dtfilename)
     treedict = YAML.load_file(dtfilename)
+    dt = Dict(i=>sort(treedict[i], rev=true) for i in agegrps) 
 
     # pre-calculate the array of probabilities for all branches at a node
     # pre-calculate the array of outcome conditions ("tocond") for all branches at a node
 
     for agegrp in agegrps
-        tree = treedict[agegrp]
+        tree = dt[agegrp]
         for node in keys(tree)
             probs = [branch["pr"] for branch in tree[node]]
             outcomes = [branch["tocond"] for branch in tree[node]]
@@ -47,11 +48,19 @@ function setup_dt(dtfilename)
         end
     end
 
+    lags_by_age = Dict{Int,Array{Int,1}}()  # empty
+    fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
+    for agegrp in agegrps
+        lags_by_age[agegrp] = [k[1] for k in collect(keys(dt[agegrp]))]
+        fromconds_by_age[agegrp] = [k[2] for k in collect(keys(dt[agegrp]))]
+    end
+
     decpoints = Dict{Int,Array{Int, 1}}()
     for i in agegrps
-        decpoints[i] = unique([k[1] for k in keys(treedict[i])])
+        decpoints[i] = unique([k[1] for k in keys(dt[i])])
     end
-    return treedict, decpoints
+
+    return Dict("dt"=>dt, "decpoints"=>decpoints, "lags"=>lags_by_age, "fromconds"=>fromconds_by_age)
 end
 
 

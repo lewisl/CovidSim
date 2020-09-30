@@ -17,8 +17,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     alldict = setup(n_days, locales; geofilename=geofilename, 
                     dectreefilename=dtfilename, spfilename=spfilename)
 
-        dt = alldict["dt"]  # decision trees for transition
-        all_decpoints = alldict["decpoints"]
+        dt_dict = alldict["dt_dict"]  # decision trees for transition
         openmx = alldict["dat"]["openmx"]
         agegrp_idx = alldict["dat"]["agegrp_idx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
@@ -58,10 +57,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 case(loc, openmx, [], [], env)   
             end
             sptime += @elapsed spread!(openmx, loc, spreadcases, env, density_factor)
-            trtime += @elapsed transition!(dt, all_decpoints, loc, openmx, agegrp_idx)   # transition infectious cases "in the open"
+            trtime += @elapsed transition!(openmx, loc, dt_dict, agegrp_idx)   # transition infectious cases "in the open"
         end
-        # transition!(dt, all_decpoints, isolatedmx)  # transition infectious cases isolation
-        # transition!(dt, all_decpoints, testmx) # transition infectious cases in test and trace
 
         # r0 displayed every 10 days
         if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -133,17 +130,7 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
                 cumdat[thisday, map2series[i][age]] = get(sick_today, i, 0)
             end
 
-            #
-            # insert into sink: new 
-                # dead = today:dead - yesterday:dead
-                # recovered = today:recovered - yesterday:recovered
-                # for infectious equivalent to newly sick, which we can get from spreadq:
-                        # infectious = today:infectious - yesterday:infectious + newdead + newrecovered
-                # for net (e.g., there can be negatives) below is ok
-                # unexposed new adds = always zero; unexposed only goes down, as shown in cum data
-                # little bit harder for nil, mild, sick, severe
-                # TODO getting it working for each agegrp
-            for i in infectious:severe
+            for i in [infectious, recovered, dead, nil, mild, sick, severe]
                 if thisday == 1
                     newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
                 else  # on all other days
@@ -153,19 +140,6 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
                         )         
                 end
             end
-            # for infectious and infectious conditions
-            # for i in [infectious, nil, mild, sick, severe]
-            #     if thisday == 1
-            #         newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
-            #     else
-            #         newdat[thisday, map2series[i][age]] = (
-            #             cumdat[thisday, map2series[i][age]]
-            #             - cumdat[thisday - 1, map2series[i][age]]
-            #             + newdat[thisday, map2series[recovered][age]]
-            #             + newdat[thisday, map2series[dead][age]]
-            #             )
-            #     end
-            # end
         end # for age in agegrps
 
     end # for loc in locales

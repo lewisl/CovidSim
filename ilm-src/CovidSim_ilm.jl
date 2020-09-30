@@ -27,10 +27,7 @@ __precompile__(true)
 
 module CovidSim_ilm
 
-# experimental
-using StaticArrays
-using LoopVectorization
-
+# required
 using DelimitedFiles
 using DataStructures
 using DataFrames

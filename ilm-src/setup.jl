@@ -18,14 +18,13 @@ function setup(n_days, locales;
     # spread parameters
         spread_params = read_spread_params(spfilename)
 
-    # transition decision trees 
-        dt, all_decpoints = setup_dt(dectreefilename)
+    # transition decision trees     
+        dt_dict = setup_dt(dectreefilename)
 
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt"=>dt, "decpoints"=>all_decpoints,
-                "geo"=>geodata, "sp"=>spread_params)  # , "iso_pr"=>iso_pr
+    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spread_params)  
 end
 
 
