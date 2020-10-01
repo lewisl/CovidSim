@@ -20,6 +20,10 @@ using BenchmarkTools
 using Distributions
 
 # %% [markdown]
+# This was a good start on a new approach to transition. A few details had to be changed, combined
+# but it did work first time algorithmically.
+
+# %% [markdown]
 # # Grab a population matrix after 80 days
 
 # %%
