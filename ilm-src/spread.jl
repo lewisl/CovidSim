@@ -274,7 +274,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         track_infected .+= how_many_infected(all_unexposed, r0env)
 
         if !isempty(dt)  # optionally transition
-            transition_old!(r0mx, locale, dt, decpoints, lags_by_age, from_conds_by_age, agegrp_idx)
+            transition!(r0mx, locale, dt_dict, agegrp_idx)
             r0env.spreaders[:] = grab(infectious_cases,agegrps,lags,locale, r0mx)
         end
     end

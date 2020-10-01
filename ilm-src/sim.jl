@@ -201,18 +201,20 @@ end
 #####################################################################################
 
 # returns a single r0 value
-function sim_r0(env, dt, all_decpoints)  # named args must be provided by caller
+function sim_r0(env, dt_dict)  # named args must be provided by caller
     # captures current population condition 
     pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
     sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
 
     # if social_distancing case with split population
     if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
-        compliance = env.sd_compliance
-        cf = spread_stash[:case_cf]; tf = spread_stash[:case_tf]
+        compliance = spread_stash[:comply]
+        cf = spread_stash[:cf]
+        tf = spread_stash[:tf]
         r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0
 
-        cf = spread_stash[:default_cf]; tf = spread_stash[:default_tf]
+        cf = env.contact_factors 
+        tf = env.touch_factors
         r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=all_decpoints,
                              sa_pct=sa_pct, env=env).r0
 

@@ -54,8 +54,8 @@ end
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
-agegroup, days of being exposed, and some probability; then to 
-recovered or dead.
+agegroup, days of being exposed, and some probability. Finally,  
+they move to recovered or dead.
 
 Works for a single locale.
 """
@@ -66,44 +66,48 @@ function transition!(dat, locale, dt_dict, agegrp_idx)
     fromconds_by_age = dt_dict["fromconds"]
     dt = dt_dict["dt"]
 
+    # create stacked indices of infected sorted by lag. Use as infected_idx[sorted_by_lag]
     infected_idx = findall(locdat[:,1] .== 2)
-    sorted_by_lag = sortperm(locdat[infected_idx,4], rev=true)
+    sorted_by_lag = sortperm(locdat[infected_idx,4], rev=true) # only need one column to get row indices
 
     for p in infected_idx[sorted_by_lag]  # p is the index to the person
-        (pstat, page, plag, pcond) = locdat[p, [cpop_status, cpop_agegrp, cpop_lag, cpop_cond]]
+        (p_stat, p_age, p_lag, p_cond) = locdat[p, [cpop_status, cpop_agegrp, cpop_lag, cpop_cond]]
 
-        lagfound = findall(x->x==plag, lags_by_age[page])
+        lagfound = findall(x->x==p_lag, lags_by_age[p_age])
         if isempty(lagfound)  # person's lag doesn't match any decision point lag
             # test against laglim, then increment
-            if plag == laglim
+            if p_lag == laglim
                 @error "Person made it to end of laglim and was not removed"
             else
                 locdat[p,cpop_lag] += 1
             end
         else
-            condfound = findall(x->x==pcond, fromconds_by_age[page][lagfound])
+            condfound = findall(x->x==p_cond, fromconds_by_age[p_age][lagfound])
             if isempty(condfound)
-                if plag == laglim
+                if p_lag == laglim
                     @error "Person made it to end of laglim and was not removed"
                 else
                     locdat[p,cpop_lag] += 1
                 end
-            else
-                # do the transition for lag and from cond and the probabilities of all outcomes at this branch
-                dtkey = [plag, pcond]
-                probs = dt[page][dtkey]["probs"]
-                outcomes = dt[page][dtkey]["outcomes"]
+            else # transition for lag and fromcond using probabilities to choose outcome at this branch
+
+                dtkey = [p_lag, p_cond]
+                probs = dt[p_age][dtkey]["probs"]
+                outcomes = dt[p_age][dtkey]["outcomes"]
+
                 choice = rand(Categorical(probs), 1)
                 tocond = outcomes[choice][]
-                if tocond in [dead, recovered]  # change status, leave cond and lag as last state before death or recovery
+
+                if tocond in (dead, recovered)  # change status, leave cond and lag as last state before death or recovery
                     locdat[p, cpop_status] = tocond
                 else   # change disease condition
                     locdat[p, cpop_cond] = tocond
                     locdat[p, cpop_lag] += 1  
-                end                      
+                end    
+
             end
         end    
-    end
+    end  # for p
 end
 
 
