@@ -183,13 +183,6 @@ Struct for variables used by many functions = the simulation environment
 """
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::Array{Any, 2}
-    spreaders::Array{T, 3} # laglim,4,5
-    all_accessible::Array{T, 3} # laglim,6,5
-    contacts::Array{T, 3} # laglim,4,5
-    simple_accessible::Array{T, 2} # 6,5
-    peeps::Array{T, 2} # 6,5
-    touched::Array{T, 3} # laglim,6,5
-    lag_contacts::Array{T, 1} # laglim,
     riskmx::Array{Float64, 2} # laglim,5
     contact_factors::Array{Float64, 2}  # 4,5 parameters for spread!
     touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
@@ -202,13 +195,6 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     # T_int[] should be one of Int64, Int32 when calling the constructor
     function SimEnv{T}(; 
                                 geodata=[T(0) "" ], # geodata
-                                spreaders=zeros(T, 0,0,0),   # semicolon for all keyword (named) arguments)
-                                all_accessible=zeros(T, 0,0,0),
-                                contacts=zeros(T, 0,0,0),
-                                simple_accessible=zeros(T, 0,0),
-                                peeps=zeros(T, 0,0),
-                                touched=zeros(T, 0,0,0),
-                                lag_contacts=zeros(T, laglim),
                                 riskmx=zeros(Float64, 0,0),
                                 contact_factors=zeros(Float64, 0,0),
                                 touch_factors=zeros(Float64, 0,0),
@@ -217,9 +203,9 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
                                 shape=1.0,
                                 sd_compliance=ones(Float64, 6,5)    
                             ) where T<:Integer
-        return new(geodata, spreaders, all_accessible, contacts, simple_accessible, peeps,
-                   touched, lag_contacts, riskmx, contact_factors,
+        return new(geodata, riskmx, contact_factors,
                    touch_factors, send_risk_by_lag, recv_risk_by_age, shape, sd_compliance)
+
     end
 end
 
@@ -229,13 +215,13 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
 
     ret = SimEnv{T_int[]}(
                 geodata=geodata,
-                spreaders=zeros(T_int[], laglim, 4, agegrps),
-                all_accessible=zeros(T_int[], laglim, 6, agegrps),
-                contacts=zeros(T_int[], laglim, 4, agegrps),
-                simple_accessible=zeros(T_int[], 6, agegrps),
-                peeps=zeros(T_int[], 6, agegrps),
-                touched=zeros(T_int[], laglim, 6, agegrps),
-                lag_contacts=zeros(T_int[], laglim),
+                # spreaders=zeros(T_int[], laglim, 4, agegrps),
+                # all_accessible=zeros(T_int[], laglim, 6, agegrps),
+                # contacts=zeros(T_int[], laglim, 4, agegrps),
+                # simple_accessible=zeros(T_int[], 6, agegrps),
+                # peeps=zeros(T_int[], 6, agegrps),
+                # touched=zeros(T_int[], laglim, 6, agegrps),
+                # lag_contacts=zeros(T_int[], laglim),
                 riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
                 contact_factors = contact_factors,
                 touch_factors = touch_factors,
