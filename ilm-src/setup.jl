@@ -13,7 +13,7 @@ function setup(n_days, locales;
 
     # simulation data matrix
         datadict = build_data(locales, geodata, n_days)
-        openmx = datadict["openmx"]   # alias to make it easier to do initialization
+        popdat = datadict["popdat"]   # alias to make it easier to do initialization
 
     # spread parameters
         spread_params = read_spread_params(spfilename)
@@ -42,40 +42,53 @@ function build_data(locales, geodata, n_days)
 
     pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
 
-    openmx = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
+    popdat = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
 
     # precalculate agegrp indices
-    agegrp_idx = Dict(loc => precalc_agegrp_filt(openmx[loc])[2] for loc in locales)
+    agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc])[2] for loc in locales)
 
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
-    # return Dict("openmx"=>openmx, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
-    return Dict("openmx"=>openmx, "agegrp_idx"=>agegrp_idx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
+    # return Dict("popdat"=>popdat, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
+    return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
 
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
-function pop_data(pop; age_dist=age_dist, intype=Int16)
+function pop_data(pop; age_dist=age_dist, intype=Int16, cols="all")
 
-    status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
-            parts = apportion(pop, age_dist)
-    agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps])
-    cond = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    lag = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    recov_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    dead_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    cluster = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    vax = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    vax_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    test = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    test_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
-    quar = zeros(intype, pop)
-    quar_day = zeros(intype, pop)
+    if cols == "all"
+        status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
+                parts = apportion(pop, age_dist)
+        agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps])
+        cond = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        lag = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        recov_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        dead_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        cluster = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        vax = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        vax_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        test = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        test_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        quar = zeros(intype, pop)
+        quar_day = zeros(intype, pop)
 
-    dat = hcat(status, agegrp, cond, lag, cluster, recov_day, dead_day, vax, 
-        vax_day, test, test_day, quar, quar_day)
+        dat = hcat(status, agegrp, cond, lag, cluster, recov_day, dead_day, vax, 
+            vax_day, test, test_day, quar, quar_day)
+    elseif cols == "track"
+        status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
+                parts = apportion(pop, age_dist)
+        agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps])
+        cond = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        lag = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+
+        dat = hcat(status, agegrp, cond, lag)
+
+    else
+        @error "Wrong choice of cols in pop_data: $cols"
+    end    
 
     return dat       
 end

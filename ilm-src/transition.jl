@@ -41,16 +41,16 @@ end
 
 
 # method to run through all existing locales in isolation
-function transition!(dat, dt_dict, agegrp_idx)
+function transition!(dat, dt_dict)
     for locale in keys(dat)
-        transition!(dat, locale, dt_dict, agegrp_idx)
+        transition!(dat, locale, dt_dict)
     end
 end
 
 
     
 """
-    transition!(dat, locale, dt_dict, agegrp_idx)
+    transition!(dat, locale, dt_dict)
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
@@ -59,8 +59,9 @@ they move to recovered or dead.
 
 Works for a single locale.
 """
-function transition!(dat, locale, dt_dict, agegrp_idx)
-    locdat = dat[locale]
+function transition!(dat, locale::Int, dt_dict)
+
+    locdat = locale == 0 ? dat : dat[locale]
 
     lags_by_age = dt_dict["lags"]
     fromconds_by_age = dt_dict["fromconds"]
@@ -151,7 +152,7 @@ process the queue of travelers from the end of the previous day.
 Remove groups of travelers by agegrp, lag, and condition
 from where they departed.  Add them to their destination.
 """
-function travelin!(dat=openmx)
+function travelin!(dat=popdat)
     while !isempty(travelq)
         g = dequeue!(travelq)
         cond = eval(Symbol(g.cond))
