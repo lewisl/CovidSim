@@ -24,6 +24,7 @@ function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
 end
 
 
+
 """
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
@@ -33,7 +34,7 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
 """
 function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1.0)
 
-    locdat = dat[locale]
+    locdat = locale == 0 ? dat : dat[locale]
 
     spread_idx = findall(locdat[:, cpop_status] .== infectious) # index of all spreaders
     n_spreaders = size(spread_idx, 1);
@@ -58,12 +59,11 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
     end
 
     push!(spreadq,
-            (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
-                touched=n_touched, infected=n_newly_infected)
-            )
+        (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
+            touched=n_touched, infected=n_newly_infected)
+        )
 
     return n_spreaders, n_contacts, n_touched, n_newly_infected
-
 end
 
 
@@ -209,7 +209,7 @@ function cleanup_stash(stash)
 end
 
 
-function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpoints=[], cf=[], tf=[],
+function r0_sim_old(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpoints=[], cf=[], tf=[],
                 compliance=[], shift_contact=(), shift_touch=(), disp=false)
     # factor_source must be one of: r0env, or env of current simulation
     # setup separate environment
@@ -274,7 +274,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         track_infected .+= how_many_infected(all_unexposed, r0env)
 
         if !isempty(dt)  # optionally transition
-            transition!(r0mx, locale, dt_dict, agegrp_idx)
+            transition!(r0mx, locale, dt_dict)
             r0env.spreaders[:] = grab(infectious_cases,agegrps,lags,locale, r0mx)
         end
     end
@@ -303,6 +303,41 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
     return ret
 end
 
+
+function r0_sim(age_dist, dt_dict, env, pop=1_000_000; scale=10)
+
+    # setup r0 sim population
+    r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="track")
+
+    # create spreaders: ages by age_dist, cond by steady state dist of conds
+        # use steady state when simulating "current"
+        # use nil when simulating "starting"
+    age_relative = round.(T_int[], age_dist ./ minimum(age_dist)) .* scale
+    cnt_spreaders = sum(age_relative)
+    for i in agegrps
+        idx = findfirst(x->x==i, r0pop[:,cpop_agegrp])
+        for j = 1:age_relative[i]
+            r0pop[idx, cpop_status] = infectious
+            r0pop[idx, cpop_cond] = nil
+            r0pop[idx, cpop_lag] = 1
+            idx += 1
+        end
+    end
+
+    n_spreaders = n_contacts = n_touched = n_newly_infected = 0
+    for i = 1:laglim                                          # dat, locale, spreadcases, env, density_factor::Float64 = 1.0)
+        n_spreaders, n_contacts, n_touched, n_newly_infected = .+((n_spreaders, n_contacts, n_touched, n_newly_infected),
+                                 spread!(r0pop, 0, [], env, 1.0)) 
+        transition!(r0pop, 0, dt_dict) 
+        # eliminate the new spreaders so we only track the original spreaders
+        newsick_idx = findall(r0pop[:, cpop_lag] .== 1)
+        r0pop[newsick_idx, cpop_status] .= unexposed
+    end
+
+    r0 = n_newly_infected / cnt_spreaders
+    return r0
+
+end
 
 function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; env=env, dt=dt)
     tbl = zeros(n+1,n+1)

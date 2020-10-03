@@ -18,7 +18,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                     dectreefilename=dtfilename, spfilename=spfilename)
 
         dt_dict = alldict["dt_dict"]  # decision trees for transition
-        openmx = alldict["dat"]["openmx"]
+        popdat = alldict["dat"]["popdat"]
         agegrp_idx = alldict["dat"]["agegrp_idx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
@@ -36,7 +36,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
 
     # check age distribution
-    # dat = openmx[first(locales)]
+    # dat = popdat[first(locales)]
     # agedist = countmap(dat[:,cpop_agegrp])
     # println(agedist)
     # println(sum(values(agedist)))
@@ -53,11 +53,11 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
             density_factor = geodf[geodf[:fips] .== loc, :density_factor][]
             for case in runcases
-                # case(loc, openmx, isolatedmx, testmx, env)   
-                case(loc, openmx, [], [], env)   
+                # case(loc, popdat, isolatedmx, testmx, env)   
+                case(loc, popdat, [], [], env)   
             end
-            sptime += @elapsed spread!(openmx, loc, spreadcases, env, density_factor)
-            trtime += @elapsed transition!(openmx, loc, dt_dict, agegrp_idx)   # transition infectious cases "in the open"
+            sptime += @elapsed spread!(popdat, loc, spreadcases, env, density_factor)
+            trtime += @elapsed transition!(popdat, loc, dt_dict)   # transition infectious cases "in the open"
         end
 
         # r0 displayed every 10 days
@@ -66,7 +66,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             println("at day $(ctr[:day]) r0 = $current_r0")
         end
 
-        do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
+        do_history!(locales, opendat=popdat, cumhist=cumhistmx, newhist=newhistmx, 
             agegrp_idx=agegrp_idx)
 
     end
