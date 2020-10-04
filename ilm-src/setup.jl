@@ -202,7 +202,6 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
     recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
     shape::Float64                       # parameter for spread!
-    sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
     # T_int[] should be one of Int64, Int32 when calling the constructor
@@ -213,11 +212,10 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
                                 touch_factors=zeros(Float64, 0,0),
                                 send_risk_by_lag=zeros(Float64,laglim),
                                 recv_risk_by_age=zeros(Float64, 5),
-                                shape=1.0,
-                                sd_compliance=ones(Float64, 6,5)    
+                                shape=1.0
                             ) where T<:Integer
         return new(geodata, riskmx, contact_factors,
-                   touch_factors, send_risk_by_lag, recv_risk_by_age, shape, sd_compliance)
+                   touch_factors, send_risk_by_lag, recv_risk_by_age, shape)
 
     end
 end
@@ -240,8 +238,7 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
                 touch_factors = touch_factors,
                 send_risk_by_lag = send_risk,
                 recv_risk_by_age = recv_risk,
-                shape = shape,
-                sd_compliance = zeros(6, agegrps))
+                shape = shape)
 
     return ret
 end

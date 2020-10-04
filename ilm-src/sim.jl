@@ -57,14 +57,17 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 case(loc, popdat, [], [], env)   
             end
             sptime += @elapsed spread!(popdat, loc, spreadcases, env, density_factor)
-            trtime += @elapsed transition!(popdat, loc, dt_dict)   # transition infectious cases "in the open"
+            trtime += @elapsed transition!(popdat, loc, dt_dict)   
+
+            # r0 displayed every 10 days
+            if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+                current_r0 = r0_sim(age_dist, popdat, loc, dt_dict, env, density_factor)
+                println("day $(ctr[:day]), locale $loc: r0 = $current_r0")
+            end
+
         end
 
-        # r0 displayed every 10 days
-        if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-            current_r0 = sim_r0(env, dt, all_decpoints)
-            println("at day $(ctr[:day]) r0 = $current_r0")
-        end
+   
 
         do_history!(locales, opendat=popdat, cumhist=cumhistmx, newhist=newhistmx, 
             agegrp_idx=agegrp_idx)
@@ -199,34 +202,6 @@ end
 #####################################################################################
 #  other functions used in simulation
 #####################################################################################
-
-# returns a single r0 value
-function sim_r0(env, dt_dict)  # named args must be provided by caller
-    # captures current population condition 
-    pct_unexposed = sum(env.simple_accessible[1,:]) / sum(env.simple_accessible)
-    sa_pct = [pct_unexposed,(1-pct_unexposed)/2.0,(1-pct_unexposed)/2.0]   
-
-    # if social_distancing case with split population
-    if haskey(spread_stash, :case_cf) || haskey(spread_stash, :case_tf)
-        compliance = spread_stash[:comply]
-        cf = spread_stash[:cf]
-        tf = spread_stash[:tf]
-        r0_comply = r0_sim(compliance = compliance, cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0
-
-        cf = env.contact_factors 
-        tf = env.touch_factors
-        r0_nocomply = r0_sim(compliance=(1.0 .- compliance), cf=cf, tf=tf, dt=dt, decpoints=all_decpoints,
-                             sa_pct=sa_pct, env=env).r0
-
-        # this works if all compliance values are the same; approximate otherwise
-        current_r0 = round(mean(compliance) * r0_comply + (1.0-mean(compliance)) * r0_nocomply, digits=2)
-    else
-        cf =  env.contact_factors
-        tf = env.touch_factors     
-        current_r0 = round(r0_sim(cf=cf, tf=tf, dt=dt, decpoints=all_decpoints, sa_pct=sa_pct, env=env).r0, digits=2)   
-    end
-    return current_r0
-end
 
 
 function empty_all_caches!()
