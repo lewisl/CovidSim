@@ -75,7 +75,7 @@ export
     SimEnv,
     initialize_sim_env,
     r0_sim,
-    sim_r0
+    set_by_level
 
 # functions for cases
 export

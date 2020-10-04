@@ -209,135 +209,73 @@ function cleanup_stash(stash)
 end
 
 
-function r0_sim_old(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpoints=[], cf=[], tf=[],
-                compliance=[], shift_contact=(), shift_touch=(), disp=false)
-    # factor_source must be one of: r0env, or env of current simulation
-    # setup separate environment
-    r0env = initialize_sim_env(env.geodata; contact_factors=env.contact_factors, touch_factors=env.touch_factors,
-                               send_risk=env.send_risk_by_lag, recv_risk=env.recv_risk_by_age);
-    r0mx = data_dict(1; lags=laglim, conds=length(conditions), agegrps=n_agegrps)  # single locale
-    locale = 1
-    population = convert(T_int[], 2_000_000)
-    setup_unexposed!(r0mx, population, locale)
+function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_000_000; scale=10)
 
-    # setup data
-    all_unexposed = grab(unexposed, agegrps, 1, locale, r0mx)  # (5, ) agegrp for lag 1
-    track_infected = zeros(T_int[], 5)
-    track_contacts = zeros(T_int[], laglim, 4, 5)
-    track_touched = zeros(T_int[], laglim, 6, 5)
+    if locale == 0 # simulate with pop input
+        # create population
+        r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="track")
 
-    r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps, lags, locale, r0mx)  #   laglim x 6 x 5  lag x cond by agegrp
-    r0env.simple_accessible[:] = sum(r0env.all_accessible, dims=1)[1,:,:] # sum all the lags result (6,5)
-    if !isempty(compliance)
-        r0env.simple_accessible[:] = round.(T_int[], compliance .* r0env.simple_accessible)
-    end
-
-    if sa_pct[1] != 1.0
-        sa_pct = [sa_pct[1],sa_pct[2],sa_pct[3], fill(sa_pct[3]./4.0, 3)...]
-        res = [r0env.simple_accessible[1,:] .* i for i in sa_pct]
-        sanew = zeros(T_int[], 6, 5)
-        @inbounds for i in 1:6
-           sanew[i,:] .= round.(Int,res[i])
+        # create spreaders: ages by age_dist, cond is nil
+        age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
+        age_relative .*= scale # update with scale
+        cnt_spreaders = sum(age_relative)
+        for i in agegrps
+            idx = findfirst(x->x==i, r0pop[:,cpop_agegrp])
+            for j = 1:age_relative[i]
+                r0pop[idx, cpop_status] = infectious
+                r0pop[idx, cpop_cond] = nil
+                r0pop[idx, cpop_lag] = 1
+                idx += 1
+            end
         end
-        r0env.simple_accessible[:] = round.(T_int[], sanew)
+    else  # simulate r0 at the current state of locale being simulated
+        r0pop = deepcopy(dat[locale])
+        ignore_idx = findall(r0pop[:, cpop_status] .== infectious)
+        r0pop[ignore_idx, cpop_status] .= recovered # can't catch what they already have; won't spread for calc of r0
+
+        cnt_accessible = count(r0pop[:, cpop_status] .== unexposed)
+        age_relative = round.(T_int[], age_dist ./ minimum(age_dist)) # counts by agegrp
+        scale = set_by_level(cnt_accessible)
+        age_relative .*= scale # update with scale
+        cnt_spreaders = sum(age_relative)
+        for i in agegrps
+            idx = findall((r0pop[:,cpop_agegrp] .== i) .& (r0pop[:, cpop_status] .== unexposed))
+            for j = 1:age_relative[i]
+                r0pop[idx[j], cpop_status] = infectious
+                r0pop[idx[j], cpop_cond] = nil
+                r0pop[idx[j], cpop_lag] = 1
+            end
+        end        
     end
 
-    age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
-    r0env.spreaders[:] = ones(T_int[], laglim, 4, agegrps)
-    @inbounds for i in 1:5
-        r0env.spreaders[:,:,i] .= age_relative[i]
-    end
-    if !isempty(dt)
-        r0env.spreaders[2:laglim, :, :] .= T_int[](0)
-        r0env.spreaders .*= T_int[](20)
-        tot_spreaders = sum(r0env.spreaders)
-    else
-        r0env.spreaders[1,:,:] .= T_int[](0);
-        tot_spreaders = round.(T_int[], sum(r0env.spreaders) / (laglim - 1))
+    ret = [0,0,0,0] # n_spreaders, n_contacts, n_touched, n_newly_infected 
+    for i = 1:laglim                                          
+        ret[:] .+= spread!(r0pop, 0, [], env, density_factor)  # dat, locale, spreadcases, env, density_factor::Float64 = 1.0)
+        transition!(r0pop, 0, dt_dict) 
+
+        # eliminate the new spreaders so we only track the original spreaders
+        newsick_idx = findall(r0pop[:, cpop_lag] .== 1)
+
+        r0pop[newsick_idx, cpop_status] .= unexposed
+        r0pop[newsick_idx, cpop_lag] .= 0
     end
 
-    input!(r0env.spreaders,infectious_cases,agegrps,lags,locale,r0mx)
+    r0 =  ret[4] / cnt_spreaders   # n_newly_infected / cnt_spreaders
+    return r0
+end
 
-    # parameters that drive r0
-    !isempty(cf) && (r0env.contact_factors[:] = deepcopy(cf))
-    !isempty(tf) && (r0env.touch_factors[:] = deepcopy(tf))
-    isempty(shift_contact)  || (r0env.contact_factors[:] =shifter(r0env.contact_factors, shift_contact...))
-    isempty(shift_touch) || (r0env.touch_factors[:] = shifter(r0env.touch_factors, shift_touch...))
 
-    stopat = !isempty(dt) ? laglim : 1
-
-    for i = 1:stopat
-        disp && println("test day = $i, spreaders = $(sum(r0env.spreaders))")
-
-        track_contacts .+= how_many_contacts!(r0env, density_factor)
-        track_touched .+= how_many_touched!(r0env)
-        track_infected .+= how_many_infected(all_unexposed, r0env)
-
-        if !isempty(dt)  # optionally transition
-            transition!(r0mx, locale, dt_dict)
-            r0env.spreaders[:] = grab(infectious_cases,agegrps,lags,locale, r0mx)
+function set_by_level(x, levels=[[1, 300_000], [5, 500_000], [10, 10_000_000_000]])
+    ret = 0
+    for lvl in levels
+        if x <= lvl[2]
+            ret = lvl[1]
+            break
         end
     end
-
-    tot_contacts = sum(track_contacts)
-    tot_touched = sum(track_touched)
-    tot_infected = sum(track_infected)
-    r0 = tot_infected / tot_spreaders
-    contact_ratio = tot_contacts / tot_spreaders  
-    touch_ratio = tot_touched / tot_spreaders
-
-    if disp
-        contact_factors = round.(r0env.contact_factors, digits=3)
-        touch_factors = round.(r0env.touch_factors, digits=3)
-            println("r0 = $r0  contact_ratio=$contact_ratio  touch_ratio=$touch_ratio")
-            println("spreaders = $tot_spreaders, contacts = $tot_contacts, touched = $tot_touched, infected = $tot_infected")
-            print("contact_factors ")
-            display(contact_factors)
-            print("touch_factors ")
-            display(touch_factors)
-    end
-    
-    ret = (day=ctr[:day], r0=r0, spreaders=tot_spreaders, contacts=tot_contacts, touched=tot_touched, infected=tot_infected,
-           contact_ratio=contact_ratio,  touch_ratio=touch_ratio)
-    push!(r0q, ret)
     return ret
 end
 
-
-function r0_sim(age_dist, dt_dict, env, pop=1_000_000; scale=10)
-
-    # setup r0 sim population
-    r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="track")
-
-    # create spreaders: ages by age_dist, cond by steady state dist of conds
-        # use steady state when simulating "current"
-        # use nil when simulating "starting"
-    age_relative = round.(T_int[], age_dist ./ minimum(age_dist)) .* scale
-    cnt_spreaders = sum(age_relative)
-    for i in agegrps
-        idx = findfirst(x->x==i, r0pop[:,cpop_agegrp])
-        for j = 1:age_relative[i]
-            r0pop[idx, cpop_status] = infectious
-            r0pop[idx, cpop_cond] = nil
-            r0pop[idx, cpop_lag] = 1
-            idx += 1
-        end
-    end
-
-    n_spreaders = n_contacts = n_touched = n_newly_infected = 0
-    for i = 1:laglim                                          # dat, locale, spreadcases, env, density_factor::Float64 = 1.0)
-        n_spreaders, n_contacts, n_touched, n_newly_infected = .+((n_spreaders, n_contacts, n_touched, n_newly_infected),
-                                 spread!(r0pop, 0, [], env, 1.0)) 
-        transition!(r0pop, 0, dt_dict) 
-        # eliminate the new spreaders so we only track the original spreaders
-        newsick_idx = findall(r0pop[:, cpop_lag] .== 1)
-        r0pop[newsick_idx, cpop_status] .= unexposed
-    end
-
-    r0 = n_newly_infected / cnt_spreaders
-    return r0
-
-end
 
 function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; env=env, dt=dt)
     tbl = zeros(n+1,n+1)
