@@ -211,7 +211,8 @@ end
 
 function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_000_000; scale=10)
 
-    if locale == 0 # simulate with pop input
+    # setup a fake locale or use the current locale in the simulation
+    if locale == 0 # simulate with fake locale with pop people
         # create population
         r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="track")
 

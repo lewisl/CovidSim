@@ -100,7 +100,10 @@ function transition!(dat, locale::Int, dt_dict)
                 tocond = outcomes[choice][]
 
                 if tocond in (dead, recovered)  # change status, leave cond and lag as last state before death or recovery
+                    # dead = 4 death_day = 7, recovered = 3, recov day = 6
                     locdat[p, cpop_status] = tocond
+                    remove_day_col = tocond + 3  # TODO this has to be replaced!
+                    locdat[p, remove_day_col] = ctr[:day]
                 else   # change disease condition
                     locdat[p, cpop_cond] = tocond
                     locdat[p, cpop_lag] += 1  
