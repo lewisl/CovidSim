@@ -75,8 +75,13 @@ function pop_data(pop; age_dist=age_dist, intype=Int16, cols="all")
         quar = zeros(intype, pop)
         quar_day = zeros(intype, pop)
 
-        dat = hcat(status, agegrp, cond, lag, cluster, recov_day, dead_day, vax, 
-            vax_day, test, test_day, quar, quar_day)
+        # dat = hcat(status, agegrp, cond, lag, cluster, recov_day, dead_day, vax, 
+        #     vax_day, test, test_day, quar, quar_day)
+
+        # use TypedTable
+        dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag, cluster=cluster, 
+            recov_day=recov_day, dead_day=dead_day, vax=vax, vax_day=vax_day, 
+            test=test, test_day=test_day, quar=quar, quar_day=quar_day)
     elseif cols == "track"
         status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
                 parts = apportion(pop, age_dist)
@@ -84,8 +89,8 @@ function pop_data(pop; age_dist=age_dist, intype=Int16, cols="all")
         cond = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
         lag = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
 
-        dat = hcat(status, agegrp, cond, lag)
-
+        # dat = hcat(status, agegrp, cond, lag)
+        dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag)
     else
         @error "Wrong choice of cols in pop_data: $cols"
     end    
@@ -174,7 +179,7 @@ end
 
 
 function precalc_agegrp_filt(dat)  # dat for a single locale
-    agegrp_filt_bit = Dict(agegrp => dat[:, cpop_agegrp] .== agegrp for agegrp in agegrps)
+    agegrp_filt_bit = Dict(agegrp => dat.agegrp .== agegrp for agegrp in agegrps)
     agegrp_filt_idx = Dict(agegrp => findall(agegrp_filt_bit[agegrp]) for agegrp in agegrps)
     return agegrp_filt_bit, agegrp_filt_idx
 end
