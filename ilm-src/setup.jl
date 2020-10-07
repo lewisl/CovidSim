@@ -6,7 +6,7 @@
 function setup(n_days, locales; 
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/dec_tree_all_25.yml",
-    spfilename="../parameters/spread_params.yml")
+    spfilename="../parameters/spread_params_ilm.yml")
 
     # geodata
         geodata = buildgeodata(geofilename)
