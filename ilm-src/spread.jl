@@ -36,9 +36,14 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     locdat = locale == 0 ? dat : dat[locale]
 
-    spread_idx = findall(locdat[:, cpop_status] .== infectious) # index of all spreaders
+    # spread_idx = findall(locdat[:, cpop_status] .== infectious) # index of all spreaders
+    spread_idx = findall(locdat.status .== infectious) # index of all spreaders
     n_spreaders = size(spread_idx, 1);
-    contactable_idx = findall(locdat[:, cpop_status] .!= dead) # index of all potential contacts
+    # contactable_idx = findall(locdat[:, cpop_status] .!= dead) # index of all potential contacts
+    contactable_idx = findall(locdat.status .!= dead) # index of all potential contacts
+
+    # println("finding the contactable took ", @elapsed findall(locdat.status .!= dead))
+
     n_contactable = size(contactable_idx, 1)
 
     do_case = get(spread_stash, :do_case, false) # we've never had a case or we shut down the previous case
@@ -146,11 +151,18 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     # how many contacts?
     spreaders_to_contacts = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
     for i in 1:size(spreaders_to_contacts, 1)  # for each spreader
-        cond = locdat[spread_idx[i], cpop_cond]-4
-        agegrp = locdat[spread_idx[i], cpop_agegrp]
-        scale = density_factor * contact_factors[cond, agegrp]
+        # cond = locdat[spread_idx[i], cpop_cond]-4
+        # agegrp = locdat[spread_idx[i], cpop_agegrp]
+        p = spread_idx[i]
+        p_tup = locdat[p]
+
+        thiscond = p_tup.cond - 4  # map 5-8 to 1-4
+        thisagegrp = p_tup.agegrp
+        thislag = p_tup.lag
+
+        scale = density_factor * contact_factors[thiscond, thisagegrp]
         spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
-        spreaders_to_contacts[i, 2] = locdat[spread_idx[i], cpop_lag]   # lag of this spreader 
+        spreaders_to_contacts[i, 2] =  thislag
     end
     n_contacts = sum(spreaders_to_contacts[:,1])
     n_contactable = size(contactable_idx, 1)
@@ -165,33 +177,36 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
     stop = 0
     for (nc, lag) in eachrow(spreaders_to_contacts)  # nc=numContacts, lag=lag of spreader
-        start = stop + 1; stop = stop + nc
 
+        start = stop + 1; stop = stop + nc
         stop = stop > n_target_contacts ? n_target_contacts : stop  
 
         for person in contact_people[start:stop]
             # person's characteristics
-            status = locdat[person, cpop_status]  # TODO below crap needs to be fixed
-            agegrp = locdat[person, cpop_agegrp]
-            characteristic =  status in [1,3] ? [1,0,2][status] : locdat[person, cpop_cond]-2 # max(0,ilmat[person, cpop_cond]-2
-            @debug characteristic < 1 && error("bad characteristic value")
+            p_tup = locdat[person]
+            status = p_tup.status  # TODO below crap needs to be fixed
+            agegrp = p_tup.agegrp
+            characteristic =  status in [1,3] ? [1,0,2][status] : locdat.cond[person] - 2 # max(0,ilmat[person, cpop_cond]-2
+            # @debug characteristic < 1 && error("bad characteristic value")
 
             # touch outcome
             touched = rand(Binomial(1, touch_factors[characteristic, agegrp]))
             n_touched += touched
 
             # infection outcome
-            if touched == 1 && characteristic == unexposed
+            if (touched == 1) && (status == unexposed)    # (characteristic == unexposed)
                 prob = riskmx[lag, agegrp]
                 newly_infected = rand(Binomial(1, prob))
                 if newly_infected == 1
-                    locdat[person, cpop_cond] = nil # nil === asymptomatic or pre-symptomatic
-                    locdat[person, cpop_status] = infectious
+                    locdat.cond[person] = nil # nil === asymptomatic or pre-symptomatic
+                    locdat.status[person] = infectious
                 end
                 n_newly_infected += newly_infected
             end
         end
     end
+
+    # @show n_contacts, n_touched, n_newly_infected
 
     return n_contacts, n_touched, n_newly_infected
 end
@@ -214,37 +229,39 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_
     # setup a fake locale or use the current locale in the simulation
     if locale == 0 # simulate with fake locale with pop people
         # create population
-        r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="track")
+        r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="all")
 
         # create spreaders: ages by age_dist, cond is nil
         age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
         age_relative .*= scale # update with scale
         cnt_spreaders = sum(age_relative)
         for i in agegrps
-            idx = findfirst(x->x==i, r0pop[:,cpop_agegrp])
+            idx = findfirst(x->x==i, r0pop.agegrp)
             for j = 1:age_relative[i]
-                r0pop[idx, cpop_status] = infectious
-                r0pop[idx, cpop_cond] = nil
-                r0pop[idx, cpop_lag] = 1
+                r0pop.status[idx] = infectious
+                r0pop.cond[idx] = nil
+                r0pop.lag[idx] = 1
                 idx += 1
             end
         end
     else  # simulate r0 at the current state of locale being simulated
         r0pop = deepcopy(dat[locale])
-        ignore_idx = findall(r0pop[:, cpop_status] .== infectious)
-        r0pop[ignore_idx, cpop_status] .= recovered # can't catch what they already have; won't spread for calc of r0
+        ignore_idx = findall(r0pop.status .== infectious)
+        r0pop.status[ignore_idx] .= recovered # can't catch what they already have; won't spread for calc of r0
 
-        cnt_accessible = count(r0pop[:, cpop_status] .== unexposed)
+        cnt_accessible = count(r0pop.status .== unexposed)
         age_relative = round.(T_int[], age_dist ./ minimum(age_dist)) # counts by agegrp
         scale = set_by_level(cnt_accessible)
         age_relative .*= scale # update with scale
         cnt_spreaders = sum(age_relative)
+
         for i in agegrps
-            idx = findall((r0pop[:,cpop_agegrp] .== i) .& (r0pop[:, cpop_status] .== unexposed))
+            idx = findall((r0pop.agegrp .== i) .& (r0pop.status .== unexposed))
             for j = 1:age_relative[i]
-                r0pop[idx[j], cpop_status] = infectious
-                r0pop[idx[j], cpop_cond] = nil
-                r0pop[idx[j], cpop_lag] = 1
+                p = idx[j]
+                r0pop.status[p] = infectious
+                r0pop.cond[p] = nil
+                r0pop.lag[p] = 1
             end
         end        
     end
@@ -252,13 +269,14 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_
     ret = [0,0,0,0] # n_spreaders, n_contacts, n_touched, n_newly_infected 
     for i = 1:laglim                                          
         ret[:] .+= spread!(r0pop, 0, [], env, density_factor)  # dat, locale, spreadcases, env, density_factor::Float64 = 1.0)
+
         transition!(r0pop, 0, dt_dict) 
 
         # eliminate the new spreaders so we only track the original spreaders
-        newsick_idx = findall(r0pop[:, cpop_lag] .== 1)
+        newsick_idx = findall(r0pop.lag .== 1)
 
-        r0pop[newsick_idx, cpop_status] .= unexposed
-        r0pop[newsick_idx, cpop_lag] .= 0
+        r0pop.status[newsick_idx] .= unexposed
+        r0pop.lag[newsick_idx] .= 0
     end
 
     r0 =  ret[4] / cnt_spreaders   # n_newly_infected / cnt_spreaders

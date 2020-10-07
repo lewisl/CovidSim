@@ -62,12 +62,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             # r0 displayed every 10 days
             if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
                 current_r0 = r0_sim(age_dist, popdat, loc, dt_dict, env, density_factor)
-                println("day $(ctr[:day]), locale $loc: r0 = $current_r0")
+                println("day $(ctr[:day]), locale $loc: rt = $current_r0")
             end
 
         end
-
-   
 
         do_history!(locales, opendat=popdat, cumhist=cumhistmx, newhist=newhistmx, 
             agegrp_idx=agegrp_idx)
@@ -113,16 +111,37 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
         #
         for age in agegrps
             # get the source data: status
-            dat_age = dat[agegrp_idx[loc][age], :]
-            status_today = countmap(dat_age[:, cpop_status])    # outcomes for thisday
+            dat_age = dat[agegrp_idx[loc][age]]
+            status_today = countmap(dat_age.status)    # outcomes for thisday
+
+
+            # println("Day $thisday Agegrp: $age")
+            # println(status_today)
+            # println()
+            # if thisday == 10
+            #     error("that's all for now")
+            # end
+
 
             # get the source data: conditions in (nil, mild, sick, severe)
-            filt_infectious = findall(dat[:,cpop_status] .== infectious)
+            filt_infectious = findall(dat.status .== infectious)
             if size(filt_infectious, 1) > 0
-                sick_today = countmap(dat[filt_infectious, cpop_cond])  # ditto
+                sick_today = countmap(dat.cond[filt_infectious])  # ditto
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
+
+            # println("Day $thisday Agegrp: $age")
+            # println(sick_today)
+            # println()
+            # if thisday == 11
+            #     error("that's all for now")
+            # end
+
+
+
+
+
 
             # insert into sink: cum
             for i in unexposed:dead  # 1:4
@@ -276,6 +295,10 @@ end
 #############################################################
 
 
+# to access a column of a TypedTable using a variable that holds the symbol
+getcol = TypedTables.getproperty
+
+
 function printsp(xs...)
     for x in xs
        print(x," ")
@@ -338,20 +361,39 @@ function make_sick!(dat; cnt, fromage, tocond, tolag=1)
 
     @assert size(cnt, 1) == size(fromage, 1)
 
-    filt_unexp = findall((dat[:,cpop_status] .== unexposed)) # must be unexposed
+    filt_unexp = findall(dat.status .== unexposed) # must be unexposed
 
     for i in 1:size(fromage, 1)  # by target age groups
 
-        filt_age = dat[filt_unexp, cpop_agegrp] .== fromage[i] # age of the unexposed
+        filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
         rowrange = 1:cnt[i]
         filt_all = filt_unexp[filt_age][rowrange]
         cols = [cpop_status, cpop_cond, cpop_lag]
 
-        dat[filt_all, cols] .= [infectious tocond tolag]
+        dat.status[filt_all] .= infectious
+        dat.cond[filt_all] .= tocond
+        dat.lag[filt_all] .= tolag
     end
-
-
 end
+
+
+# function make_sick!(dat; cnt, fromage, tocond, tolag=1)
+
+#     @assert size(cnt, 1) == size(fromage, 1)
+
+#     filt_unexp = findall((dat[:,cpop_status] .== unexposed)) # must be unexposed
+
+#     for i in 1:size(fromage, 1)  # by target age groups
+
+#         filt_age = dat[filt_unexp, cpop_agegrp] .== fromage[i] # age of the unexposed
+#         rowrange = 1:cnt[i]
+#         filt_all = filt_unexp[filt_age][rowrange]
+#         cols = [cpop_status, cpop_cond, cpop_lag]
+
+#         dat[filt_all, cols] .= [infectious tocond tolag]
+#     end
+# end
+
 
 
 function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)

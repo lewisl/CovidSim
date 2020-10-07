@@ -42,6 +42,7 @@ using StatsPlots
 using Debugger
 using Dates
 using YAML
+using TypedTables
 
 
 # order matters for these includes!

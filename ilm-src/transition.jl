@@ -68,45 +68,48 @@ function transition!(dat, locale::Int, dt_dict)
     dt = dt_dict["dt"]
 
     # create stacked indices of infected sorted by lag. Use as infected_idx[sorted_by_lag]
-    infected_idx = findall(locdat[:,1] .== 2)
-    sorted_by_lag = sortperm(locdat[infected_idx,4], rev=true) # only need one column to get row indices
+    infected_idx = findall(locdat.status .== 2)
+    sorted_by_lag = sortperm(locdat.lag[infected_idx], rev=true) # only need one column to get row indices
 
     for p in infected_idx[sorted_by_lag]  # p is the index to the person
-        (p_stat, p_age, p_lag, p_cond) = locdat[p, [cpop_status, cpop_agegrp, cpop_lag, cpop_cond]]
+        p_tup = locdat[p]
+        # (p_stat, p_age, p_lag, p_cond) = locdat[p, [cpop_status, cpop_agegrp, cpop_lag, cpop_cond]]
 
-        lagfound = findall(x->x==p_lag, lags_by_age[p_age])
+        lagfound = findall(x->x==p_tup.lag, lags_by_age[p_tup.agegrp])
         if isempty(lagfound)  # person's lag doesn't match any decision point lag
             # test against laglim, then increment
-            if p_lag == laglim
+            if p_tup.lag == laglim
                 @error "Person made it to end of laglim and was not removed"
             else
-                locdat[p,cpop_lag] += 1
+                locdat.lag[p] += 1
             end
         else
-            condfound = findall(x->x==p_cond, fromconds_by_age[p_age][lagfound])
+            condfound = findall(x->x==p_tup.cond, fromconds_by_age[p_tup.agegrp][lagfound])
             if isempty(condfound)
-                if p_lag == laglim
+                if p_tup.lag == laglim
                     @error "Person made it to end of laglim and was not removed"
                 else
-                    locdat[p,cpop_lag] += 1
+                    locdat.lag[p] += 1
                 end
             else # transition for lag and fromcond using probabilities to choose outcome at this branch
 
-                dtkey = [p_lag, p_cond]
-                probs = dt[p_age][dtkey]["probs"]
-                outcomes = dt[p_age][dtkey]["outcomes"]
+                dtkey = [p_tup.lag, p_tup.cond]
+                probs = dt[p_tup.agegrp][dtkey]["probs"]
+                outcomes = dt[p_tup.agegrp][dtkey]["outcomes"]
 
                 choice = rand(Categorical(probs), 1)
                 tocond = outcomes[choice][]
 
                 if tocond in (dead, recovered)  # change status, leave cond and lag as last state before death or recovery
                     # dead = 4 death_day = 7, recovered = 3, recov day = 6
-                    locdat[p, cpop_status] = tocond
-                    remove_day_col = tocond + 3  # TODO this has to be replaced!
-                    locdat[p, remove_day_col] = ctr[:day]
+                    locdat.status[p] = tocond
+                    # remove_day_col = tocond + 3  # TODO this has to be replaced!
+                    remove_day_col = tocond == dead ? :dead_day : :recov_day
+                    getcol(locdat, remove_day_col)[p] = ctr[:day]
+                    # locdat[p, remove_day_col] = ctr[:day]
                 else   # change disease condition
-                    locdat[p, cpop_cond] = tocond
-                    locdat[p, cpop_lag] += 1  
+                    locdat.cond[p] = tocond
+                    locdat.lag[p] += 1  
                 end    
 
             end
