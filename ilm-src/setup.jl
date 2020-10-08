@@ -13,7 +13,6 @@ function setup(n_days, locales;
 
     # simulation data matrix
         datadict = build_data(locales, geodata, n_days)
-        popdat = datadict["popdat"]   # alias to make it easier to do initialization
 
     # spread parameters
         spread_params = read_spread_params(spfilename)
@@ -201,11 +200,11 @@ Struct for variables used by many functions = the simulation environment
 """
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::Array{Any, 2}
-    riskmx::Array{Float64, 2} # laglim,5
-    contact_factors::Array{Float64, 2}  # 4,5 parameters for spread!
-    touch_factors::Array{Float64, 2}  #  6,5  parameters for spread!
+    riskmx::Array{Float64, 2}            # laglim,5
+    contact_factors::Array{Float64, 2}   # 4,5 parameters for spread!
+    touch_factors::Array{Float64, 2}     #  6,5  parameters for spread!
     send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
-    recv_risk_by_age::Array{Float64,1}  # 5,  parameters for spread!
+    recv_risk_by_age::Array{Float64,1}   # 5,  parameters for spread!
     shape::Float64                       # parameter for spread!
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env

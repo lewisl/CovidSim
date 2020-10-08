@@ -150,7 +150,8 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
     # how many contacts?
     spreaders_to_contacts = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
-    for i in 1:size(spreaders_to_contacts, 1)  # for each spreader
+
+    for i in 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
         # cond = locdat[spread_idx[i], cpop_cond]-4
         # agegrp = locdat[spread_idx[i], cpop_agegrp]
         p = spread_idx[i]
@@ -169,7 +170,10 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
     # assign the contacts 
     n_target_contacts = min(n_contacts, n_contactable)
-    contact_people = sample(contactable_idx, n_target_contacts, replace=false) # specific people contacted
+
+    # contact_people[1:n_target_contacts] .= sample(contactable_idx, n_target_contacts, replace=false)
+    contact_people = sample(contactable_idx, n_target_contacts, replace=false)
+
 
     # which contacts are consequential touches? which touched get infected?
     n_touched = 0
@@ -200,6 +204,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
                 if newly_infected == 1
                     locdat.cond[person] = nil # nil === asymptomatic or pre-symptomatic
                     locdat.status[person] = infectious
+                    # lag remains zero because person was unexposed; transition! function updates lag
                 end
                 n_newly_infected += newly_infected
             end
