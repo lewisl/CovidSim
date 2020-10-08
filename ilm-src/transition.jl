@@ -63,32 +63,32 @@ function transition!(dat, locale::Int, dt_dict)
 
     locdat = locale == 0 ? dat : dat[locale]
 
-    dt = dt_dict["dt"]
+    dt = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
-    for p in findall(locdat.status .== infectious)        # findall(x -> x == infectious, locdat.status)     # infected_idx     
-        p_tup = locdat[p]  # returns named tuple of the columns for row at p
+    for p in findall(locdat.status .== infectious)            
+        p_tup = locdat[p]  # returns named tuple of the columns for row at p (for person)
 
         dtkey = (p_tup.lag, p_tup.cond)
 
-        branch = get(dt[p_tup.agegrp], dtkey, ())
+        node = get(dt[p_tup.agegrp], dtkey, ())
 
-        if isempty(branch)  
-            @assert p_tup.lag < laglim "Person made it last day and was not removed:\n     $p_tup\n"
+        if isempty(node)  
+            @assert p_tup.lag < laglim "Person made it to last day and was not removed:\n     $p_tup\n"
             locdat.lag[p] += 1
         else
-            choice = rand(Categorical(branch["probs"]), 1)
-            tocond = branch["outcomes"][choice][]
+            choice = rand(Categorical(node["probs"]), 1)
+            tocond = node["outcomes"][choice][]
 
-            if tocond in [dead, recovered]  # change status, leave cond and lag as last state before death or recovery
-                # dead = 4 death_day = 7, recovered = 3, recov day = 6
+            if tocond in (dead, recovered)  # change status, leave cond and lag as last state before death or recovery
+                
                 locdat.status[p] = tocond  # change the status
-                # set the day of the status change
-                if tocond == dead
+                
+                if tocond == dead  # set the day of the status change
                     locdat.dead_day[p] = ctr[:day]
                 else
                     locdat.recov_day[p] = ctr[:day]
                 end
-                # locdat[p, remove_day_col] = ctr[:day]
+
             else   # change disease condition
                 locdat.cond[p] = tocond   # change the condition
                 locdat.lag[p] += 1  
