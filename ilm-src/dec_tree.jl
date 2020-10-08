@@ -32,35 +32,46 @@ end
 
 
 function setup_dt(dtfilename)
-    treedict = YAML.load_file(dtfilename)
-    dt = Dict(i=>sort(treedict[i], rev=true) for i in agegrps) 
+    trees = YAML.load_file(dtfilename)
+    trees = Dict(i => Dict(Tuple(k)=>trees[i][k] for k in keys(trees[i])) for i in 1:5)
+
+    for agegrp in agegrps
+        for (k,v) in trees[agegrp]
+           for item in v
+                item["next"] = Tuple(item["next"])
+            end
+        end
+    end
+
 
     # pre-calculate the array of probabilities for all branches at a node
     # pre-calculate the array of outcome conditions ("tocond") for all branches at a node
 
+    newdict = Dict()
     for agegrp in agegrps
-        tree = dt[agegrp]
-        for node in keys(tree)
-            probs = [branch["pr"] for branch in tree[node]]
-            outcomes = [branch["tocond"] for branch in tree[node]]
-            branches = [branch for branch in tree[node]]
-            tree[node] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+        newdict[agegrp] = Dict()
+        for node in keys(trees[agegrp])
+            probs = [branch["pr"] for branch in trees[agegrp][node]]
+            outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
+            branches = [branch for branch in trees[agegrp][node]]
+            newdict[agegrp][node] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
         end
     end
+    newdict = Dict(i=>sort(newdict[i], rev=true) for i in agegrps) 
 
     lags_by_age = Dict{Int,Array{Int,1}}()  # empty
     fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
     for agegrp in agegrps
-        lags_by_age[agegrp] = [k[1] for k in collect(keys(dt[agegrp]))]
-        fromconds_by_age[agegrp] = [k[2] for k in collect(keys(dt[agegrp]))]
+        lags_by_age[agegrp] = [k[1] for k in collect(keys(trees[agegrp]))]
+        fromconds_by_age[agegrp] = [k[2] for k in collect(keys(trees[agegrp]))]
     end
 
     decpoints = Dict{Int,Array{Int, 1}}()
     for i in agegrps
-        decpoints[i] = unique([k[1] for k in keys(dt[i])])
+        decpoints[i] = unique([k[1] for k in keys(trees[i])])
     end
 
-    return Dict("dt"=>dt, "decpoints"=>decpoints, "lags"=>lags_by_age, "fromconds"=>fromconds_by_age)
+    return Dict("dt"=>newdict, "decpoints"=>decpoints, "lags"=>lags_by_age, "fromconds"=>fromconds_by_age)
 end
 
 
