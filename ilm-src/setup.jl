@@ -56,7 +56,7 @@ end
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
-function pop_data(pop; age_dist=age_dist, intype=Int16, cols="all")
+function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 
     if cols == "all"
         status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
