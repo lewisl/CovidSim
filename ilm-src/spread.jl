@@ -153,7 +153,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     # println("size spread_idx $(size(spread_idx, 1))")
     # error("that's all....")
 
-    init = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
+    init = zeros(T_int[], size(spread_idx,1),2) # second column for lag of the spreader
     spreaders_to_contacts = Table(nc = init[:,1], lag = init[:,2])
 
 
