@@ -114,15 +114,6 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
             dat_age = dat[agegrp_idx[loc][age]]
             status_today = countmap(dat_age.status)    # outcomes for thisday
 
-
-            # println("Day $thisday Agegrp: $age")
-            # println(status_today)
-            # println()
-            # if thisday == 10
-            #     error("that's all for now")
-            # end
-
-
             # get the source data: conditions in (nil, mild, sick, severe)
             filt_infectious = findall(dat.status .== infectious)
             if size(filt_infectious, 1) > 0
@@ -130,18 +121,6 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
-
-            # println("Day $thisday Agegrp: $age")
-            # println(sick_today)
-            # println()
-            # if thisday == 11
-            #     error("that's all for now")
-            # end
-
-
-
-
-
 
             # insert into sink: cum
             for i in unexposed:dead  # 1:4
@@ -189,15 +168,6 @@ function review_history(histmx)
     end
 end
 
-
-# a single locale, either cumulative or new
-# function make_series(histmx)
-#     s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2]))
-#     for i in 1:size(histmx, 3)
-#         @views s[i, :] = reduce(vcat,[histmx[j, :, i] for j in 1:size(histmx,1)])'
-#     end
-#     return s
-# end
 
 # a single locale that already has both new and cum series
 function add_totinfected_series!(series, locale)
