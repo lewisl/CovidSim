@@ -56,7 +56,7 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
                 density_factor)
             )
 
-    else  # will a case start today OR we have an active case
+    else  # a case may start today OR we have an active case
 
         n_contacts, n_touched, n_newly_infected = (
             spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, density_factor)
@@ -89,7 +89,7 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
             end
             # pop this case:  we don't need to look at it again
             deleteat!(spreadcases, i)
-            break  # found a case that applies today--skip any later cases
+            break   # we can only have one active case at a time; new cases replaces prior case; do one per day
         end
     end # if we go through loop w/o finding a case today, then nothing changes in spread_stash
 
@@ -135,7 +135,7 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
                             _spread!(locdat, pass_spread_idx, pass_contactable_idx, pass_cf, pass_tf, env.riskmx, env.shape, density_factor))
             end
         end
-    else
+    else  # a case was zero'ed out today--this is same as running spread! -> that might happen next day if no more cnt_accessible
         n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, contactable_idx, 
                         env.contact_factors, env.touch_factors, env.riskmx, env.shape,
                         density_factor)
@@ -169,9 +169,11 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
         scale = density_factor * contact_factors[thiscond, thisagegrp]
 
+        # for typedtable implementation
         # spreaders_to_contacts.nc[i] = round(T_int[],rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
         # spreaders_to_contacts.lag[i] = thislag
 
+        # for array implementation
         spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
         spreaders_to_contacts[i, 2] =  thislag
     end
