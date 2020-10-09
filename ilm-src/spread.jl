@@ -149,7 +149,13 @@ end
 function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
 
     # how many contacts?
-    spreaders_to_contacts = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
+
+    # println("size spread_idx $(size(spread_idx, 1))")
+    # error("that's all....")
+
+    init = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
+    spreaders_to_contacts = Table(nc = init[:,1], lag = init[:,2])
+
 
     for i in 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
         # cond = locdat[spread_idx[i], cpop_cond]-4
@@ -162,11 +168,16 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
         thislag = p_tup.lag
 
         scale = density_factor * contact_factors[thiscond, thisagegrp]
-        spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
-        spreaders_to_contacts[i, 2] =  thislag
+
+        spreaders_to_contacts.nc[i] = round(T_int[],rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
+        spreaders_to_contacts.lag[i] = thislag
+
+        # spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
+        # spreaders_to_contacts[i, 2] =  thislag
     end
-    n_contacts = sum(spreaders_to_contacts[:,1])
+    n_contacts = sum(spreaders_to_contacts.nc)     # n_contacts = sum(spreaders_to_contacts[:,1])
     n_contactable = size(contactable_idx, 1)
+
 
     # assign the contacts 
     n_target_contacts = min(n_contacts, n_contactable)
@@ -180,21 +191,37 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     n_newly_infected = 0
 
     stop = 0
-    for (nc, lag) in eachrow(spreaders_to_contacts)  # nc=numContacts, lag=lag of spreader
+    for i in 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
+        nc = spreaders_to_contacts.nc[i]
+        lag = spreaders_to_contacts.lag[i]
+
+        # println("nc $nc   lag    $lag")
+
+        # nc = spreaders_to_contacts[i,1]
+        # lag = spreaders_to_contacts[i,2]
 
         start = stop + 1; stop = stop + nc
-        stop = stop > n_target_contacts ? n_target_contacts : stop  
+        # stop = stop > n_target_contacts ? n_target_contacts : stop  
+        @assert stop <= n_target_contacts
 
-        for person in contact_people[start:stop]
+        # println("start $start    stop $stop  nc $nc")
+
+        @views for person in contact_people[start:stop]
             # person's characteristics
             p_tup = locdat[person]
             status = p_tup.status  # TODO below crap needs to be fixed
             agegrp = p_tup.agegrp
-            characteristic =  status in [1,3] ? [1,0,2][status] : locdat.cond[person] - 2 # max(0,ilmat[person, cpop_cond]-2
-            # @debug characteristic < 1 && error("bad characteristic value")
+            cond = p_tup.cond
+            lookup = if status == unexposed
+                        1  # row 1
+                     elseif status == recovered
+                        2
+                     else
+                        cond - 2  # 5:8 - 2 -> 3:6
+                     end
 
             # touch outcome
-            touched = rand(Binomial(1, touch_factors[characteristic, agegrp]))
+            touched = rand(Binomial(1, touch_factors[lookup, agegrp]))
             n_touched += touched
 
             # infection outcome
@@ -232,7 +259,7 @@ end
 function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_000_000; scale=10)
 
     # setup a fake locale or use the current locale in the simulation
-    if locale == 0 # simulate with fake locale with pop people
+    @views if locale == 0 # simulate with fake locale with pop people
         # create population
         r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="all")
 
