@@ -153,11 +153,11 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     # println("size spread_idx $(size(spread_idx, 1))")
     # error("that's all....")
 
-    init = zeros(T_int[], size(spread_idx,1),2) # second column for lag of the spreader
-    spreaders_to_contacts = Table(nc = init[:,1], lag = init[:,2])
+    # init = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
+    # spreaders_to_contacts = Table(nc = init[:,1], lag = init[:,2])
+    spreaders_to_contacts = zeros(Int, size(spread_idx,1), 2) # second column for lag of the spreader
 
-
-    for i in 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
+    @inbounds for i in 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
         # cond = locdat[spread_idx[i], cpop_cond]-4
         # agegrp = locdat[spread_idx[i], cpop_agegrp]
         p = spread_idx[i]
@@ -169,20 +169,22 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
         scale = density_factor * contact_factors[thiscond, thisagegrp]
 
-        spreaders_to_contacts.nc[i] = round(T_int[],rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
-        spreaders_to_contacts.lag[i] = thislag
+        # spreaders_to_contacts.nc[i] = round(T_int[],rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
+        # spreaders_to_contacts.lag[i] = thislag
 
-        # spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
-        # spreaders_to_contacts[i, 2] =  thislag
+        spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
+        spreaders_to_contacts[i, 2] =  thislag
     end
-    n_contacts = sum(spreaders_to_contacts.nc)     # n_contacts = sum(spreaders_to_contacts[:,1])
+
+    # n_contacts = sum(spreaders_to_contacts.nc)     # sum(spreaders_to_contacts[:,1])   sum(spreaders_to_contacts.nc) 
+    n_contacts = sum(spreaders_to_contacts[:,1])  
+
     n_contactable = size(contactable_idx, 1)
 
 
     # assign the contacts 
     n_target_contacts = min(n_contacts, n_contactable)
 
-    # contact_people[1:n_target_contacts] .= sample(contactable_idx, n_target_contacts, replace=false)
     contact_people = sample(contactable_idx, n_target_contacts, replace=false)
 
 
@@ -191,22 +193,21 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     n_newly_infected = 0
 
     stop = 0
-    for i in 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
-        nc = spreaders_to_contacts.nc[i]
-        lag = spreaders_to_contacts.lag[i]
+    @inbounds for i in 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
 
-        # println("nc $nc   lag    $lag")
+        # nc = spreaders_to_contacts.nc[i]   # spreaders_to_contacts.nc[i]  spreaders_to_contacts[i,1]
+        # lag = spreaders_to_contacts.lag[i]  #  spreaders_to_contacts.lag[i]  spreaders_to_contacts[i,2]
 
-        # nc = spreaders_to_contacts[i,1]
-        # lag = spreaders_to_contacts[i,2]
+        nc = spreaders_to_contacts[i,1]
+        lag = spreaders_to_contacts[i,2]
 
         start = stop + 1; stop = stop + nc
         # stop = stop > n_target_contacts ? n_target_contacts : stop  
-        @assert stop <= n_target_contacts
+        # @assert stop <= n_target_contacts
 
         # println("start $start    stop $stop  nc $nc")
 
-        @views for person in contact_people[start:stop]
+        @inbounds @views for person in contact_people[start:stop]
             # person's characteristics
             p_tup = locdat[person]
             status = p_tup.status  # TODO below crap needs to be fixed
@@ -237,8 +238,6 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
             end
         end
     end
-
-    # @show n_contacts, n_touched, n_newly_infected
 
     return n_contacts, n_touched, n_newly_infected
 end
