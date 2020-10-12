@@ -66,11 +66,11 @@ function transition!(dat, locale::Int, dt_dict)
     dt = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
     @inbounds for p in findall(locdat.status .== infectious)            
-        p_tup = locdat[p]  # returns named tuple of the columns for row at p (for person)
+        # p_tup = locdat[p]  # returns named tuple of the columns for row at p (for person)
 
-        dtkey = (p_tup.lag, p_tup.cond)
+        dtkey = (locdat.lag[p], locdat.cond[p])
 
-        node = get(dt[p_tup.agegrp], dtkey, ())
+        node = get(dt[locdat.agegrp[p]], dtkey, ())
 
         @inbounds if isempty(node)  
             # @assert p_tup.lag < laglim "Person made it to last day and was not removed:\n     $p_tup\n"
