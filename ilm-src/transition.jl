@@ -66,7 +66,6 @@ function transition!(dat, locale::Int, dt_dict)
     dt = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
     @inbounds for p in findall(locdat.status .== infectious)            
-        # p_tup = locdat[p]  # returns named tuple of the columns for row at p (for person)
 
         dtkey = (locdat.lag[p], locdat.cond[p])
 

@@ -150,30 +150,17 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
     # how many contacts?
 
-    # println("size spread_idx $(size(spread_idx, 1))")
-    # error("that's all....")
-
-    # init = zeros(Int, size(spread_idx,1),2) # second column for lag of the spreader
-    # spreaders_to_contacts = Table(nc = init[:,1], lag = init[:,2])
     spreaders_to_contacts = zeros(Int, size(spread_idx,1), 2) # second column for lag of the spreader
 
     @inbounds for i in 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
-        # cond = locdat[spread_idx[i], cpop_cond]-4
-        # agegrp = locdat[spread_idx[i], cpop_agegrp]
         p = spread_idx[i]
-        p_tup = locdat[p]
 
-        thiscond = p_tup.cond - 4  # map 5-8 to 1-4
-        thisagegrp = p_tup.agegrp
-        thislag = p_tup.lag
+        thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
+        thisagegrp = locdat.agegrp[p]
+        thislag = locdat.lag[p]
 
         scale = density_factor * contact_factors[thiscond, thisagegrp]
 
-        # for typedtable implementation
-        # spreaders_to_contacts.nc[i] = round(T_int[],rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
-        # spreaders_to_contacts.lag[i] = thislag
-
-        # for array implementation
         spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
         spreaders_to_contacts[i, 2] =  thislag
     end
@@ -197,9 +184,6 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     stop = 0
     @inbounds for i in 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
 
-        # nc = spreaders_to_contacts.nc[i]   # spreaders_to_contacts.nc[i]  spreaders_to_contacts[i,1]
-        # lag = spreaders_to_contacts.lag[i]  #  spreaders_to_contacts.lag[i]  spreaders_to_contacts[i,2]
-
         nc = spreaders_to_contacts[i,1]
         lag = spreaders_to_contacts[i,2]
 
@@ -207,14 +191,11 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
         # stop = stop > n_target_contacts ? n_target_contacts : stop  
         # @assert stop <= n_target_contacts
 
-        # println("start $start    stop $stop  nc $nc")
-
         @inbounds @views for person in contact_people[start:stop]
             # person's characteristics
-            p_tup = locdat[person]
-            status = p_tup.status  # TODO below crap needs to be fixed
-            agegrp = p_tup.agegrp
-            cond = p_tup.cond
+            status = locdat.status[person]  # TODO below crap needs to be fixed
+            agegrp = locdat.agegrp[person]
+            cond = locdat.cond[person]
             lookup = if status == unexposed
                         1  # row 1
                      elseif status == recovered
