@@ -161,41 +161,91 @@ function get_the_probs(path, tree)
 end
 
 
-#  what a tree looks like:
+#  what a tree looks like for a single agegrp:
 
 #= type Dict{Array{Int64, 1}, Array{Dict, 1}}  
-[5, 5] =>
-   Dict("tocond" => 5, "pr" = > 0.2, "next" => [2, 1])
-   Dict("tocond" => 6, "pr" = > 0.65, "next" => [2, 2])
-   Dict("tocond" => 7, "pr" = > 0.15, "next" => [2, 3])
-[9, 5] =>
-   Dict("tocond" => 3, "pr" = > 0.8, "next" => [0, 0])
-   Dict("tocond" => 7, "pr" = > 0.2, "next" => [3, 3])
-[9, 6] =>
-   Dict("tocond" => 6, "pr" = > 1.0, "next" => [3, 2])
-[9, 7] =>
-   Dict("tocond" => 7, "pr" = > 0.85, "next" => [3, 3])
-   Dict("tocond" => 8, "pr" = > 0.15, "next" => [3, 4])
-[14, 6] =>
-   Dict("tocond" => 3, "pr" = > 1.0, "next" => [0, 0])
-[14, 7] =>
-   Dict("tocond" => 3, "pr" = > 0.8, "next" => [0, 0])
-   Dict("tocond" => 7, "pr" = > 0.1, "next" => [5, 3])
-   Dict("tocond" => 8, "pr" = > 0.1, "next" => [4, 4])
-[14, 8] =>
-   Dict("tocond" => 3, "pr" = > 0.45, "next" => [0, 0])
-   Dict("tocond" => 8, "pr" = > 0.5, "next" => [4, 4])
-   Dict("tocond" => 4, "pr" = > 0.05, "next" => [0, 5])
-[19, 8] =>
-   Dict("tocond" => 3, "pr" = > 0.85, "next" => [0, 0])
-   Dict("tocond" => 8, "pr" = > 0.1, "next" => [5, 4])
-   Dict("tocond" => 4, "pr" = > 0.05, "next" => [0, 5])
-[25, 7] =>
-   Dict("tocond" => 3, "pr" = > 0.9, "next" => [0, 0])
-   Dict("tocond" => 4, "pr" = > 0.1, "next" => [0, 5])
-[25, 8] =>
-   Dict("tocond" => 3, "pr" = > 0.6, "next" => [0, 0])
-   Dict("tocond" => 4, "pr" = > 0.4, "next" => [0, 5])
+(5, 5) =>
+    "probs"
+        [0.2, 0.65, 0.15]
+    "outcomes"
+        [5, 6, 7]
+    "branches"
+        Dict("tocond" => 5, "pr" = > 0.2, "next" => (2, 1))
+        Dict("tocond" => 6, "pr" = > 0.65, "next" => (2, 2))
+        Dict("tocond" => 7, "pr" = > 0.15, "next" => (2, 3))
+(9, 5) =>
+    "probs"
+        [0.8, 0.2]
+    "outcomes"
+        [3, 7]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 0.8, "next" => (0, 0))
+        Dict("tocond" => 7, "pr" = > 0.2, "next" => (3, 3))
+(9, 6) =>
+    "probs"
+        [1.0]
+    "outcomes"
+        [6]
+    "branches"
+        Dict("tocond" => 6, "pr" = > 1.0, "next" => (3, 2))
+(9, 7) =>
+    "probs"
+        [0.85, 0.15]
+    "outcomes"
+        [7, 8]
+    "branches"
+        Dict("tocond" => 7, "pr" = > 0.85, "next" => (3, 3))
+        Dict("tocond" => 8, "pr" = > 0.15, "next" => (3, 4))
+(14, 6) =>
+    "probs"
+        [1.0]
+    "outcomes"
+        [3]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 1.0, "next" => (0, 0))
+(14, 7) =>
+    "probs"
+        [0.8, 0.1, 0.1]
+    "outcomes"
+        [3, 7, 8]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 0.8, "next" => (0, 0))
+        Dict("tocond" => 7, "pr" = > 0.1, "next" => (5, 3))
+        Dict("tocond" => 8, "pr" = > 0.1, "next" => (4, 4))
+(14, 8) =>
+    "probs"
+        [0.45, 0.5, 0.05]
+    "outcomes"
+        [3, 8, 4]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 0.45, "next" => (0, 0))
+        Dict("tocond" => 8, "pr" = > 0.5, "next" => (4, 4))
+        Dict("tocond" => 4, "pr" = > 0.05, "next" => (0, 5))
+(19, 8) =>
+    "probs"
+        [0.85, 0.1, 0.05]
+    "outcomes"
+        [3, 8, 4]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 0.85, "next" => (0, 0))
+        Dict("tocond" => 8, "pr" = > 0.1, "next" => (5, 4))
+        Dict("tocond" => 4, "pr" = > 0.05, "next" => (0, 5))
+(25, 7) =>
+    "probs"
+        [0.9, 0.1]
+    "outcomes"
+        [3, 4]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 0.9, "next" => (0, 0))
+        Dict("tocond" => 4, "pr" = > 0.1, "next" => (0, 5))
+(25, 8) =>
+    "probs"
+        [0.6, 0.4]
+    "outcomes"
+        [3, 4]
+    "branches"
+        Dict("tocond" => 3, "pr" = > 0.6, "next" => (0, 0))
+        Dict("tocond" => 4, "pr" = > 0.4, "next" => (0, 5))
 =#
 
 
