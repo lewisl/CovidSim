@@ -56,8 +56,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
-            sptime += @elapsed spread!(popdat, loc, spreadcases, env, density_factor)
-            trtime += @elapsed transition!(popdat, loc, dt_dict)   
+            spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
+            transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
 
             # r0 displayed every 10 days
             if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -84,7 +84,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     #     add_totinfected_series!(series, loc)
     # end
 
-    @show sptime, trtime
+    # @show sptime, trtime
 
     return alldict, env, series
 end

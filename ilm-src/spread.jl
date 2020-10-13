@@ -161,7 +161,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
         scale = density_factor * contact_factors[thiscond, thisagegrp]
 
-        spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # cnt of contacts for 1 spreader
+        spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
         spreaders_to_contacts[i, 2] =  thislag
     end
 

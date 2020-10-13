@@ -10,7 +10,7 @@
 function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.yml",
-            spfilename="../parameters/spread_params.yml")
+            spfilename="../parameters/spread_params_grp.yml")
 #=
     see cases.jl for runcases and spreadcases
 =#
