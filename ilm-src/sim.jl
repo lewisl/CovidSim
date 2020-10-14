@@ -46,6 +46,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     ######################
     sptime = 0
     trtime = 0
+    simtime = 0
+    histtime = 0
     for i = 1:n_days
         inc!(ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", ctr[:day])
@@ -56,8 +58,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
-            spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
-            transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
+            simtime += @elapsed begin
+                    spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
+                    transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
+                end
 
             # r0 displayed every 10 days
             if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -67,8 +71,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
         end
 
-        do_history!(locales, opendat=popdat, cumhist=cumhistmx, newhist=newhistmx, 
-            agegrp_idx=agegrp_idx)
+        histtime += @elapsed do_history!(locales, popdat, cumhistmx, newhistmx, agegrp_idx)
 
     end
     silent || println("Simulation completed for $(ctr[:day]) days.")
@@ -84,7 +87,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     #     add_totinfected_series!(series, loc)
     # end
 
-    # @show sptime, trtime
+    @show simtime, histtime
 
     return alldict, env, series
 end
@@ -99,10 +102,10 @@ end
 # const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
 #                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
 
-function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
+function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
     thisday = ctr[:day]
     for loc in locales
-        dat = opendat[loc]  # source
+        dat = popdat[loc]  # source
         cumdat = cumhist[loc]   # sink
         newdat = newhist[loc]   # sink
 
@@ -112,12 +115,12 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
         for age in agegrps
             # get the source data: status
             dat_age = dat[agegrp_idx[loc][age]]
-            status_today = countmap(dat_age.status)    # outcomes for thisday
+            status_today = countsarr(dat_age.status, unexposed:dead)    # outcomes for thisday
 
             # get the source data: conditions in (nil, mild, sick, severe)
             filt_infectious = findall(dat.status .== infectious)
             if size(filt_infectious, 1) > 0
-                sick_today = countmap(dat.cond[filt_infectious])  # ditto
+                sick_today = countsarr(dat.cond[filt_infectious], nil:severe)  # ditto
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
@@ -146,6 +149,21 @@ function do_history!(locales; opendat, cumhist, newhist, agegrp_idx)
     end # for loc in locales
 
 end # function
+
+
+"""
+    Allows counting appearances of all values appearing in an array.
+    Slightly faster than StatsBase: counts (2x) or countmap (4x).
+    Requires integer values in a continuous range.
+"""
+function countsarr(input, vals)
+    ret = zeros(Int, size(vals,1))
+    ret = OffsetVector(ret, vals)  # enables indexing 5:8, etc.
+    for i in input
+        ret[i] += 1
+    end
+    return ret
+end
 
 
 function hist_total_agegrps!(series, locales)
