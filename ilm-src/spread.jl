@@ -152,7 +152,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
 
     spreaders_to_contacts = zeros(Int, size(spread_idx,1), 2) # second column for lag of the spreader
 
-    @inbounds for i in 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
+    @inbounds for i in eachindex(spread_idx)   # 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
         p = spread_idx[i]
 
         thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
@@ -182,7 +182,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     n_newly_infected = 0
 
     stop = 0
-    @inbounds for i in 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
+    @inbounds for i in eachindex(spread_idx)           # 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
 
         nc = spreaders_to_contacts[i,1]
         lag = spreaders_to_contacts[i,2]
