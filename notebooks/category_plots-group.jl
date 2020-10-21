@@ -55,7 +55,7 @@ infect_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # %% [markdown]
 # #### Death Percentage Across Age Groups
 
-# %% jupyter={"source_hidden": true}
+# %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
 deadvals = series[seattle][:cum][end,[map2series.dead]...]
 pctvals = round.([deadvals[i] / deadvals[6] for i in 1:length(deadvals)], digits=3)
@@ -65,9 +65,9 @@ death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # #### Death Percentage of Infected *Within* Each Age Group
 
 # %%
-dead = series[seattle][:cum][end, map2series.dead] 
+deaths = series[seattle][:cum][end, map2series.dead] 
 infected = series[seattle][:cum][1,map2series.unexposed] .- series[seattle][:cum][end,map2series.unexposed]
-death_pct_infected_within_age = round.(dead ./ infected, digits=5)
+death_pct_infected_within_age = round.(deaths ./ infected, digits=5)
 cats = hcat(agelabels, death_pct_infected_within_age)
 
 # %% [markdown]
@@ -75,7 +75,7 @@ cats = hcat(agelabels, death_pct_infected_within_age)
 
 # %%
 pop = series[seattle][:cum][1,map2series.unexposed]
-death_pct_bypop_within_age = round.(dead ./ pop, digits=5)
+death_pct_bypop_within_age = round.(deaths ./ pop, digits=5)
 hcat(agelabels, death_pct_bypop_within_age)
 
 # %% [markdown]
@@ -125,7 +125,7 @@ deadtbl = hcat(agelabels, unexvals, pctvals)
 deadseries = series[seattle][:cum][:,[map2series.dead]...]
 n = size(deadseries,1)
 
-# %% jupyter={"source_hidden": true}
+# %%
 ageserieslabels = [agelabels[1] agelabels[2] agelabels[3] agelabels[4] agelabels[5]]
 areaplot(1:n, deadseries[:,1:5],labels=ageserieslabels, title="Deaths by Age Group")
 
@@ -167,29 +167,32 @@ annotate!((6,half_yscale,Plots.text("Burden: $maxsevere", 10, :left)))
 # ## Strong Social Distancing
 
 # %%
-str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.2), tf=(.18,.41))
+str_65 = sd_gen(start=65, comply=.8, cf=(.2,1.25), tf=(.18,.41))
 
 # %%
-open_more = sd_gen(start=95, cf=(.5,1.55), tf=(.25,.55),comply=1.0)
+open_more = sd_gen(start=105, cf=(.5,1.50), tf=(.18,.53),comply=1.0)
 
 # %%
 alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[str_50],
+        spreadcases=[str_65],
         runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"])
+cumplot(series,seattle,geo=alldict["geo"], [infectious, dead])
 
 # %% [markdown]
 # ## Strong Social Distancing followed by Opening Up
 
 # %%
 alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[str_50, open_more],
+        spreadcases=[str_65, open_more],
         runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"])
+cumplot(series,seattle, geo=alldict["geo"], [infectious, dead])
+
+# %%
+newplot(series,seattle, dead)
 
 # %% [markdown]
 # #### Infection Percentage Across Age Groups
@@ -212,6 +215,11 @@ death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # %% [markdown]
 # ## Open Up and Restrict Exposure of Older People
 
+# %% [markdown]
+# The outcome of the next section is that an observed reduction in deaths can be attributed to elderly people comprising a smaller percentage of those who are infected. This scenario combines the following conditions:
+# - early achievement of strong social distancing
+# - opening up 45 days later, but less than fully
+
 # %%
 function isolate_vulnerable(locale, opendat, isodat,testdat, env)
     if ctr[:day] == 105
@@ -222,11 +230,14 @@ end
 
 # %%
 alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[str_50, open_more],
+        spreadcases=[str_65, open_more],
         runcases=[seed_1_6, isolate_vulnerable]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"])
+cumplot(series,seattle,geo=alldict["geo"], [infectious, dead])
+
+# %%
+newplot(series,seattle, dead)
 
 # %% [markdown]
 # #### Infection Percentage Across Age Groups
@@ -240,7 +251,7 @@ infect_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # %% [markdown]
 # #### Death Percentage Across Age Groups
 
-# %% jupyter={"source_hidden": true}
+# %%
 agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "Total"]
 deadvals = series[seattle][:cum][end,[map2series.dead]...]
 pctvals = round.([deadvals[i] / deadvals[6] for i in 1:length(deadvals)], digits=3)
@@ -253,7 +264,10 @@ death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 deadseries = series[seattle][:cum][:,[map2series.dead]...]
 n = size(deadseries,1)
 
-# %% jupyter={"source_hidden": true}
+ # %%
+ theme(thm, foreground_color_border=:black, 
+          tickfontsize=9, gridlinewidth=1)
+
 ageserieslabels = [agelabels[1] agelabels[2] agelabels[3] agelabels[4] agelabels[5]]
 areaplot(1:n, deadseries[:,1:5],labels=ageserieslabels, title="Deaths by Age Group")
 
@@ -297,6 +311,7 @@ check_infected = sum(spreadseries[:,:infected])
 # total infected is ok; matches check_infected
 
 # %%
+(6214 - 3212)/6214
 
 # %%
 

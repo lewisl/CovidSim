@@ -149,120 +149,55 @@ end
 
 
 """
-Place people into isolation.
-
-You can enter a percentage (as a fraction in [0.0, 1.0]), an array
-of percentages, a number, or an array of numbers.
-
-Use a dot after the function name to apply the same pct or number
-input to several conditions, agegrps, lags, or locales.
-
-Use a dot after the function name to apply an array: one or more
-of agegrp, cond, or locale must have the same number of elements as the input.
+    Struct for supplying terms that make up a query of the population matrix.
+    Fields of the struct are:
+    - col: Symbol that is the column name in the population matrix
+    - op: logical test operation, one of: ==, !=, <, >, <=, >=, etc.
+    - val: the value to be compared, either Int or bit type for Bool: true, false
 """
-function isolate!(pct::Float64,cond,agegrp,lag,locale, opendat, isodat)
-    for c in cond
-        for age in agegrp
-            for l in lag
-                isolate_by!(pct::Float64,c,age,l,locale, opendat, isodat)
-            end
+struct Popquery
+    col::Symbol
+    op::Function
+    val::Union{Int64, Bool}
+end
+
+
+"""
+    Place people into isolation or quarantine.
+
+"""
+function isolate!(locdat, qty, filters::Array)  # TODO we could generalize to change any conditions
+
+    thisday = ctr[:day]
+    filts = copy(filters)
+
+    push!(filts, Popquery(:quar, ==, false)) # don't isolate people already in quarantine
+
+    # break apart filters into tuples of values, operations, columns
+    qvals = Tuple(q.val for q in filts)
+    qops = Tuple(q.op for q in filts)
+    qcols = Tuple(q.col for q in filts)
+
+    isoq = 0
+    rand_idx = randperm(size(locdat.status, 1))
+    for samp in Iterators.partition(rand_idx, qty), p in samp
+        conditions = true
+        for (j,col) in enumerate(qcols)
+            conditions &= (qops[j])(qvals[j],  getproperty(locdat, col)[p]) 
         end
-    end
-end
-
-
-function isolate_by!(pct::Float64,cond,agegrp,lag,locale, opendat, isodat)
-    @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
-    available = grab(cond, agegrp, lag, locale, opendat)  # max
-    scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, T_int[](0), T_int[](available))  # limit to max
-    cnt < scnt && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
-    _isolate!(cnt, cond, agegrp, lag, locale, opendat, isodat)
-end
-
-
-function isolate_by!(num, cond, agegrp, lag, locale, opendat, isodat)
-    @assert sum(num) >= 0 "num must be greater than zero"
-    if typeof(locale) <: Quar_Loc
-        available = grab(cond, agegrp, lag, locale.locale, opendat)  # max
-    else
-        available = grab(cond, agegrp, lag, locale, opendat)  # max
-    end
-    cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
-    sum(cnt) < sum(num) && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
-    _isolate!(cnt, cond, agegrp, lag, locale, opendat, isodat)
-    return nothing
-end  # this one works
-
-
-function _isolate!(cnt, cond, agegrp, lag, locale::Integer, opendat, isodat)
-    minus!(cnt, cond, agegrp, lag, locale, opendat)  # move out 
-    update_infectious!(locale, opendat)
-    plus!(cnt, cond, agegrp, lag, locale, isodat)  # move in
-    update_infectious!(locale, isodat)
-    return nothing  # this one works!
-end
-
-# for test and trace or any isolate that records the day of isolation
-function _isolate!(cnt, cond, agegrp, lag, qloc::Quar_Loc, opendat, isodat)
-    minus!(cnt, cond, agegrp, lag, qloc.locale, opendat)  # move out 
-    update_infectious!(qloc.locale, opendat)
-    plus!(cnt, cond, agegrp, lag, qloc, isodat)  # move in
-    update_infectious!(qloc, isodat)
-    return nothing  # this one works!
-end
-
-function unisolate!(pct::Float64,cond,agegrp,lag,locale, opendat, isodat)
-    for c in cond
-        for age in agegrp
-            for l in lag
-                unisolate_by!(pct::Float64,c,age,l,locale, opendat, isodat)
-            end
-        end
-    end
-end
-
-
-function unisolate_by!(pct::Float64,cond,agegrp,lag,locale, opendat, isodat)
-    @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
-    available = grab(cond, agegrp, lag, locale, isodat)  # max
-    scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, T_int[](0), T_int[](available))  # limit to max
-    cnt < scnt && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
-    _unisolate!(cnt, cond, agegrp, lag, locale, opendat, isodat)
-    return nothing  # this one works!
-end
-
-
-function unisolate_by!(num, cond, agegrp, lag, locale, opendat, isodat, mode=:both)
-    @assert sum(num) >= 0 "sum(num) must be greater than zero"
-
-    available = grab(cond, agegrp, lag, locale, isodat)  # max
-
-    # println("day $(ctr[:day]) request to unisolate   ", sum(num))
-    # println("day $(ctr[:day]) available to unisolate ", sum(available))
-
-    cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
-    sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
-    _unisolate!(cnt, cond, agegrp, lag, locale,  opendat, isodat, :both)
-    return nothing
-end  # this one works
-
-
-function _unisolate!(cnt, cond, agegrp, lag, locale,  opendat, isodat, mode=:both)
-    if mode != :plus  # this is when mode = :minus or :both
-        minus!(cnt, cond, agegrp, lag, locale, isodat)
-        update_infectious!(locale, isodat)
-    end
-    if mode != :minus  # this is when mode = :plus or :both
-        if typeof(locale) <: Quar_Loc
-            locale = locale.locale
+        
+        if conditions
+            isoq += 1
+            locdat.quar[p] = true
+            locdat.quar_day[p] = thisday
         end
 
-        # println("day $(ctr[:day])  unquarantine is unisolating this many ", sum(cnt))
-
-        plus!(cnt, cond, agegrp, lag, locale, opendat)
-        update_infectious!(locale, opendat)
+        if isoq >= qty
+            break
+        end
     end
-    return 
+
+    return isoq
 end
+
+
