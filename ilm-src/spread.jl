@@ -152,86 +152,52 @@ end
 
 function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
 
-    # how many contacts?
-
-    contacttime = @elapsed begin
-
-        spreaders_to_contacts = zeros(Int, size(spread_idx,1), 2) # second column for lag of the spreader
-
-        @inbounds for i in eachindex(spread_idx)   # 1:size(spread_idx, 1)  # for each spreader  # size(spreaders_to_contacts, 1)
-            p = spread_idx[i]
-
-            thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
-            thisagegrp = locdat.agegrp[p]
-            thislag = locdat.lag[p]
-
-            scale = density_factor * contact_factors[thiscond, thisagegrp]
-
-            spreaders_to_contacts[i, 1] = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
-            spreaders_to_contacts[i, 2] =  thislag
-        end
-
-        # n_contacts = sum(spreaders_to_contacts.nc)     # sum(spreaders_to_contacts[:,1])   sum(spreaders_to_contacts.nc) 
-        n_contacts = sum(spreaders_to_contacts[:,1])  
-
-        n_contactable = size(contactable_idx, 1)
-
-
-        # assign the contacts 
-        n_target_contacts = min(n_contacts, n_contactable)
-
-        contact_people = sample(contactable_idx, n_target_contacts, replace=true)
-    end
-
-
-    # which contacts are consequential touches? which touched get infected?
+    n_contacts = 0
     n_touched = 0
     n_newly_infected = 0
 
-    infecttime = @elapsed begin
-        stop = 0
-        @inbounds for i in eachindex(spread_idx)           # 1:size(spread_idx,1)  # nc=numContacts, lag=lag of spreader
+    # assign contacts, do touches, do new infections
+    @inbounds for p in spread_idx      # p is the spreader person
 
-            nc = spreaders_to_contacts[i,1]
-            lag = spreaders_to_contacts[i,2]
+        thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
+        thisagegrp = locdat.agegrp[p]
+        thislag = locdat.lag[p]
 
-            start = stop + 1; stop = stop + nc
-            # stop = stop > n_target_contacts ? n_target_contacts : stop  
-            # @assert stop <= n_target_contacts
+        scale = density_factor * contact_factors[thiscond, thisagegrp]
 
-            @inbounds @views for person in contact_people[start:stop]
-                # person's characteristics
-                status = locdat.status[person]  # TODO below crap needs to be fixed
-                agegrp = locdat.agegrp[person]
-                cond = locdat.cond[person]
-                lookup = if status == unexposed
-                            1  # row 1
-                         elseif status == recovered
-                            2
-                         else
-                            cond - 2  # 5:8 - 2 -> 3:6
-                         end
+        nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
+        n_contacts += nc
+                                                                                # TODO we could keep track of contacts for contact tracing
+        @inbounds @views for contact in sample(contactable_idx, nc, replace=true) # some people really do get contacted more than once
+            # contacts's characteristics
+            status = locdat.status[contact]  
+            agegrp = locdat.agegrp[contact]
+            cond = locdat.cond[contact]
+            lookup = if status == unexposed   # lookup row in touch_factors
+                        1  # row 1
+                     elseif status == recovered
+                        2
+                     else
+                        cond - 2  # 5:8 - 2 -> 3:6
+                     end
 
-                # touch outcome
-                touched = rand(Binomial(1, touch_factors[lookup, agegrp]))
-                n_touched += touched
+            # touch outcome
+            touched = rand(Binomial(1, touch_factors[lookup, agegrp]))
+            n_touched += touched
 
-                # infection outcome
-                if (touched == 1) && (status == unexposed)    # (characteristic == unexposed)
-                    prob = riskmx[lag, agegrp]
-                    newly_infected = rand(Binomial(1, prob))
-                    if newly_infected == 1
-                        locdat.cond[person] = nil # nil === asymptomatic or pre-symptomatic
-                        locdat.status[person] = infectious
-                        # lag remains zero because person was unexposed; transition! function updates lag
-                    end
-                    n_newly_infected += newly_infected
+            # infection outcome
+            if (touched == 1) && (status == unexposed)    # TODO some recovered people will become susceptible again
+                prob = riskmx[thislag, agegrp]            # TODO also vaccinated people will have partially unsusceptible
+                newly_infected = rand(Binomial(1, prob))
+                if newly_infected == 1
+                    locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
+                    locdat.status[contact] = infectious
+                    # lag remains zero because person was unexposed; transition! function updates lag
                 end
+                n_newly_infected += newly_infected
             end
         end
-    end # begin @elapsed
-
-    # @show contacttime, infecttime
+    end
 
     return n_contacts, n_touched, n_newly_infected
 end

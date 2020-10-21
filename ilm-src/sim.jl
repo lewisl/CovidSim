@@ -118,9 +118,9 @@ function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
             status_today = countsarr(dat_age.status, unexposed:dead)    # outcomes for thisday
 
             # get the source data: conditions in (nil, mild, sick, severe)
-            filt_infectious = findall(dat.status .== infectious)
+            filt_infectious = findall(dat_age.status .== infectious)
             if size(filt_infectious, 1) > 0
-                sick_today = countsarr(dat.cond[filt_infectious], nil:severe)  # ditto
+                sick_today = countsarr(dat_age.cond[filt_infectious], nil:severe)  # ditto
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
