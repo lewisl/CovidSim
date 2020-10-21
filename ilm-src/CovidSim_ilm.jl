@@ -9,9 +9,6 @@
     # put in an inflection measure
 
 # TODO for individual level model
-    # ilm spreads slower, fewer infected, higher death rate than group model: something about rounding
-    # add totinfected (total new active) history series
-    # r0_sim
     # get rid of indirection for lowlevel population updates
     # test loop vs. broadcast update of pop matrix
     # do quarantine for ilm
@@ -20,6 +17,8 @@
 # Done
     # add spreadq to ilm
     # implement history tracking for ilm: by agegrp, add nil, mild, sick, severe to new
+    # add totinfected (total new active) history series
+    # r0_sim
 
 
 
@@ -49,12 +48,12 @@ using OffsetArrays
 # order matters for these includes!
 include("dec_tree.jl")
 include("setup.jl")
-include("sim.jl")
 include("tracking.jl")
 include("cases.jl")
 include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
+include("sim.jl")
 include("johns_hopkins_data.jl")
 
 # functions for simulation
@@ -290,6 +289,14 @@ const a4 = 4 # 60-79
 const a5 = 5 # 80+
 const agegrps = 1:5
 const n_agegrps = length(agegrps)
+
+
+# struct to hold current status indices
+mutable struct Current_idx
+   data::Array{Int,1}
+   last::Int
+   Current_idx(n) = new(zeros(Int,n),0)
+end
 
 
 # traveling constants

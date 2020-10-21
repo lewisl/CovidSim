@@ -58,10 +58,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
-            simtime += @elapsed begin
-                    spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
-                    transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
-                end
+            # simtime += @elapsed begin
+                 sptime += @elapsed    spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
+                 trtime += @elapsed    transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
+                # end
 
             # r0 displayed every 10 days
             if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -83,11 +83,11 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     # sum agegrps to total for all conditions
     hist_total_agegrps!(series, locales)
 
-    # for loc in locales
-    #     add_totinfected_series!(series, loc)
-    # end
+    for loc in locales
+        add_totinfected_series!(series, loc)
+    end
 
-    @show simtime, histtime
+    @show sptime, trtime, histtime
 
     return alldict, env, series
 end
@@ -134,7 +134,7 @@ function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
                 cumdat[thisday, map2series[i][age]] = get(sick_today, i, 0)
             end
 
-            for i in [infectious, recovered, dead, nil, mild, sick, severe]
+            for i in [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
                 if thisday == 1
                     newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
                 else  # on all other days
@@ -218,6 +218,49 @@ function empty_all_caches!()
     !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
     !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))  
     cleanup_stash(spread_stash) 
+end
+
+
+"""
+Returns an array of row indices that satisfy the filters a named tuple of related columns.
+The related columns can be a TypedTable or a columntable, as created by
+Tables.columntable().
+
+Filters must be an array of (symbol, comparison function, value) where symbol is a column reference 
+in the named tuple.
+   
+example: 
+
+```julia
+(:status, ==, 5)
+```      
+
+"""
+function sq_query(dat, filters::Array{Popquery, 1})
+    filts = copy(filters)
+    # ret = Array{Int,1}
+    # q = popfirst!(filts)
+    # idx1 = @elapsed ret = map(x -> q.op(x, q.val), getproperty(dat, q.col))   # findall()
+    # @show size(ret)
+
+    # idxloop = @elapsed for q in filts
+    #     ret = map(x -> q.op(x, q.val), getproperty(dat, q.col)[ret])   # findall()
+    #     @show size(ret)
+    # end
+
+    ret = trues(size(dat,1))
+
+    # ret .& X for X in [map(x -> q.op(x, q.val), getproperty(dat, q.col)) for q in filts]    # reduce(X -> X .& ret,    ) 
+
+    # reduce(&, [BitArray(map(x -> q.op(x, q.val),getproperty(locdat, q.col))) for q in filts]; init = trues(size(locdat,1)))
+    # there is a place for a foreach() somewhere in that mess
+
+    # this works but is only a bit faster than multiple findall's
+    for q in filters
+        ret .&= map(x -> q.op(x, q.val), getproperty(dat, q.col))
+    end
+
+    return findall(ret)
 end
 
 

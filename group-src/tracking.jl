@@ -134,7 +134,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     unexp = people - infected
 
     firstseries = plcols[1]
-    half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][totalcol]]) * 0.7)
+    half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][totalcol]]) * 0.2)
     co_pal = length(plcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
@@ -151,7 +151,7 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
             reuse = false,
             annotate = ((6,half_yscale,
                 Plots.text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
-                    fontsize=9, :left)))
+                    10, :left)))
         )
     # annotate!((6,half_yscale,Plots.text("Died: $died\nInfected: $infected", 10, :left)))
     # gui()
