@@ -40,7 +40,6 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
     filttime = @elapsed begin
         spread_idx = findall(locdat.status .== infectious) # index of all spreaders
         n_spreaders = size(spread_idx, 1);
-        # contactable_idx = findall(locdat[:, cpop_status] .!= dead) # index of all potential contacts
         contactable_idx = findall(locdat.status .!= dead) # index of all potential contacts
     end
 
@@ -159,6 +158,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     # assign contacts, do touches, do new infections
     @inbounds for p in spread_idx      # p is the spreader person
 
+        # spreader's characteristics
         thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
         thisagegrp = locdat.agegrp[p]
         thislag = locdat.lag[p]

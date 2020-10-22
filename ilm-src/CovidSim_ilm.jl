@@ -43,6 +43,7 @@ using Dates
 using YAML
 using TypedTables
 using OffsetArrays
+using SplitApplyCombine
 
 
 # order matters for these includes!

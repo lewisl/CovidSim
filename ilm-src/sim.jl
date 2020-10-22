@@ -112,7 +112,7 @@ function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
         #
         # cumulative data
         #
-        for age in agegrps
+        @views for age in agegrps
             # get the source data: status
             dat_age = dat[agegrp_idx[loc][age]]
             status_today = countsarr(dat_age.status, unexposed:dead)    # outcomes for thisday
