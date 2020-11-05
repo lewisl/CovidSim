@@ -10,15 +10,10 @@
 
 # TODO for individual level model
     # get rid of indirection for lowlevel population updates
-    # test loop vs. broadcast update of pop matrix
-    # do quarantine for ilm
     # add transq to ilm and test
 
 # Done
-    # add spreadq to ilm
-    # implement history tracking for ilm: by agegrp, add nil, mild, sick, severe to new
-    # add totinfected (total new active) history series
-    # r0_sim
+    # do unquarantine for ilm
 
 
 
@@ -107,14 +102,15 @@ export
     make_series,
     virus_outcome
 
-# queues (variables) for tracking
+# queues and caches (variables) for tracking
 export            
     travelq,
     spreadq,
     transq,
     day2df,
     map2series,
-    ctr
+    ctr,
+    sim_stash
 
 # functions for decision trees
 export                  
@@ -247,7 +243,7 @@ const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
-# columns of population matrix
+# columns of population matrix not used with TypedTables, but these are still correct
 const cpop_status       = 1
 const cpop_agegrp       = 2
 const cpop_cond         = 3

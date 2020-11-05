@@ -8,7 +8,7 @@ Stash for temporary values changed during simulation cases
 - it is the users responsibility to empty the stash
 - there may be (will be) side effects if you don't empty the stash between simulations
 """
-const spread_stash = Dict{Symbol, Any}()
+const sim_stash = Dict{Symbol, Any}()
 
 
 struct Spreadcase
@@ -38,18 +38,17 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     # spread_idx = findall(locdat[:, cpop_status] .== infectious) # index of all spreaders
     filttime = @elapsed begin
-        spread_idx = findall(locdat.status .== infectious) # index of all spreaders
+        cq = current_quar(locdat, 0.0)  # filter out currently quarantined and complying people
+        spread_idx = findall((locdat.status .== infectious) .& .!cq)  # must use parens around 1st comparison for operator precedence
         n_spreaders = size(spread_idx, 1);
-        contactable_idx = findall(locdat.status .!= dead) # index of all potential contacts
+        contactable_idx = findall((locdat.status .!= dead) .& .!cq) 
     end
 
     # @show filttime
 
-    # println("finding the contactable took ", @elapsed findall(locdat.status .!= dead))
-
     n_contactable = size(contactable_idx, 1)
 
-    do_case = get(spread_stash, :do_case, false) # we've never had a case or we shut down the previous case
+    do_case = get(sim_stash, :do_case, false) # we've never had a case or we shut down the previous case
 
     if  isempty(spreadcases) && !do_case  # no cases left and do_case is false 
 
@@ -79,14 +78,13 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
 
     for (i,case) in enumerate(spreadcases)
         if case.day == ctr[:day] # there is a case that starts today!
-            # case = i
             if case.comply == 0.0  # cancel spreadcase and restore defaults
-                spread_stash[:do_case] = false  # run spread! without cases
+                sim_stash[:do_case] = false  # run spread! without cases
             elseif 0.0 < case.comply <= 1.0    # use case inputs 
-                spread_stash[:do_case] = true
-                spread_stash[:comply] = case.comply
-                spread_stash[:cf] = shifter(env.contact_factors, case.cf...)
-                spread_stash[:tf] = shifter(env.touch_factors, case.tf...)
+                sim_stash[:do_case] = true
+                sim_stash[:comply] = case.comply
+                sim_stash[:cf] = shifter(env.contact_factors, case.cf...)
+                sim_stash[:tf] = shifter(env.touch_factors, case.tf...)
             else
                 @error "spreadcase comply value must be >= 0.0 and <= 1.0: got $(case.comply)"
             end
@@ -94,32 +92,32 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
             deleteat!(spreadcases, i)
             break   # we can only have one active case at a time; new cases replaces prior case; do one per day
         end
-    end # if we go through loop w/o finding a case today, then nothing changes in spread_stash
+    end # if we go through loop w/o finding a case today, then nothing changes in sim_stash
 
-    do_case = get(spread_stash, :do_case, false)
+    do_case = get(sim_stash, :do_case, false)
 
     if do_case
         n_spreaders = size(spread_idx, 1);
         n_contactable = size(contactable_idx, 1)            
 
-        if spread_stash[:comply] == 1.0 # we have a case that applies to everyone using the case parameters
+        if sim_stash[:comply] == 1.0 # we have a case that applies to everyone using the case parameters
 
             n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, 
-                            contactable_idx, spread_stash[:cf], spread_stash[:tf], 
+                            contactable_idx, sim_stash[:cf], sim_stash[:tf], 
                             env.riskmx, env.shape, density_factor)
                 
 
-        elseif 0.0 < spread_stash[:comply] < 1.0  # split the population into comply and nocomply for 0.0 < comply < 1.0: 
+        elseif 0.0 < sim_stash[:comply] < 1.0  # split the population into comply and nocomply for 0.0 < comply < 1.0: 
 
-            n_spreaders_comply = round(Int, spread_stash[:comply] * n_spreaders)
-            n_contactable_comply = round(Int, spread_stash[:comply] * n_contactable)
+            n_spreaders_comply = round(Int, sim_stash[:comply] * n_spreaders)
+            n_contactable_comply = round(Int, sim_stash[:comply] * n_contactable)
 
             n_contacts = n_touched = n_newly_infected = 0
 
             for pass in [:comply, :nocomply]
                 if pass == :comply  # use case input factors
-                    pass_cf = spread_stash[:cf]
-                    pass_tf = spread_stash[:tf]
+                    pass_cf = sim_stash[:cf]
+                    pass_tf = sim_stash[:tf]
 
                     nsp = n_spreaders_comply  
                     ncon = n_contactable_comply            
@@ -156,7 +154,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     n_newly_infected = 0
 
     # assign contacts, do touches, do new infections
-    @inbounds for p in spread_idx      # p is the spreader person
+    @inbounds for p in spread_idx      # p is the spreader
 
         # spreader's characteristics
         thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
@@ -168,7 +166,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
         nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
         n_contacts += nc
                                                                                 # TODO we could keep track of contacts for contact tracing
-        @inbounds @views for contact in sample(contactable_idx, nc, replace=true) # some people really do get contacted more than once
+        @inbounds for contact in sample(contactable_idx, nc, replace=true) # some people really do get contacted more than once
             # contacts's characteristics
             status = locdat.status[contact]  
             agegrp = locdat.agegrp[contact]

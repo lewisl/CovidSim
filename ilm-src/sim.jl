@@ -22,8 +22,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         agegrp_idx = alldict["dat"]["agegrp_idx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
-        # isolatedmx = alldict["dat"]["isolatedmx"]
-        # testmx = alldict["dat"]["testmx"]
         geodf = alldict["geo"]
         spread_params = alldict["sp"]
 
@@ -44,7 +42,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     ######################
     # simulation loop
     ######################
-    sptime = 0
+    sprtime = 0
     trtime = 0
     simtime = 0
     histtime = 0
@@ -58,10 +56,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
-            # simtime += @elapsed begin
-                 sptime += @elapsed    spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
-                 trtime += @elapsed    transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
-                # end
+            sprtime += @elapsed  spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
+            trtime += @elapsed  transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
 
             # r0 displayed every 10 days
             if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -87,7 +83,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         add_totinfected_series!(series, loc)
     end
 
-    @show sptime, trtime, histtime
+    @show sprtime, trtime, histtime
 
     return alldict, env, series
 end
@@ -159,7 +155,7 @@ end # function
 function countsarr(input, vals)
     ret = zeros(Int, size(vals,1))
     ret = OffsetVector(ret, vals)  # enables indexing 5:8, etc.
-    for i in input
+    @inbounds for i in input
         ret[i] += 1
     end
     return ret
@@ -194,13 +190,15 @@ function add_totinfected_series!(series, locale)
         return
     end
     # for new
-    n = size(series[locale][:new],1)
-    series[locale][:new] = hcat(series[locale][:new], zeros(T_int[], n, 6))
-    series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
-                                                      abs.(series[locale][:new][:,map2series.unexposed]) ) 
-    # for cum
-    series[locale][:cum] = hcat(series[locale][:cum], zeros(T_int[], n, 6))
-    @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
+    @views begin
+        n = size(series[locale][:new],1)
+        series[locale][:new] = hcat(series[locale][:new], zeros(T_int[], n, 6))
+        series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
+                                                          abs.(series[locale][:new][:,map2series.unexposed]) ) 
+        # for cum
+        series[locale][:cum] = hcat(series[locale][:cum], zeros(T_int[], n, 6))
+        cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
+    end
     return
 end
 
@@ -217,7 +215,7 @@ function empty_all_caches!()
     !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
     !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
     !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))  
-    cleanup_stash(spread_stash) 
+    cleanup_stash(sim_stash) 
 end
 
 
