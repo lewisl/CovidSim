@@ -41,7 +41,7 @@ function build_data(locales, geodata, n_days)
 
     pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
 
-    popdat = Dict(loc => col_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
+    popdat = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
 
     # precalculate agegrp indices
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc])[2] for loc in locales)
@@ -56,7 +56,7 @@ end
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
-function col_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
+function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 
     if cols == "all"
         status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
@@ -92,7 +92,7 @@ function col_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
         # dat = hcat(status, agegrp, cond, lag)
         dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag)
     else
-        @error "Wrong choice of cols in col_data: $cols"
+        @error "Wrong choice of cols in pop_data: $cols"
     end    
 
     return dat       
