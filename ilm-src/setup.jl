@@ -41,7 +41,7 @@ function build_data(locales, geodata, n_days)
 
     pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
 
-    popdat = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
+    popdat = Dict(loc => col_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
 
     # precalculate agegrp indices
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc])[2] for loc in locales)
@@ -56,7 +56,7 @@ end
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
-function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
+function col_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 
     if cols == "all"
         status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
@@ -67,6 +67,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
         recov_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
         dead_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
         cluster = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
+        susceptible = trues(pop)
         vax = falses(pop)  # Array{Int,1}(undef, popsize) 
         vax_day = zeros(intype, pop)  # Array{Int,1}(undef, popsize) 
         test = falses(pop)  # Array{Int,1}(undef, popsize) 
@@ -79,8 +80,8 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 
         # use TypedTable
         dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag, cluster=cluster, 
-            recov_day=recov_day, dead_day=dead_day, vax=vax, vax_day=vax_day, 
-            test=test, test_day=test_day, quar=quar, quar_day=quar_day)
+            recov_day=recov_day, dead_day=dead_day, susceptible=susceptible, vax=vax, 
+            vax_day=vax_day, test=test, test_day=test_day, quar=quar, quar_day=quar_day)
     elseif cols == "track"
         status = fill(intype(unexposed), pop) # Array{Int,1}(undef, popsize)
                 parts = apportion(pop, age_dist)
@@ -91,7 +92,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
         # dat = hcat(status, agegrp, cond, lag)
         dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag)
     else
-        @error "Wrong choice of cols in pop_data: $cols"
+        @error "Wrong choice of cols in col_data: $cols"
     end    
 
     return dat       
