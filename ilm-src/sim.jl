@@ -35,7 +35,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
     # check age distribution
     # dat = popdat[first(locales)]
-    # agedist = countmap(dat[:,cpop_agegrp])
+    # agedist = countmap(dat[:,col_agegrp])
     # println(agedist)
     # println(sum(values(agedist)))
 
@@ -397,7 +397,7 @@ function make_sick!(dat; cnt, fromage, tocond, tolag=1)
         filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
         rowrange = 1:cnt[i]
         filt_all = filt_unexp[filt_age][rowrange]
-        cols = [cpop_status, cpop_cond, cpop_lag]
+        cols = [col_status, col_cond, col_lag]
 
         dat.status[filt_all] .= infectious
         dat.cond[filt_all] .= tocond
@@ -406,30 +406,11 @@ function make_sick!(dat; cnt, fromage, tocond, tolag=1)
 end
 
 
-# function make_sick!(dat; cnt, fromage, tocond, tolag=1)
-
-#     @assert size(cnt, 1) == size(fromage, 1)
-
-#     filt_unexp = findall((dat[:,cpop_status] .== unexposed)) # must be unexposed
-
-#     for i in 1:size(fromage, 1)  # by target age groups
-
-#         filt_age = dat[filt_unexp, cpop_agegrp] .== fromage[i] # age of the unexposed
-#         rowrange = 1:cnt[i]
-#         filt_all = filt_unexp[filt_age][rowrange]
-#         cols = [cpop_status, cpop_cond, cpop_lag]
-
-#         dat[filt_all, cols] .= [infectious tocond tolag]
-#     end
-# end
-
-
-
 function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)
-    cs_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
-                              [cpop_lag, fromlag], [cpop_status, infectious]], # tests
+    cs_actions = actions([[col_cond, fromcond], [col_agegrp, fromage],
+                              [col_lag, fromlag], [col_status, infectious]], # tests
                       [==, ==, ==, ==],  # cmps
-                      [[cpop_cond, tocond]], # todo
+                      [[col_cond, tocond]], # todo
                       [setval])  # setters
 
     update!(dat, cnt, cs_actions)
@@ -440,21 +421,21 @@ end
 function bump_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[])
 
 
-    bs_actions = actions([[cpop_status, infectious]], # tests
+    bs_actions = actions([[col_status, infectious]], # tests
                       [==],  # cmps
-                      [[cpop_lag, 1]], # todo
+                      [[col_lag, 1]], # todo
                       [incr])  # setters
 
     if fromcond != 0
-        push!(bs_actions.tests, [cpop_cond, fromcond])
+        push!(bs_actions.tests, [col_cond, fromcond])
         push!(bs_actions.cmps, ==)
     end
     if fromage != 0
-        push!(bs_actions.tests, [cpop_agegrp, fromage])
+        push!(bs_actions.tests, [col_agegrp, fromage])
         push!(bs_actions.cmps, ==)
     end
     if fromlag != 0
-        push!(bs_actions.tests, [cpop_lag, fromlag])
+        push!(bs_actions.tests, [col_lag, fromlag])
         push!(bs_actions.cmps, ==)
     end
 
@@ -464,10 +445,10 @@ end
 
 # this isn't going to work
 function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    md_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
-                                [cpop_lag, fromlag], [cpop_status, infectious]], # tests
+    md_actions = actions([[col_cond, fromcond], [col_agegrp, fromage],
+                                [col_lag, fromlag], [col_status, infectious]], # tests
                           [==, ==, ==, ==],  # cmps
-                          [[cpop_status, dead]], # todo
+                          [[col_status, dead]], # todo
                           [setval])  # setters
 
     update!(dat, cnt, md_actions)
@@ -475,10 +456,10 @@ end
 
 # this isn't going to work
 function make_recovered!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    mr_actions = actions([[cpop_cond, fromcond], [cpop_agegrp, fromage],
-                                [cpop_lag, fromlag], [cpop_status, infectious]], # tests
+    mr_actions = actions([[col_cond, fromcond], [col_agegrp, fromage],
+                                [col_lag, fromlag], [col_status, infectious]], # tests
                           [==, ==, ==, ==],  # cmps
-                          [[cpop_status, recovered]], # todo
+                          [[col_status, recovered]], # todo
                           [setval])  # setters
 
     update!(dat, cnt, mr_actions)

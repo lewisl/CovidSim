@@ -345,20 +345,20 @@ end
 
 
 """
-    function cnt_2_array(cnt, pop_mat)
+    function cnt_2_array(cnt, col_mat)
 
 Distribute a count of people to be unquarantined across
 the cells of a population matrix, limited to the number of
 quarantined people in each cell of the quarantine population
 matrix.
 """
-function cnt_2_array(cnt, pop_mat; ret_conds=[nil, mild, sick, severe, unexposed, recovered])
-    (ls, _, as) = axes(pop_mat)
+function cnt_2_array(cnt, col_mat; ret_conds=[nil, mild, sick, severe, unexposed, recovered])
+    (ls, _, as) = axes(col_mat)
     map2unq = (unexposed=1, infectious=-1, recovered=2,  dead=-1, nil=3, mild=4, sick=5, severe=6)
     new_mat = zeros(T_int[], length(ls), length(ret_conds), length(as))
     for l in ls, c in ret_conds, a in as
         if cnt <= 0; break; end
-        put = clamp(cnt, 0 , pop_mat[l,c,a])
+        put = clamp(cnt, 0 , col_mat[l,c,a])
         new_mat[l,map2unq[c],a] = T_int[](put)
         cnt -= put
     end
