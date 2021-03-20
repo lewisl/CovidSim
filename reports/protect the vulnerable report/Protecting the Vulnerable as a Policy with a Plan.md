@@ -59,7 +59,8 @@ On May 23, 2020, Governor Asa Hutchinson of Arkansas announced that his state wa
 
 It was bound to become much worse. Here is the plot of new daily cases for Arkansas through June 25, 2020 at a point approximately 6 weeks after opening up[4]. Arkansas is not especially bad, but the governor has reversed course from  dismissing the virus to factually acknowledging  what he is seeing. The highs and lows after May 23 (at the arrow) continue to  grow compared to the apparent decline in early May:
 
-<center><img src="arkansas JH 6-25-2020 new cases.png" width="540"></center>
+<br>
+<center><img src="arkansas_JH_6-25-2020_new_cases.png" width="540"></center>
 
 Around the US, the increase in deaths after "opening up" will probably be considered intolerable in every moderately sized urban area where population density is sufficient to fuel exponential growth. Sustaining strong social distancing for 2 to 3 more months may be the only way to keep cases low. Yet, the economic and social pressure to end social distancing is also real, so an approach that enables resumption of more activities *without* a dramatic increase in deaths must be found. 
 

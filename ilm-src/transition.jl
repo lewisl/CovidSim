@@ -1,5 +1,5 @@
 ####################################################
-# transition.jl
+# transition.jl for ilm model
 #     change status of folks in simulation:
 #           transition
 #           travel
@@ -24,6 +24,7 @@ Transition probability indices that return -1 are not used and will raise an err
 - Use with variables that stand for the data rows as map2pr[nil] => 2
 """
 const map2pr = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3, sick=4, severe=5)
+
 
 function seed!(day, cnt, lag, conds, agegrps, locale, dat)
     @assert length(lag) == 1 "input only one lag value"
@@ -65,7 +66,7 @@ function transition!(dat, locale::Int, dt_dict)
 
     dt = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
-    @inbounds for p in findall(locdat.status .== infectious)            
+    @inbounds for p in findall(locdat.status .== infectious)  # p for person          
 
                 dtkey = (locdat.lag[p], locdat.cond[p])
                 node = get(dt[locdat.agegrp[p]], dtkey, ())
