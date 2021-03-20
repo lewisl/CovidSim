@@ -1,6 +1,6 @@
-#############
-# spread.jl
-#############
+################################
+# spread.jl for ilm model
+################################
 
 """
 Stash for temporary values changed during simulation cases
@@ -13,9 +13,9 @@ const sim_stash = Dict{Symbol, Any}()
 
 struct Spreadcase
     day::Int
-    cf::Tuple{Float64,Float64}  # (4,5)
-    tf::Tuple{Float64,Float64}  # (6,5)
-    comply::Float64
+    cf::Tuple{Float64,Float64}  # (4,5)  # contact factors
+    tf::Tuple{Float64,Float64}  # (6,5)  # touch factors
+    comply::Float64             # compliance percentage
 end
 
 
@@ -37,38 +37,34 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
     locdat = locale == 0 ? dat : dat[locale]
 
     # spread_idx = findall(locdat[:, col_status] .== infectious) # index of all spreaders
-    filttime = @elapsed begin
+    # filttime = @elapsed
+    begin
         cq = current_quar(locdat, 0.0)  # filter out currently quarantined and complying people
         spread_idx = findall((locdat.status .== infectious) .& .!cq)  # must use parens around 1st comparison for operator precedence
-        n_spreaders = size(spread_idx, 1);
         contactable_idx = findall((locdat.status .!= dead) .& .!cq) 
+        shuffle!(spread_idx); shuffle!(contactable_idx)
+
+        n_spreaders = size(spread_idx, 1)
+        n_contactable = size(contactable_idx, 1)
     end
-
     # @show filttime
-
-    n_contactable = size(contactable_idx, 1)
 
     do_case = get(sim_stash, :do_case, false) # we've never had a case or we shut down the previous case
 
-    if  isempty(spreadcases) && !do_case  # no cases left and do_case is false 
+    if isempty(spreadcases) && !do_case  # no cases left and do_case is false 
 
-        n_contacts, n_touched, n_newly_infected = ( 
-            _spread!(locdat, spread_idx, 
-                contactable_idx, env.contact_factors, env.touch_factors, env.riskmx, env.shape,
-                density_factor)
-            )
-
+        n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, contactable_idx,
+                env.contact_factors, env.touch_factors, env.riskmx, env.shape, density_factor)
+            
     else  # a case may start today OR we have an active case
 
-        n_contacts, n_touched, n_newly_infected = (
-            spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, density_factor)
-            )
+        n_contacts, n_touched, n_newly_infected = spread_cases(locdat, spreadcases, 
+                spread_idx, contactable_idx, env, density_factor)
+            
     end
 
-    push!(spreadq,
-        (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
-            touched=n_touched, infected=n_newly_infected)
-        )
+    push!(spreadq,   (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
+                      touched=n_touched, infected=n_newly_infected))
 
     return n_spreaders, n_contacts, n_touched, n_newly_infected
 end
@@ -88,8 +84,8 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
             else
                 @error "spreadcase comply value must be >= 0.0 and <= 1.0: got $(case.comply)"
             end
-            # pop this case:  we don't need to look at it again
-            deleteat!(spreadcases, i)
+            
+            deleteat!(spreadcases, i) # pop this case:  we don't need to look at it again
             break   # we can only have one active case at a time; new cases replaces prior case; do one per day
         end
     end # if we go through loop w/o finding a case today, then nothing changes in sim_stash
@@ -154,7 +150,6 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
     end
 
     return n_contacts, n_touched, n_newly_infected
-    
 end
 
 
@@ -165,7 +160,7 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
     n_newly_infected = 0
 
     # assign contacts, do touches, do new infections
-    @inbounds for p in spread_idx      # p is the spreader
+    @inbounds for p in spread_idx      # p is the person who is the spreader
 
         # spreader's characteristics
         thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
