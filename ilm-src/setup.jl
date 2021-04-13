@@ -211,16 +211,15 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
     # T_int[] should be one of Int64, Int32 when calling the constructor
     function SimEnv{T}(; 
-                                geodata=[T(0) "" ], # geodata
-                                riskmx=zeros(Float64, 0,0),
-                                contact_factors=zeros(Float64, 0,0),
-                                touch_factors=zeros(Float64, 0,0),
-                                send_risk_by_lag=zeros(Float64,laglim),
-                                recv_risk_by_age=zeros(Float64, 5),
-                                shape=1.0
-                            ) where T<:Integer
-        return new(geodata, riskmx, contact_factors,
-                   touch_factors, send_risk_by_lag, recv_risk_by_age, shape)
+            geodata=[T(0) "" ], # geodata
+            riskmx=zeros(Float64, 0,0),
+            contact_factors=zeros(Float64, 0,0),
+            touch_factors=zeros(Float64, 0,0),
+            send_risk_by_lag=zeros(Float64,laglim),
+            recv_risk_by_age=zeros(Float64, 5),
+            shape=1.0
+        ) where T<:Integer
+        return new(geodata, riskmx, contact_factors, touch_factors, send_risk_by_lag, recv_risk_by_age, shape)
 
     end
 end
@@ -230,39 +229,39 @@ end
 function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk, shape)
 
     ret = SimEnv{T_int[]}(
-                geodata=geodata,
-                # spreaders=zeros(T_int[], laglim, 4, agegrps),
-                # all_accessible=zeros(T_int[], laglim, 6, agegrps),
-                # contacts=zeros(T_int[], laglim, 4, agegrps),
-                # simple_accessible=zeros(T_int[], 6, agegrps),
-                # peeps=zeros(T_int[], 6, agegrps),
-                # touched=zeros(T_int[], laglim, 6, agegrps),
-                # lag_contacts=zeros(T_int[], laglim),
-                riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
-                contact_factors = contact_factors,
-                touch_factors = touch_factors,
-                send_risk_by_lag = send_risk,
-                recv_risk_by_age = recv_risk,
-                shape = shape)
+        geodata=geodata,
+        # spreaders=zeros(T_int[], laglim, 4, agegrps),
+        # all_accessible=zeros(T_int[], laglim, 6, agegrps),
+        # contacts=zeros(T_int[], laglim, 4, agegrps),
+        # simple_accessible=zeros(T_int[], 6, agegrps),
+        # peeps=zeros(T_int[], 6, agegrps),
+        # touched=zeros(T_int[], laglim, 6, agegrps),
+        # lag_contacts=zeros(T_int[], laglim),
+        riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
+        contact_factors = contact_factors,
+        touch_factors = touch_factors,
+        send_risk_by_lag = send_risk,
+        recv_risk_by_age = recv_risk,
+        shape = shape)
 
     return ret
 end
 
     # contact_factors and touch_factors look like:
     #=
-        contact_factors = 
-                [ 1    1.8    1.8     1.5     1.0;    # nil
-                  1    1.7    1.7     1.4     0.9;    # mild
-                0.7    1.0    1.0     0.7     0.5;   # sick
-                0.5    0.8    0.8     0.5     0.3]  # severe
+    contact_factors = [
+        1    1.8    1.8     1.5     1.0;     # nil
+        1    1.7    1.7     1.4     0.9;     # mild
+        0.7  1.0    1.0     0.7     0.5;   # sick
+        0.5  0.8    0.8     0.5     0.3]   # severe
 
-      # agegrp    1     2      3       4       5
+    # agegrp    1     2      3       4       5
 
-        touch_factors = 
-                [.55    .62     .58     .4    .35;    # unexposed
-                 .55    .62     .58     .4    .35;    # recovered
-                 .55    .62     .58     .4    .35;    # nil
-                 .55    .6      .5      .35   .28;    # mild
-                 .28   .35      .28     .18   .18;    # sick
-                 .18   .18      .18     .18   .18]   # severe
+    touch_factors = [
+        .55    .62     .58     .4    .35;    # unexposed
+        .55    .62     .58     .4    .35;    # recovered
+        .55    .62     .58     .4    .35;    # nil
+        .55    .6      .5      .35   .28;    # mild
+        .28   .35      .28     .18   .18;    # sick
+        .18   .18      .18     .18   .18]    # severe
     =#
