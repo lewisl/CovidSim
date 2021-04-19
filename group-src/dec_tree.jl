@@ -10,9 +10,6 @@
 =#
 
 
-
-using DelimitedFiles
-
 # columns of dec_tree_csv files 
 const agegrp_col = 1
 const node_col = 2

@@ -4,14 +4,6 @@
 # decision tree for transition
 #############################################################
 
-#= TODO
-- add sanity check that all branches at a node have same from condition
-
-=#
-
-
-
-using DelimitedFiles
 
 # columns of dec_tree_csv files 
 const agegrp_col = 1
@@ -33,8 +25,10 @@ end
 
 function setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
-    trees = Dict(i => Dict(Tuple(k)=>trees[i][k] for k in keys(trees[i])) for i in 1:5)
+    # next: change 2nd level keys from 2 item array{Int} [9, 5] to Tuple{Int, Int} (9,5)
+    trees = Dict(i => Dict(Tuple(k)=>trees[i][k] for k in keys(trees[i])) for i in keys(trees))
 
+    # next: change the type of next node item from array{Int} [25, 8] to Tuple{Int, Int} (25, 8)
     for agegrp in agegrps
         for (k,v) in trees[agegrp]
            for item in v
@@ -107,7 +101,7 @@ end
 function sanity_test_all(trees)
     tbl = zeros(length(trees),4)
     for (i, tree) in trees
-        paths = walktree(tree,[5,5])
+        paths = walktree(tree, (5,5))
         res = sanity_test(paths, tree)
         tbl[i, :] .= [i, res.total, res.recovered, res.dead]
     end
@@ -152,10 +146,12 @@ function get_the_probs(path, tree)
             end
         end
     end
-    if path[end] == [0,0]
-        probs = ("recovered", probs)
-    elseif path[end] == [0,5]
-        probs = ("dead", probs)
+    if path[end] == (0,0)
+        probs = ["recovered", probs]
+    elseif path[end] == (0,5)
+        probs = ["dead", probs]
+    else
+        error("didn't work")
     end
     return probs
 end
@@ -267,4 +263,44 @@ end
     25 => 
         [5, 3]
         [5, 4)
+=#
+
+# what the yaml parameter file looks like for a single agregroup
+#    when it is loaded and processed, arrays will be changed to tuples
+
+#=
+1:                                          # agegrp
+  [5,5]:                                      # node is [lagday effective, from condition]
+    - {tocond: 5, next: [9, 5], pr: 0.4}
+    - {tocond: 6, next: [9, 6], pr: 0.5}
+    - {tocond: 7, next: [9, 7], pr: 0.1}
+  [9,5]:                                      # node
+    - {tocond: 3, next: [0,0], pr: 0.9}         # branch. node [0,0] denotes recovered
+    - {tocond: 7, next: [14,7], pr: 0.1}        # branch
+  [9,6]:                                      # node
+    - {tocond: 6, next: [14, 6], pr: 1.0}       # branch
+  [9,7]:
+    - {tocond: 7, next: [14, 7], pr: 0.95}
+    - {tocond: 8, next: [14, 8], pr: 0.05}
+  [14,6]:
+    - {tocond: 3, next: [0,0], pr: 1.0}
+  [14,7]:
+    - {tocond: 3, next: [0,0], pr: 0.85}
+    - {tocond: 7, next: [25, 7], pr: 0.12}
+    - {tocond: 8, next: [19, 8], pr: 0.03}
+  [14,8]:
+    - {tocond: 3, next: [0,0], pr: 0.692}
+    - {tocond: 8, next: [19,8], pr: 0.302}
+    - {tocond: 4, next: [0,5], pr: 0.006}     # branch. node [0,5] denotes dead
+  [19,8]:
+    - {tocond: 3, next: [0,0], pr: 0.891}
+    - {tocond: 8, next: [25,8], pr: 0.106}
+    - {tocond: 4, next: [0,5], pr: 0.003}
+  [25,7]:
+    - {tocond: 3, next: [0,0], pr: 0.976}
+    - {tocond: 4, next: [0,5], pr: 0.024}
+  [25,8]:
+    - {tocond: 3, next: [0,0], pr: 0.91}
+    - {tocond: 4, next: [0,5], pr: 0.09}
+2:                                           # start of next agegrp
 =#

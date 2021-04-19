@@ -50,7 +50,7 @@ include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
 include("sim.jl")
-include("johns_hopkins_data.jl")
+include("../shared/johns_hopkins_data.jl")
 
 # functions for simulation
 export    
