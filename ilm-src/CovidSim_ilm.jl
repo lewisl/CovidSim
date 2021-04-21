@@ -42,7 +42,7 @@ using SplitApplyCombine
 
 
 # order matters for these includes!
-include("dec_tree.jl")
+include("../shared-src/dec_tree.jl")
 include("setup.jl")
 include("tracking.jl")
 include("cases.jl")
@@ -50,7 +50,7 @@ include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
 include("sim.jl")
-include("../shared/johns_hopkins_data.jl")
+include("../shared-src/johns_hopkins_data.jl")
 
 # functions for simulation
 export    

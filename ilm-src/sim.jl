@@ -51,7 +51,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         silent || println("simulation day: ", ctr[:day])
         for loc in locales     # @inbounds
 
-            density_factor = geodf[geodf[:fips] .== loc, :density_factor][]
+            density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             for case in runcases
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   

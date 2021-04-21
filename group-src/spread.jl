@@ -326,7 +326,7 @@ function cleanup_stash(stash)
 end
 
 
-function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpoints=[], cf=[], tf=[],
+function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt_dict=Dict(), cf=[], tf=[],
                 compliance=[], shift_contact=(), shift_touch=(), disp=false)
     # factor_source must be one of: r0env, or env of current simulation
     # setup separate environment
@@ -364,7 +364,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
     @inbounds for i in 1:5
         r0env.spreaders[:,:,i] .= age_relative[i]
     end
-    if !isempty(dt)
+    if !isempty(dt_dict)
         r0env.spreaders[2:laglim, :, :] .= T_int[](0)
         r0env.spreaders .*= T_int[](20)
         tot_spreaders = sum(r0env.spreaders)
@@ -381,7 +381,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
     isempty(shift_contact)  || (r0env.contact_factors[:] =shifter(r0env.contact_factors, shift_contact...))
     isempty(shift_touch) || (r0env.touch_factors[:] = shifter(r0env.touch_factors, shift_touch...))
 
-    stopat = !isempty(dt) ? laglim : 1
+    stopat = !isempty(dt_dict) ? laglim : 1
 
     for i = 1:stopat
         disp && println("test day = $i, spreaders = $(sum(r0env.spreaders))")
@@ -390,8 +390,8 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
         track_touched .+= how_many_touched!(r0env)
         track_infected .+= how_many_infected(all_unexposed, r0env)
 
-        if !isempty(dt)  # optionally transition
-            transition!(dt, decpoints, locale, r0mx)
+        if !isempty(dt_dict)  # optionally transition
+            transition!(r0mx, dt_dict, locale)
             r0env.spreaders[:] = grab(infectious_cases,agegrps,lags,locale, r0mx)
         end
     end
@@ -421,13 +421,13 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt=[], decpo
 end
 
 
-function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; env=env, dt=dt)
+function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; env=env, dt_dict=dt_dict)
     tbl = zeros(n+1,n+1)
     cfiter = [cfstart + (i-1) * .1 for i=1:n]
     tfiter = [tfstart + (i-1) * 0.05 for i=1:n]
     for (j,cf) in enumerate(cfiter)
         for (i,tf) = enumerate(tfiter)
-            tbl[i+1,j+1] = r0_sim(env=env, dt=dt, decpoints=decpoints, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
+            tbl[i+1,j+1] = r0_sim(env=env, dt_dict=dt_dict, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
         end
     end
     tbl[1, 2:n+1] .= cfiter
