@@ -43,16 +43,16 @@ end
 
 
 # method to run through all existing locales in isolation
-function transition!(dt, all_decpoints, dat)
+function transition!(dat, dt_dict)
     for locale in keys(dat)
-        transition!(dt, all_decpoints, locale, dat)
+        transition!(dat, dt_dict, locale)
     end
 end
 
 
 
 """
-    transition!(dt, all_decpoints, locale, dat)
+    transition!(dat, dt_dict, locale)
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
@@ -61,13 +61,13 @@ recovered or dead.
 
 Works for a single locale.
 """
-function transition!(dt, all_decpoints, locale, dat)  
+function transition!(dat, dt_dict, locale)  
 
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single integer or NamedTuple"
     # iszero(dat[locale]) && (return)
 
     for agegrp in agegrps
-        tree = dt[agegrp]
+        tree = dt_dict["dt"][agegrp]
         for node in sort(collect(keys(tree)), rev=true)  
             nodelag, fromcond = node
             folks = grab(fromcond, agegrp, nodelag, locale, dat)

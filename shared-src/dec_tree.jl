@@ -15,14 +15,6 @@ const prob_col = 6
 const next_col = 7
 
 
-function setup_dt_old(dtfname)
-    arr = read_dectree_file(dtfname)
-    dectrees = create_dec_trees(arr)
-    all_decpoints = reduce(merge, dectrees[agegrp].dec_points for agegrp in agegrps)
-    return dectrees, all_decpoints
-end
-
-
 function setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
     # next: change 2nd level keys from 2 item array{Int} [9, 5] to Tuple{Int, Int} (9,5)
@@ -113,6 +105,7 @@ function sanity_test_all(dtfname::String)
     sanity_test_all(trees)
 end
 
+# TODO: check that probs of all branches at a node add to one
 
 function sanity_test(paths, tree)
     probs = []
