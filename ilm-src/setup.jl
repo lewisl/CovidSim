@@ -59,38 +59,30 @@ Pre-allocate and initialize population data for one locale in the simulation.
 function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 
     if cols == "all"
-        status = fill(intype(unexposed), pop) 
-                parts = apportion(pop, age_dist)
-        agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps])
-        cond = zeros(intype, pop)  
-        lag = zeros(intype, pop)   
-        recov_day = zeros(intype, pop)   
-        dead_day = zeros(intype, pop)   
-        cluster = zeros(intype, pop)   
-        susceptible = trues(pop)
-        vax = falses(pop)   
-        vax_day = zeros(intype, pop)  
-        test = falses(pop)  
-        test_day = zeros(intype, pop)  
-        quar = falses(pop)
-        quar_day = zeros(intype, pop)
+        parts = apportion(pop, age_dist)
+        dat = Table(
+            status = fill(intype(unexposed), pop),    
+            agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
+            cond = zeros(intype, pop),
+            lag = zeros(intype, pop),   
+            recov_day = zeros(intype, pop),  
+            dead_day = zeros(intype, pop),   
+            cluster = zeros(intype, pop),   
+            vax = falses(pop),   
+            vax_day = zeros(intype, pop),  
+            test = falses(pop),  
+            test_day = zeros(intype, pop),  
+            quar = falses(pop),
+            quar_day = zeros(intype, pop))
 
-        # dat = hcat(status, agegrp, cond, lag, cluster, recov_day, dead_day, vax, 
-        #     vax_day, test, test_day, quar, quar_day)
-
-        # use TypedTable
-        dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag, cluster=cluster, 
-            recov_day=recov_day, dead_day=dead_day, susceptible=susceptible, vax=vax, 
-            vax_day=vax_day, test=test, test_day=test_day, quar=quar, quar_day=quar_day)
     elseif cols == "track"
-        status = fill(intype(unexposed), pop) 
-                parts = apportion(pop, age_dist)
-        agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps])
-        cond = zeros(intype, pop)  
-        lag = zeros(intype, pop)  
+        parts = apportion(pop, age_dist)
+        dat = Table(
+            status = fill(intype(unexposed), pop),        
+            agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
+            cond = zeros(intype, pop),  
+            lag = zeros(intype, pop))  
 
-        # dat = hcat(status, agegrp, cond, lag)
-        dat = Table(status=status, agegrp=agegrp, cond=cond, lag=lag)
     else
         @error "Wrong choice of cols in pop_data: $cols"
     end    
@@ -200,7 +192,7 @@ Struct for variables used by many functions = the simulation environment
 - hold complex parameter sets
 """
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
-    geodata::Array{Any, 2}
+    geodata::DataFrames.DataFrame
     riskmx::Array{Float64, 2}            # laglim,5
     contact_factors::Array{Float64, 2}   # 4,5 parameters for spread!
     touch_factors::Array{Float64, 2}     #  6,5  parameters for spread!
@@ -211,7 +203,7 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
     # T_int[] should be one of Int64, Int32 when calling the constructor
     function SimEnv{T}(; 
-            geodata=[T(0) "" ], # geodata
+            geodata=DataFrame, # geodata
             riskmx=zeros(Float64, 0,0),
             contact_factors=zeros(Float64, 0,0),
             touch_factors=zeros(Float64, 0,0),
@@ -230,13 +222,6 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
 
     ret = SimEnv{T_int[]}(
         geodata=geodata,
-        # spreaders=zeros(T_int[], laglim, 4, agegrps),
-        # all_accessible=zeros(T_int[], laglim, 6, agegrps),
-        # contacts=zeros(T_int[], laglim, 4, agegrps),
-        # simple_accessible=zeros(T_int[], 6, agegrps),
-        # peeps=zeros(T_int[], 6, agegrps),
-        # touched=zeros(T_int[], laglim, 6, agegrps),
-        # lag_contacts=zeros(T_int[], laglim),
         riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
         contact_factors = contact_factors,
         touch_factors = touch_factors,

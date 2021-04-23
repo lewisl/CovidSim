@@ -153,28 +153,25 @@ export
     infectious,
     recovered,
     dead,
+    notsick,
     nil,
     mild,
     sick,
     severe,
     totinfected,
+    statuses,
     conditions,
+    allconds,
     condnames,
     infectious_cases,
     transition_cases,
     map2series,
     series_colnames,
-    to_recovered,
-    to_nil,
-    to_mild,
-    to_severe,
-    to_sick,
-    to_dead,
-    a1,
-    a2,
-    a3,
-    a4,
-    a5,
+    age0_19,
+    age20_39,
+    age40_59, 
+    age60_79, 
+    age80_up, 
     agegrps,
     n_agegrps,
     recv_risk_by_age,
@@ -207,7 +204,7 @@ const T_int = Ref(Int64)  # this creates a reference type accessed or modified i
 ################################################################
 
 # control constants
-const age_dist = [0.251, 0.271,   0.255,   0.184,   0.039]
+const age_dist = [0.251, 0.271, 0.255, 0.184, 0.039]
 const laglim = 25
 const lags = 1:laglim   # rows
 
@@ -232,63 +229,60 @@ const smaller = 5
 const rural = 6
 
 # stats series/dataframe columns
-const unexposed         = 1  # note that 1:8 are also values for status and cond
+
+# status
+const unexposed         = 1  
 const infectious        = 2
 const recovered         = 3
 const dead              = 4
+
+# agegrp 
+const age0_19           = 1 
+const age20_39          = 2 
+const age40_59          = 3 
+const age60_79          = 4 
+const age80_up          = 5 
+
+# condition
+const notsick           = 0
 const nil               = 5
 const mild              = 6
 const sick              = 7
 const severe            = 8
+
+const statuses          = [1,2,3,4]
+const conditions        = [5,6,7,8]
+const all_conds         = [1,2,3,4,5,6,7,8]
+const infectious_cases  = [nil, mild, sick, severe]
+const transition_cases  = [recovered, nil, mild, sick, severe, dead]
+const agegrps           = [1,2,3,4,5]
+const n_agegrps         = length(agegrps)
+const condnames         = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
+                                5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
+
 const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
 # columns of population matrix not used with TypedTables, but these are still correct
-const col_status       = 1
-const col_agegrp       = 2
-const col_cond         = 3
-const col_lag          = 4
-const col_cluster      = 5
-const col_recov_day    = 6
-const col_dead_day     = 7
-const col_susceptible  = 8
-const col_vax          = 9
-const col_vax_day      = 10
-const col_test         = 11
-const col_test_day     = 12
-const col_quar         = 13
-const col_quar_day     = 14
+const col_status        = 1
+const col_agegrp        = 2
+const col_cond          = 3
+const col_lag           = 4
+const col_cluster       = 5
+const col_recov_day     = 6
+const col_dead_day      = 7
+const col_vax           = 8
+const col_vax_day       = 9
+const col_test          = 10
+const col_test_day      = 11
+const col_quar          = 12
+const col_quar_day      = 13
 
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
 const totalcol = 6
-
-const conditions = [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
-const n_conditions = length(conditions)
-const condnames = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
-                       5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
-const infectious_cases = [nil, mild, sick, severe]
-const transition_cases = [recovered, nil, mild, sick, severe, dead]
-
-# transition_prob_rows
-const to_recovered = 1
-const to_nil = 2
-const to_mild = 3
-const to_sick = 4
-const to_severe = 5
-const to_dead = 6
-
-# agegrp channels at dimension 3
-const a1 = 1 # 0-19
-const a2 = 2 # 20-39
-const a3 = 3 # 40-59
-const a4 = 4 # 60-79
-const a5 = 5 # 80+
-const agegrps = 1:5
-const n_agegrps = length(agegrps)
-
 
 # struct to hold current status indices
 mutable struct Current_idx
@@ -297,9 +291,7 @@ mutable struct Current_idx
    Current_idx(n) = new(zeros(Int,n),0)
 end
 
-
 # traveling constants
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
-
 
 end # module CovidSim

@@ -63,8 +63,7 @@ end
 #################################################################################
 
 # outcomes per agegrp
-function virus_outcome(series, locale; conds=[recovered, dead, totinfected, unexposed],
-         agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
+function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
 
     n = size(series[locale][:cum],1)
     outcomes = Dict{String, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
@@ -81,7 +80,7 @@ function virus_outcome(series, locale; conds=[recovered, dead, totinfected, unex
                 1
             end
 
-    for cond in conds
+    for cond in statuses
         outcomes[condnames[cond]] = series[locale][:cum][n, map2series[cond][agegrp]] / denom
     end
 

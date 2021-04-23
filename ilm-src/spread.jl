@@ -36,7 +36,6 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     locdat = locale == 0 ? dat : dat[locale]
 
-    # spread_idx = findall(locdat[:, col_status] .== infectious) # index of all spreaders
     # filttime = @elapsed
     begin
         cq = current_quar(locdat, 0.0)  # filter out currently quarantined and complying people
@@ -196,7 +195,6 @@ function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_fa
                 if newly_infected == 1
                     locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                     locdat.status[contact] = infectious
-                    locdat.susceptible[contact] = false
                     # lag remains zero because person was unexposed; transition! function updates lag
                 end
                 n_newly_infected += newly_infected
