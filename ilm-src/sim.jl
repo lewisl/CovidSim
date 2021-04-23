@@ -32,13 +32,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
     locales = locales   # force local scope to be visible in the loop
 
-
-    # check age distribution
-    # dat = popdat[first(locales)]
-    # agedist = countmap(dat[:,col_agegrp])
-    # println(agedist)
-    # println(sum(values(agedist)))
-
     ######################
     # simulation loop
     ######################
@@ -94,10 +87,6 @@ end
 #  Build and update daily history series
 ################################################################################
 
-
-# const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
-#                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
-
 function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
     thisday = ctr[:day]
     for loc in locales
@@ -116,21 +105,21 @@ function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
             # get the source data: conditions in (nil, mild, sick, severe)
             filt_infectious = findall(dat_age.status .== infectious)
             if size(filt_infectious, 1) > 0
-                sick_today = countsarr(dat_age.cond[filt_infectious], nil:severe)  # ditto
+                sick_today = countsarr(dat_age.cond[filt_infectious], infectious_cases)  # ditto
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
 
             # insert into sink: cum
-            for i in unexposed:dead  # 1:4
+            for i in statuses  # 1:4
                 cumdat[thisday, map2series[i][age]] = get(status_today, i, 0)
             end
 
-            for i in nil:severe # 5:8
+            for i in infectious_cases # 5:8
                 cumdat[thisday, map2series[i][age]] = get(sick_today, i, 0)
             end
 
-            for i in [unexposed, infectious, recovered, dead, nil, mild, sick, severe]
+            for i in all_conds
                 if thisday == 1
                     newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
                 else  # on all other days
@@ -148,14 +137,16 @@ end # function
 
 
 """
-    Allows counting appearances of all values appearing in an array.
+    Count how many times each value of input array is found in an array
+    of comparison values.
     Slightly faster than StatsBase: counts (2x) or countmap (4x).
     Requires integer values in a continuous range.
 """
-function countsarr(input, vals)
-    ret = zeros(Int, size(vals,1))
-    ret = OffsetVector(ret, vals)  # enables indexing 5:8, etc.
-    @inbounds for i in input
+function countsarr(arr, compare_vals)
+    vals_range = minimum(compare_vals):maximum(compare_vals)
+    ret = zeros(Int, length(vals_range))
+    ret = OffsetVector(ret, vals_range)  # enables indexing 5:8, etc.
+    @inbounds for i in arr
         ret[i] += 1
     end
     return ret
@@ -165,7 +156,7 @@ end
 function hist_total_agegrps!(series, locales)
     for loc in locales
         for kind in [:cum, :new]
-            for cond in conditions
+            for cond in all_conds
                 series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][agegrps]],dims=2)
             end
         end

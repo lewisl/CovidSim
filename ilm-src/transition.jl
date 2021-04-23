@@ -77,13 +77,14 @@ function transition!(dat, locale::Int, dt_dict)
                 else  # change of the person p's state--a transition
                     choice = rand(Categorical(node["probs"]), 1) # which branch...?
                     tocond = node["outcomes"][choice][]
-                    if tocond in (dead, recovered)  # change status, leave cond and lag as last state before death or recovery                        
-                        locdat.status[p] = tocond  # change the status
-                        if tocond == dead  # set the day of the status change
-                            locdat.dead_day[p] = ctr[:day]
-                        else
-                            locdat.recov_day[p] = ctr[:day]
-                        end
+                    if tocond == dead  # change status, leave cond and lag as last state before death or recovery                        
+                        locdat.status[p] = dead  # change the status
+                        locdat.dead_day[p] = ctr[:day]
+                        locdat.cond[p] = notsick
+                    elseif tocond == recovered
+                        locdat.recov_day[p] = ctr[:day]
+                        locdat.status[p] = recovered
+                        locdat.cond[p] = notsick
                     else   # change disease condition
                         locdat.cond[p] = tocond   # change the condition
                         locdat.lag[p] += 1  
@@ -162,6 +163,8 @@ function doquery(dat, pq::Popquery, row)
     return (pq.op)(pq.val, getproperty(dat, pq.col)[row])
 end
 
+
+# TODO THIS NO LONGER WORKS!    
 
 """
     function isolate!(locdat, qty, filters::Array, val::Bool=true)

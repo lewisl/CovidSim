@@ -5,16 +5,6 @@
 #############################################################
 
 
-# columns of dec_tree_csv files 
-const agegrp_col = 1
-const node_col = 2
-const lag_col = 3
-const from_col = 4
-const to_col = 5
-const prob_col = 6
-const next_col = 7
-
-
 function setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
     # next: change 2nd level keys from 2 item array{Int} [9, 5] to Tuple{Int, Int} (9,5)
