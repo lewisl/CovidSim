@@ -210,49 +210,6 @@ function empty_all_caches!()
 end
 
 
-"""
-Returns an array of row indices that satisfy the filters a named tuple of related columns.
-The related columns can be a TypedTable or a columntable, as created by
-Tables.columntable().
-
-Filters must be an array of (symbol, comparison function, value) where symbol is a column reference 
-in the named tuple.
-   
-example: 
-
-```julia
-(:status, ==, 5)
-```      
-
-"""
-function sq_query(dat, filters::Array{Popquery, 1})
-    filts = copy(filters)
-    # ret = Array{Int,1}
-    # q = popfirst!(filts)
-    # idx1 = @elapsed ret = map(x -> q.op(x, q.val), getproperty(dat, q.col))   # findall()
-    # @show size(ret)
-
-    # idxloop = @elapsed for q in filts
-    #     ret = map(x -> q.op(x, q.val), getproperty(dat, q.col)[ret])   # findall()
-    #     @show size(ret)
-    # end
-
-    ret = trues(size(dat,1))
-
-    # ret .& X for X in [map(x -> q.op(x, q.val), getproperty(dat, q.col)) for q in filts]    # reduce(X -> X .& ret,    ) 
-
-    # reduce(&, [BitArray(map(x -> q.op(x, q.val),getproperty(locdat, q.col))) for q in filts]; init = trues(size(locdat,1)))
-    # there is a place for a foreach() somewhere in that mess
-
-    # this works but is only a bit faster than multiple findall's
-    for q in filters
-        ret .&= map(x -> q.op(x, q.val), getproperty(dat, q.col))
-    end
-
-    return findall(ret)
-end
-
-
 #######################################################################################
 #  probability
 #######################################################################################
@@ -305,9 +262,45 @@ function binomial_one_sample(cnt, pr)::T_int[]
 end
 
 
-function categorical_sample(probvec, trials)::Array{T_int[],1}
-    x = rand(Categorical(probvec), trials)
+
+"""
+    categorical_sim(prs::Vector{Float64}, do_assert=true)
+    categorical_sim(prs::Vector{Float64}, n::Int, do_assert=true)
+
+Approximates sampling from a categorical distribution.
+prs is an array of floats that must sum to 1.0.
+do_assert determines if an assert tests this sum. For a single trial, this runs
+in 10% of the time of rand(Categorical(prs)). For multiple trials, the 
+second method runs in less than 50% of the time.
+
+The second method generates results for n trials. 
+The assert test is done only once if do_assert is true.
+"""
+function categorical_sim(prs, do_assert=true)
+    do_assert && @assert isapprox(sum(prs), 1.0)
+    x = rand()
+    cumpr = 0.0
+    i = 0
+    for pr in prs
+        cumpr += pr
+        i += 1
+        if x <= cumpr 
+            break
+        end
+    end
+    i
 end
+
+function categorical_sim(prs, n::Int, do_assert=true)
+    do_assert && @assert isapprox(sum(prs), 1.0)
+    ret = Vector{Int}(undef, n)
+    
+    @inbounds for i in 1:n
+        ret[i] = categorical_sim(prs, false)
+    end
+    ret
+end
+
 
 
 #############################################################
@@ -353,30 +346,6 @@ mutable struct filts
 end
 
 
-function update!(dat, cnt, actions::actions)  
-
-    filt = falses(size(dat,1))   # put this in the env so only do once
-
-    filt[:] = actions.cmps[1].(dat[:, actions.tests[1][1]], actions.tests[1][2])
-    for i in 2:length(actions.tests)
-        filt[:] .&= actions.cmps[i].(dat[:, actions.tests[i][1]], actions.tests[i][2])
-    end
-
-    rowsel = cnt == 0 ? (:) : 1:cnt  # (:) selects all matches
-
-    for i = 1:length(actions.todo)
-        sel = view(dat, filt, actions.todo[i][1])
-
-        try
-            sel[rowsel] =  actions.setters[i](sel[rowsel], actions.todo[i][2])
-        catch
-            @warn("no match or too many updates")
-        end
-    end
-
-end
-
-
 function make_sick!(dat; cnt, fromage, tocond, tolag=1)
 
     @assert size(cnt, 1) == size(fromage, 1)
@@ -394,66 +363,6 @@ function make_sick!(dat; cnt, fromage, tocond, tolag=1)
         dat.cond[filt_all] .= tocond
         dat.lag[filt_all] .= tolag
     end
-end
-
-
-function change_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[], tocond)
-    cs_actions = actions([[col_cond, fromcond], [col_agegrp, fromage],
-                              [col_lag, fromlag], [col_status, infectious]], # tests
-                      [==, ==, ==, ==],  # cmps
-                      [[col_cond, tocond]], # todo
-                      [setval])  # setters
-
-    update!(dat, cnt, cs_actions)
-end
-
-
-# this isn't going to work
-function bump_sick!(dat; cnt, fromcond, fromage, fromlag, tests=[])
-
-
-    bs_actions = actions([[col_status, infectious]], # tests
-                      [==],  # cmps
-                      [[col_lag, 1]], # todo
-                      [incr])  # setters
-
-    if fromcond != 0
-        push!(bs_actions.tests, [col_cond, fromcond])
-        push!(bs_actions.cmps, ==)
-    end
-    if fromage != 0
-        push!(bs_actions.tests, [col_agegrp, fromage])
-        push!(bs_actions.cmps, ==)
-    end
-    if fromlag != 0
-        push!(bs_actions.tests, [col_lag, fromlag])
-        push!(bs_actions.cmps, ==)
-    end
-
-
-    update!(dat, cnt, bs_actions)
-end
-
-# this isn't going to work
-function make_dead!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    md_actions = actions([[col_cond, fromcond], [col_agegrp, fromage],
-                                [col_lag, fromlag], [col_status, infectious]], # tests
-                          [==, ==, ==, ==],  # cmps
-                          [[col_status, dead]], # todo
-                          [setval])  # setters
-
-    update!(dat, cnt, md_actions)
-end
-
-# this isn't going to work
-function make_recovered!(dat; cnt, fromage, fromlag, fromcond, tests=[])
-    mr_actions = actions([[col_cond, fromcond], [col_agegrp, fromage],
-                                [col_lag, fromlag], [col_status, infectious]], # tests
-                          [==, ==, ==, ==],  # cmps
-                          [[col_status, recovered]], # todo
-                          [setval])  # setters
-
-    update!(dat, cnt, mr_actions)
 end
 
 
