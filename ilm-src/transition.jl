@@ -71,12 +71,12 @@ function transition!(dat, locale::Int, dt_dict)
                 dtkey = (locdat.lag[p], locdat.cond[p])
                 p_agegrp = locdat.agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
                 node = get(dectree[p_agegrp], dtkey, ())
-                @inbounds if isempty(node)  # no transition for this lag/day of the disease and current condition
+                @inbounds if isempty(node)  # no transition for this person based on lag and condition
                     # @assert p_tup.lag < laglim "Person made it to last day and was not removed:\n     $p_tup\n"
                     locdat.lag[p] += 1
                 else  # change of the person p's state--a transition
-                    choice = rand(Categorical(node["probs"]), 1) # which branch...?
-                    tocond = node["outcomes"][choice][]
+                    choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
+                    tocond = node["outcomes"][choice]
                     if tocond == dead  # change status, leave cond and lag as last state before death or recovery                        
                         locdat.status[p] = dead  # change the status
                         locdat.dead_day[p] = ctr[:day]

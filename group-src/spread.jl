@@ -291,13 +291,14 @@ and touched:
 returns newinfected
 """
 function how_many_infected(all_unexposed, env)
+    # inputs: env.touched, touched_by_lag_age, env.riskmx
+    # primary outputs: newinfected
 
     newinfected = zeros(T_int[], length(agegrps))  # (5,)
 
     if iszero(env.touched) # might happen with a social distancing or quarantine case with 100% compliance
         return newinfected
     end
-
 
     # only unexposed (= susceptible) can become infected
     @views touched_by_lag_age = env.touched[:, unexposed, :]  # (laglim,5)

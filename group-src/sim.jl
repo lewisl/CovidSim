@@ -325,9 +325,42 @@ function binomial_one_sample(cnt, pr)::T_int[]
     return rand.(Binomial.(cnt, pr))
 end
 
+"""
+    categorical_sim(prs::Vector{Float64}, do_assert=true)
+    categorical_sim(prs::Vector{Float64}, n::Int, do_assert=true)
 
-function categorical_sample(probvec, trials)::Array{T_int[],1}
-    x = rand(Categorical(probvec), trials)
+Approximates sampling from a categorical distribution.
+prs is an array of floats that must sum to 1.0.
+do_assert determines if an assert tests this sum. For a single trial, this runs
+in 10% of the time of rand(Categorical(prs)). For multiple trial, the 
+second method runs in less than 50% of the time.
+
+The second method generates results for n trials. 
+The assert test is done only once if do_assert is true.
+"""
+function categorical_sim(prs, do_assert=true)
+    do_assert && @assert isapprox(sum(prs), 1.0)
+    x = rand()
+    cumpr = 0.0
+    i = 0
+    for pr in prs
+        cumpr += pr
+        i += 1
+        if x <= cumpr 
+            break
+        end
+    end
+    i
+end
+
+function categorical_sim(prs, n::Int, do_assert=true)
+    do_assert && @assert isapprox(sum(prs), 1.0)
+    ret = Vector{Int}(undef, n)
+    
+    @inbounds for i in 1:n
+        ret[i] = categorical_sim(prs, false)
+    end
+    ret
 end
 
 

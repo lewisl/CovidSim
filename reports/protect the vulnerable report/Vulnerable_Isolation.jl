@@ -15,11 +15,13 @@
 
 # %%
 using CovidSim
+using Plots
 
 # %%
 seattle = (;fips=53033); newyork=(;fips=36061); bismarck=(;fips=38015)
 
 # %%
+cd("/Users/lewis/Dropbox/Online Coursework/Covid/data")
 geo = CovidSim.readgeodata("../data/geo2data.csv")
 geo[:,1:7]
 
@@ -28,12 +30,11 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
 alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
-       dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
-nycfull=cumplot(series,newyork.fips,geo=geo)
+cumplot(series,newyork.fips,geo=geo)
 
 # %%
 infection_outcome(series, newyork.fips)
@@ -46,7 +47,6 @@ infection_outcome(series, newyork.fips)
 
 # %%
 alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
-       dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
 
@@ -55,12 +55,11 @@ str_50 = sd_gen(start=50, comply=.9, cf=(.5,1.2), tf=(.18,.42))
 
 # %%
 alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
-       dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
 
 # %%
-nycsd=cumplot(series,newyork.fips,[recovered, infectious, dead],geo=geo)
+cumplot(series,newyork.fips,[recovered, infectious, dead],geo=geo)
 
 # %%
 infection_outcome(series, newyork.fips)
@@ -72,7 +71,6 @@ infection_outcome(series, newyork.fips)
 # %%
 # Reset to defaults
 alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
-       dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
 
@@ -86,11 +84,11 @@ alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        runcases=[seed_1_6]);
 
 # %%
-nycopen=cumplot(series,newyork.fips,[infectious, dead],geo=geo)
+cumplot(series,newyork.fips,[infectious, dead],geo=geo)
 
 # %%
-r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
-                compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, env=env)
+r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], decpoints=alldict["decpoints"],
+        cf=[], tf=[], compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, env=env)
 
 # %% [markdown]
 # The preceding estimate of R0 tracks one cohort across all demographic groups of the simulation through the duration of the disease for 25 days, though much of the cohort will "drop out" through recovery or death prior to the 25th day. Infectiveness varies across the number of days a person has been infected.  
@@ -109,33 +107,48 @@ alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 open = sd_gen(start=95, comply=0.7, cf=(.5,1.5), tf=(.25,.50))
 
 # %%
-alldict, env, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
+alldict, env, series = run_a_sim(180, newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6]);
 
 # %%
-nycopen2=cumplot(series,newyork.fips,geo=geo)
+cumplot(series,newyork.fips,[infectious, dead],geo=geo)
+
+# %%
+deadseries_lo = series[newyork.fips][:cum][:,[map2series.dead]...]
+n = size(deadseries_lo,1)
+
+# %%
+agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "total"]
+ageserieslabels = [agelabels[1] agelabels[2] agelabels[3] agelabels[4] agelabels[5]]
+age_dist_lo = areaplot(1:n, deadseries_lo[:,1:5],labels=ageserieslabels, size=(800,500),
+    title="Cumulative Deaths by Age Group", legend=:topleft)
+
+# %%
+cumplot(series,newyork.fips,[recovered,infectious, dead],geo=geo)
 
 # %% [markdown]
 # Even with some restrictions still in place, this opening results in only about 10 to 11% reduction in deaths compared to never having implemented social distancing or social distancing followed by completely opening. This alternative would *not* be recommended. Rigorous implementation of test, trace and isolate with idespread testing of asymptomatic people, same-day test results, and high compliance with contact tracing and quarantine isolation is very hard to achieve, but is a preferred alternative.  If the high degree of compliance and implementation rigor is not possible, is there an alternative?
 
+# %%
+
 # %% [markdown]
-# # An Alternative: Fewer Restrictions with Protection of the Vulnerable
+# ### An Alternative: Fewer Restrictions with Protection of the Vulnerable
 # Note that this cases models vulnerable people as the age groups from 60 to 80 and over 80. Other people are vulnerable: people with diabetes, hypertension, immuno-compromise, cancer patients, smokers, and others across age groups. It's beyond this model to attempt to represent these vulnerabilities across age groups at this poing.
 
 # %%
 open_more = sd_gen(start=95, cf=(.5,1.55), tf=(.25,.55),comply=.6)
 
 # %%
-r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
-                compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, env=env)
+r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], decpoints=alldict["decpoints"],
+        cf=[], tf=[], compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, env=env)
 
 # %%
-function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx,testdat=openmx, env=env)
+function isolate_vulnerable(locale, opendat, isodat, testdat, env)
     if ctr[:day] == 105
-        isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:laglim, locale; opendat=opendat, isodat=isodat)
-        isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:laglim, locale; opendat=opendat, isodat=isodat)
+        isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:laglim, locale, opendat, isodat)
+        isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:laglim, locale, opendat, isodat)
     end
 end
 
@@ -147,13 +160,13 @@ alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        runcases=[]);
 
 # %%
-alldict, env, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
+alldict, env, series = run_a_sim(180, newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6, isolate_vulnerable]);
 
 # %%
-cumplot(series,newyork.fips,geo=geo)
+cumplot(series,newyork.fips,[recovered,infectious, dead],geo=geo)
 
 # %% [markdown]
 # **Assessment:**
@@ -165,6 +178,24 @@ cumplot(series,newyork.fips,geo=geo)
 # - deaths roughly 10% higher than very rigorous test, trace and isolate
 # - deaths roughly 50% lower than loosely implemented test, trace and isolate
 #
+
+# %%
+deadseries_pv = series[newyork.fips][:cum][:,[map2series.dead]...]
+n = size(deadseries_pv,1)
+
+# %% [markdown]
+# ## Compare Age Distribution for Different Policies
+
+# %%
+agelabels = ["0-20", "20-40", "40-60", "60-80", "80+", "total"]
+ageserieslabels = [agelabels[1] agelabels[2] agelabels[3] agelabels[4] agelabels[5]]
+age_dist_pv = areaplot(1:n, deadseries_pv[:,1:5],labels=ageserieslabels, size=(800,500),
+    title="Cumulative Deaths by Age Group", legend=:topleft)
+
+pyplot()
+l = @layout([x y])
+plot([age_dist_pv, age_dist_lo]..., layout=l, legend=false, tickfontsize=6, ylims=[0,7e4], title=nothing)
+gui()
 
 # %%
 protected_group = age_dist .* series[newyork.fips][:cum][1,map2series.unexposed[6]]
