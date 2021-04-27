@@ -14,14 +14,14 @@
 # ---
 
 # %%
-cd("/Users/lewis/Dropbox/Online Coursework/Covid/src"); 
+cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src")); 
 
 # %%
 using Plots
 pyplot()
 
 # %%
-using CovidSim
+using CovidSim_ilm
 
 # %%
 bismarck = (;fips=38015)
@@ -29,6 +29,8 @@ newyork = (;fips=36061)
 
 # %%
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
+
+# %%
 alldict, env, series = run_a_sim(180, bismarck.fips, showr0=false, silent=true,
         spreadcases=[],
         runcases=[seed_1_6]);
@@ -41,7 +43,7 @@ geo = alldict["geo"];
 bisfull=cumplot(series,bismarck.fips,geo=geo)
 
 # %%
-infection_outcome(series, bismarck.fips)
+virus_outcome(series, bismarck.fips)
 
 # %%
 str_50 = sd_gen(start=50, comply=.9, cf=(.5,1.2), tf=(.18,.42))
@@ -56,7 +58,7 @@ alldict, env, series = run_a_sim(180, bismarck.fips, showr0=false, silent=true,
 bissd50=cumplot(series,bismarck.fips,geo=geo)
 
 # %%
-infection_outcome(series, bismarck.fips)
+virus_outcome(series, bismarck.fips)
 
 # %%
 open = sd_gen(start=80, comply=0.7, cf=(.5,1.5), tf=(.25,.50))
@@ -76,13 +78,13 @@ bisopen=cumplot(series,bismarck.fips,geo=geo)
 bisbump=cumplot(series,bismarck.fips,[infectious, dead],geo=geo)
 
 # %%
-infection_outcome(series, bismarck.fips)
+virus_outcome(series, bismarck.fips)
 
 # %% [markdown]
 # # Adopt Test, Trace and Isolate
 
 # %%
-t_n_t100_160=CovidSim.t_n_t_case_gen(100,160,tc_perday=1000, test_delay=3,
+t_n_t100_160=CovidSim_ilm.t_n_t_case_gen(100,160,tc_perday=1000, test_delay=3,
     breakout_pct=0.2, q_comply=0.75,past_contacts=false)
 
 # %%
@@ -107,7 +109,7 @@ cumplot(series,38015,geo=geo)
 # - test results returned same day
 
 # %%
-t_n_t100_160=CovidSim.t_n_t_case_gen(100,160,tc_perday=4800, test_delay=0,
+t_n_t100_160=CovidSim_ilm.t_n_t_case_gen(100,160,tc_perday=4800, test_delay=0,
     breakout_pct=0.20, q_comply=0.95, past_contacts=false)
 
 # %%
@@ -125,7 +127,7 @@ cumplot(series,bismarck.fips,geo=geo)
 # - delay in obtaining test results of 0 days
 
 # %%
-t_n_t100_160=CovidSim.t_n_t_case_gen(100,160,tc_perday=10_000, test_delay=0,
+t_n_t100_160=CovidSim_ilm.t_n_t_case_gen(100,160,tc_perday=10_000, test_delay=0,
     breakout_pct=0.20, q_comply=0.97,past_contacts=false)
 
 # %%
@@ -170,7 +172,7 @@ nycsd50=cumplot(series,newyork.fips,geo=geo)
 # Note: The total of deaths is a bit higher than NYC deaths as of May 23 at 21086, which is day 122, while the simulation is run for almost another 2 months.
 
 # %%
-infection_outcome(series, newyork.fips)
+virus_outcome(series, newyork.fips)
 
 # %%
 open = sd_gen(start=95, comply=0.7, cf=(.5,1.5), tf=(.25,.50))
@@ -195,7 +197,7 @@ nycbump=cumplot(series, newyork.fips, [infectious, dead],geo=geo)
 # %%
 
 # %%
-t_n_t100_160=CovidSim.t_n_t_case_gen(100,160,tc_perday=80_000,breakout_pct=0.20, q_comply=0.75,past_contacts=false)
+t_n_t100_160=CovidSim_ilm.t_n_t_case_gen(100,160,tc_perday=80_000,breakout_pct=0.20, q_comply=0.75,past_contacts=false)
 
 # %%
 alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
@@ -219,7 +221,7 @@ nyc_tnt_min = cumplot(series,newyork.fips,geo=geo)
 # - test results returned same day
 
 # %%
-t_n_t100_160=CovidSim.t_n_t_case_gen(100,160,tc_perday=835_000, test_delay=0,
+t_n_t100_160=CovidSim_ilm.t_n_t_case_gen(100,160,tc_perday=835_000, test_delay=0,
     breakout_pct=0.20, q_comply=0.95, past_contacts=false)
 
 # %%
@@ -241,7 +243,7 @@ nyc_tnt_max = cumplot(series,newyork.fips,geo=geo)
 # - test results returned same day
 
 # %% jupyter={"source_hidden": true}
-t_n_t100_160=CovidSim.t_n_t_case_gen(100,160,tc_perday=420_000, test_delay=0,
+t_n_t100_160=CovidSim_ilm.t_n_t_case_gen(100,160,tc_perday=420_000, test_delay=0,
     breakout_pct=0.20, q_comply=0.95, past_contacts=false)
 
 # %%
