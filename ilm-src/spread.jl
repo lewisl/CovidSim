@@ -62,7 +62,7 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
             
     end
 
-    push!(spreadq,   (day=ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
+    push!(spreadq,   (day=day_ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
                       touched=n_touched, infected=n_newly_infected))
 
     return n_spreaders, n_contacts, n_touched, n_newly_infected
@@ -72,7 +72,7 @@ end
 function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, density_factor)
 
     for (i,case) in enumerate(spreadcases)
-        if case.day == ctr[:day] # there is a case that starts today!
+        if case.day == day_ctr[:day] # there is a case that starts today!
             if case.comply == 0.0  # cancel spreadcase and restore defaults
                 sim_stash[:do_case] = false  # run spread! without cases
             elseif 0.0 < case.comply <= 1.0    # use case inputs 

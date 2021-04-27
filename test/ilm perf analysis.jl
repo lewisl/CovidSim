@@ -25,15 +25,15 @@ density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
 
 
 ## prep for first run
-reset!(ctr, :day)  # return and reset key to 0 :day leftover from prior runs
-inc!(ctr, :day)  # increment the simulation day counter
+reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
+inc!(day_ctr, :day)  # increment the simulation day counter
 loc = 38015
 
 ## seed population with sick people
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, CovidSim_ilm.nil, CovidSim_ilm.agegrps)
 
 ##
-inc!(ctr, :day)  # increment the simulation day counter
+inc!(day_ctr, :day)  # increment the simulation day counter
 spread!(popdat, loc, [], env, density_factor)  
 
 ##

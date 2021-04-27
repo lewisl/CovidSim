@@ -44,7 +44,7 @@ using SplitApplyCombine
 # order matters for these includes!
 include("../shared-src/dec_tree.jl")
 include("setup.jl")
-include("tracking.jl")
+include("../shared-src/tracking.jl")
 include("cases.jl")
 include("test_and_trace.jl")
 include("transition.jl")
@@ -56,6 +56,7 @@ include("../shared-src/johns_hopkins_data.jl")
 export    
     setup,              
     run_a_sim,
+    day_ctr,
     seed!,
     transition!,
     spread!,
@@ -110,7 +111,6 @@ export
     transq,
     day2df,
     map2series,
-    ctr,
     sim_stash
 
 # functions for decision trees
@@ -197,6 +197,14 @@ export
 
 # datatype constants
 const T_int = Ref(Int64)  # this creates a reference type accessed or modified in functions as T_int[]
+
+
+"""
+- use incr!(day_ctr, :day) for day of the simulation:  creates and adds 1
+- use reset!(day_ctr, :day) to remove :day and return its current value, set it to 0
+- use day_ctr[:day] to return current value of day
+"""
+const day_ctr = counter(Symbol) # from package DataStructures
 
 
 ################################################################

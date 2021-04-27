@@ -31,7 +31,7 @@ previously unexposed people, by agegrp?  For a single locale...
 """
 function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
 
-    if ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
+    if day_ctr[:day]  == 1    # TODO when is the right time?  what is the right cleanup?
         cleanup_stash(spread_stash)
     end
 
@@ -79,7 +79,7 @@ function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
 
         # println("ratio of infected to spreaders: $(sum(newinfected) / sum(spreaders))")
 
-        push!(spreadq, (day=ctr[:day], locale=locale,
+        push!(spreadq, (day=day_ctr[:day], locale=locale,
                     spreaders = sum(spreaders) + sum(get(spread_stash, :comply_spreaders, 0)),
                     contacts = sum(contacts) + sum(get(spread_stash, :comply_contacts, 0)),
                     touched = sum(touched) + sum(get(spread_stash, :comply_touched, 0)),
@@ -151,7 +151,7 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
     # correct over contacting: may rarely happen with high scale around the high point of infection
     oc_ratio = sum(contacts) / sum(target_accessible)
     if oc_ratio > 1.0
-        @warn "day: $(ctr[:day]) warning: overcontact ratio > 1.0: $oc_ratio"
+        @warn "day: $(day_ctr[:day]) warning: overcontact ratio > 1.0: $oc_ratio"
         contacts[:] = round.(T_int[], 1.0/oc_ratio .* contacts)
     end
 
@@ -415,7 +415,7 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt_dict=Dict
             display(touch_factors)
     end
     
-    ret = (day=ctr[:day], r0=r0, spreaders=tot_spreaders, contacts=tot_contacts, touched=tot_touched, infected=tot_infected,
+    ret = (day=day_ctr[:day], r0=r0, spreaders=tot_spreaders, contacts=tot_contacts, touched=tot_touched, infected=tot_infected,
            contact_ratio=contact_ratio,  touch_ratio=touch_ratio)
     push!(r0q, ret)
     return ret

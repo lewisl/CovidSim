@@ -43,7 +43,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             Dict(locales[i]=>starting_unexposed[i,:] for i in 1:size(locales,1)))
 
     # start the day counter at zero
-    reset!(ctr, :day)  # return and reset key :day leftover from prior runs
+    reset!(day_ctr, :day)  # return and reset key :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
 
@@ -58,8 +58,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     # simulation loop
     ######################
     for i = 1:n_days
-        inc!(ctr, :day)  # increment the simulation day counter
-        silent || println("simulation day: ", ctr[:day])
+        inc!(day_ctr, :day)  # increment the simulation day counter
+        silent || println("simulation day: ", day_ctr[:day])
         @inbounds for loc in locales
             density_factor = density_factors[loc]
             for case in runcases
@@ -72,16 +72,16 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         transition!(testmx, dt_dict) # transition infectious cases in test and trace
 
         # r0 displayed every 10 days
-        if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+        if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
             current_r0 = sim_r0(env, dt_dict)
-            println("at day $(ctr[:day]) r0 = $current_r0")
+            println("at day $(day_ctr[:day]) r0 = $current_r0")
         end
 
-        # println("day $(ctr[:day]) all locales ", keys(isolatedmx))
+        # println("day $(day_ctr[:day]) all locales ", keys(isolatedmx))
         do_history!(locales, opendat=openmx, cumhist=cumhistmx, newhist=newhistmx, 
             starting_unexposed=starting_unexposed)
     end
-    silent || println("Simulation completed for $(ctr[:day]) days.")
+    silent || println("Simulation completed for $(day_ctr[:day]) days.")
     #######################
 
     # "history" series for plotting: NOT dataframes, but arrays
@@ -101,7 +101,7 @@ end
 
 function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     # capture a snapshot of the end-of-day population matrix
-    thisday = ctr[:day]
+    thisday = day_ctr[:day]
     if thisday == 1
         @inbounds for locale in locales
             zerobase = zeros(T_int[], size(newhist[locale])[1:2])
@@ -228,7 +228,7 @@ an error will be raised. The population matrix must contain positive integer val
 function minus!(val, condition, agegrp, lag, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
     current = grab(condition, agegrp, lag, locale, dat)
-    @assert sum(val) <= sum(current) "subtracting > than existing: day $(ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
+    @assert sum(val) <= sum(current) "subtracting > than existing: day $(day_ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
     dat[locale][lag, condition, agegrp] -= val
 end
 

@@ -42,41 +42,41 @@ end
 ####################################################################
 
 function isolate_case_1(locale; opendat, isodat, testdat, env)
-    if ctr[:day] == 15
+    if day_ctr[:day] == 15
         isolate!(.25,[unexposed, nil],agegrps,1,locale, opendat, isodat)
         isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
-    elseif ctr[:day] == 23
+    elseif day_ctr[:day] == 23
         isolate!(.50,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_1(locale; opendat, isodat, testdat, env)
-    if ctr[:day]  == 120
+    if day_ctr[:day]  == 120
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function isolate_case_2(locale; opendat, isodat, testdat, env)
-    if ctr[:day] == 15
+    if day_ctr[:day] == 15
         isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
         isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
-    elseif ctr[:day] == 23
+    elseif day_ctr[:day] == 23
         isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_2(locale; opendat, isodat, testdat, env)
-    if ctr[:day]  == 69
+    if day_ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_2b(locale; opendat, isodat, testdat, env)
-    if ctr[:day]  == 84
+    if day_ctr[:day]  == 84
         unisolate!(.6,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         unisolate!(.6,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
@@ -84,17 +84,17 @@ end
 
 
 function isolate_case_3(locale; opendat, isodat, testdat, env)
-    if ctr[:day] == 40
+    if day_ctr[:day] == 40
         isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
         isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
-    elseif ctr[:day] == 50
+    elseif day_ctr[:day] == 50
         isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_3(locale; opendat, isodat, testdat, env)
-    if ctr[:day]  == 80
+    if day_ctr[:day]  == 80
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
         unisolate!(1.0,[mild,sick,severe],agegrps,1:laglim,locale, opendat, isodat)
     end
@@ -109,7 +109,7 @@ end
 function spread_case_setter(cases=[]; env=env)
     for case in cases
         # c = case(env=env)
-        if case.day == ctr[:day]
+        if case.day == day_ctr[:day]
             # before the case starts--ignore it
             # after the case--it's already in effect--nothing to change
             if iszero(case.comply)  # signal to shutdown cases and restore defaults

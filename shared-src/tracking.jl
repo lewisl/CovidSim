@@ -5,13 +5,6 @@
 pyplot()   # initialize plotting backend for Plots
 
 
-"""
-- use incr!(ctr, :day) for day of the simulation:  creates and adds 1
-- use reset!(ctr, :day) to remove :day and return its current value, set it to 0
-- use ctr[:day] to return current value of day
-"""
-const ctr = counter(Symbol) # from package DataStructures
-
 # for debugging simulations: daily outcome entries as named tuples
 const spreadq = []
 const transq = []
@@ -69,7 +62,7 @@ function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom
     outcomes = Dict{String, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
 
     # each denominator for data summary
-    total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]]  # + series[locale][:cum][1, map2series.infectious[agegrp]]
+    total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]] + series[locale][:cum][1, map2series.infectious[agegrp]]
     total_infected = series[locale][:cum][end, map2series.totinfected[agegrp]]
 
     denom = if base == :pop 

@@ -60,7 +60,7 @@ function t_n_t_case(start_date, end_date;
                 q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
                 target_test=false, past_contacts=false)
 
-    thisday = ctr[:day]
+    thisday = day_ctr[:day]
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
 
     
@@ -87,7 +87,7 @@ function t_n_t_case(start_date, end_date;
                     elseif q.quar_date + qdays == thisday # end of quarantine is today
                         cnt = grab(ret_conds, agegrps, lags, q, isodat)
                         t_n_t_unquarantine(cnt, q, opendat, isodat, env)
-                        push!(tntq, (day=ctr[:day], unquarantine=sum(cnt)))
+                        push!(tntq, (day=day_ctr[:day], unquarantine=sum(cnt)))
                         delete!(isodat, q)  # remove dated locale
                         delete!(tnt_stash, q)  # remove dated locale from stash
                     end
@@ -109,7 +109,7 @@ function t_n_t_case(start_date, end_date;
                             end
                             t_n_t_quarantine(put_in, qloc::Quar_Loc, opendat, 
                                              isodat, env)
-                            push!(tntq, (day=ctr[:day], quarantine=sum(put_in)))
+                            push!(tntq, (day=day_ctr[:day], quarantine=sum(put_in)))
                             delete!(tnt_stash, t) # pop the stash (delete!)
                         end
                     end
@@ -133,7 +133,7 @@ function test_and_trace(start_date, end_date;
     q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
     target_test=false, past_contacts=false)
     
-    thisday = ctr[:day]
+    thisday = day_ctr[:day]
     test_conds = [unexposed, recovered, nil, mild]
 
     if thisday  == 1    # TODO when is the right time?  what is the right cleanup?
@@ -226,14 +226,14 @@ function test_and_trace(start_date, end_date;
                     breakout!(breakout_pct, put_in, qloc, qdays) 
                 end
                 t_n_t_quarantine(put_in, qloc::Quar_Loc; opendat=opendat, isodat=isodat, env=env)
-                push!(tntq, (day=ctr[:day], quarantine=sum(put_in)))
+                push!(tntq, (day=day_ctr[:day], quarantine=sum(put_in)))
             end
         end  # for gen 
 
         # statistics
         avail = reduce(+, map(sum,values(to_test)))
         sumtests = reduce(+, map(sum,values(postests)))
-        tc_perday > avail && (@warn "Happy Day $(ctr[:day]): more tests available than people to test")
+        tc_perday > avail && (@warn "Happy Day $(day_ctr[:day]): more tests available than people to test")
         push!(tntq,(day=thisday, avail=avail, 
                     conducted=perday_conducted, postests=sumtests, 
                     poscontacts=reduce(+, map(sum,values(poscontacts))), 
@@ -260,7 +260,7 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
 
     # today_tests = rand(Binomial(tc_perday, test_pct), 1)[1]
 
-    # println("today $(ctr[:day]) tc_perday $tc_perday  today tests $today_tests")
+    # println("today $(day_ctr[:day]) tc_perday $tc_perday  today tests $today_tests")
 
     alloc_pct = reshape(to_test ./ sum(to_test), length(to_test))
     alloc_pct[isnan.(alloc_pct)] .= 0.0  # eliminate NaNs (underflow)
@@ -284,7 +284,7 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
 
         pos_results[:] = cat(false_pos,true_pos,dims=2)  # (25,4,5)
 
-        # println(" day $(ctr[:day])  ")
+        # println(" day $(day_ctr[:day])  ")
         # println(" False Pos  quarantined even though not sick: ", sum(false_pos) ,", ", 
         #         round(sum(false_pos) / sum(dist_tests[:, 1:2, :]), digits=4))
         # println(" True Pos  quarantined because actually sick: ", sum(true_pos) ,", ", 

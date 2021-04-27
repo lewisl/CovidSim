@@ -29,8 +29,8 @@ const map2pr = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3,
 function seed!(day, cnt, lag, conds, agegrps, locale, dat)
     @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
-    if day == ctr[:day]
-        println("*** seed day $(ctr[:day]) locale $locale....")
+    if day == day_ctr[:day]
+        println("*** seed day $(day_ctr[:day]) locale $locale....")
         for loc in locale
             for cond in conds
                 @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
@@ -79,10 +79,10 @@ function transition!(dat, locale::Int, dt_dict)
                     tocond = node["outcomes"][choice]
                     if tocond == dead  # change status, leave cond and lag as last state before death or recovery                        
                         locdat.status[p] = dead  # change the status
-                        locdat.dead_day[p] = ctr[:day]
+                        locdat.dead_day[p] = day_ctr[:day]
                         locdat.cond[p] = notsick
                     elseif tocond == recovered
-                        locdat.recov_day[p] = ctr[:day]
+                        locdat.recov_day[p] = day_ctr[:day]
                         locdat.status[p] = recovered
                         locdat.cond[p] = notsick
                     else   # change disease condition
@@ -176,7 +176,7 @@ Remove people from quarantine by setting val to false.
 function isolate!(locdat, qty, filters::Array, val=true)  
     # val = true adds to quarantine; val = false removes from quarantine
 
-    thisday = ctr[:day]
+    thisday = day_ctr[:day]
     filts = copy(filters)
 
     push!(filts, Popquery(:quar, ==, !val)) # don't isolate people already in quarantine

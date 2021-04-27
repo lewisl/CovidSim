@@ -146,7 +146,7 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], decpoints=a
 
 # %%
 function isolate_vulnerable(locale, opendat, isodat, testdat, env)
-    if ctr[:day] == 105
+    if day_ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:laglim, locale, opendat, isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:laglim, locale, opendat, isodat)
     end

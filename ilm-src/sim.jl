@@ -28,7 +28,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         env = initialize_sim_env(geodf; spread_params...)
 
     # start the day counter at zero
-    reset!(ctr, :day)  # return and reset key to 0 :day leftover from prior runs
+    reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
 
@@ -40,8 +40,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     simtime = 0
     histtime = 0
     for i = 1:n_days
-        inc!(ctr, :day)  # increment the simulation day counter
-        silent || println("simulation day: ", ctr[:day])
+        inc!(day_ctr, :day)  # increment the simulation day counter
+        silent || println("simulation day: ", day_ctr[:day])
         for loc in locales     # @inbounds
 
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
@@ -53,9 +53,9 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             trtime += @elapsed  transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
 
             # r0 displayed every 10 days
-            if showr0 && (mod(ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+            if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
                 current_r0 = r0_sim(age_dist, popdat, loc, dt_dict, env, density_factor)
-                println("day $(ctr[:day]), locale $loc: rt = $current_r0")
+                println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
         end
@@ -63,7 +63,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         histtime += @elapsed do_history!(locales, popdat, cumhistmx, newhistmx, agegrp_idx)
 
     end
-    silent || println("Simulation completed for $(ctr[:day]) days.")
+    silent || println("Simulation completed for $(day_ctr[:day]) days.")
     #######################
 
     # simulatio history series for plotting: arrays NOT dataframes
@@ -88,7 +88,7 @@ end
 ################################################################################
 
 function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
-    thisday = ctr[:day]
+    thisday = day_ctr[:day]
     for loc in locales
         dat = popdat[loc]  # source
         cumdat = cumhist[loc]   # sink

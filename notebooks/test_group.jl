@@ -1,22 +1,12 @@
 # %% [markdown]
-# ## A Pluto.jl notebook ###
-# v0.14.2
+# ## Quick Test of Group Model ###
 
 # %%
 using Markdown
 using InteractiveUtils
 
 # %%
-begin
-	# using CovidSim_ilm
-	push!(LOAD_PATH, joinpath(homedir(), "Dropbox/Online Coursework/Covid/group-src")) 
-
-	try
-		using Revise
-	catch e 
-		@warn(e.msg)
-	end
-end
+cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src"))
 
 # %%
 using CovidSim_group
@@ -35,3 +25,5 @@ keys(result_dict)
 
 # %%
 result_dict["dat"]["openmx"][38015]
+
+# %%

@@ -28,8 +28,8 @@ const map2pr = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3,
 function seed!(day, cnt, lag, conds, agegrps, locale, dat)
     @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
-    if day == ctr[:day]
-        println("*** seed day $(ctr[:day]) locale $locale....")
+    if day == day_ctr[:day]
+        println("*** seed day $(day_ctr[:day]) locale $locale....")
         for loc in locale
             for cond in conds
                 @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
@@ -87,7 +87,7 @@ function transition!(dat, dt_dict, locale)
                         minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
                     end
                 end
-                push!(transq, (day=ctr[:day], lag=nodelag, agegrp=agegrp, node=node, locale=locale,   # @views primarily for debugging; can do some cool plots
+                push!(transq, (day=day_ctr[:day], lag=nodelag, agegrp=agegrp, node=node, locale=locale,   # @views primarily for debugging; can do some cool plots
                                 recovered=get(distrib, indexin(recovered,outcomes)[], 0),
                                 dead=   get(distrib, indexin(dead,outcomes)[], 0),
                                 nil=    get(distrib, indexin(nil,outcomes)[], 0),
@@ -273,8 +273,8 @@ function unisolate_by!(num, cond, agegrp, lag, locale, opendat, isodat, mode=:bo
 
     available = grab(cond, agegrp, lag, locale, isodat)  # max
 
-    # println("day $(ctr[:day]) request to unisolate   ", sum(num))
-    # println("day $(ctr[:day]) available to unisolate ", sum(available))
+    # println("day $(day_ctr[:day]) request to unisolate   ", sum(num))
+    # println("day $(day_ctr[:day]) available to unisolate ", sum(available))
 
     cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
@@ -293,7 +293,7 @@ function _unisolate!(cnt, cond, agegrp, lag, locale,  opendat, isodat, mode=:bot
             locale = locale.locale
         end
 
-        # println("day $(ctr[:day])  unquarantine is unisolating this many ", sum(cnt))
+        # println("day $(day_ctr[:day])  unquarantine is unisolating this many ", sum(cnt))
 
         plus!(cnt, cond, agegrp, lag, locale, opendat)
         update_infectious!(locale, opendat)

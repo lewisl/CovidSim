@@ -208,7 +208,7 @@ time_it = @elapsed CovidSim.make_sick!(ilmat; cnt=[3,3], fromage=[2,3], tocond=n
 
 #=
 function seed!(day, cnt, lag, cond, agegrps, dat)  #  locale,
-    if day == ctr[:day] ]
+    if day == day_ctr[:day] ]
         
         make_sick!(dat; cnt, fromage, tocond, tolag=1)
         
