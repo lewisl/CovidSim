@@ -60,38 +60,71 @@ they move to recovered or dead.
 
 Works for a single locale.
 """
-function transition!(dat, locale::Int, dt_dict)
+@views function transition!(dat, locale::Int, dt_dict)
 
-    locdat = locale == 0 ? dat : dat[locale]
+    locdat = locale == 0 ? dat : dat[locale] #allocates 112 bytes
 
     dectree = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
-    @inbounds for p in findall(locdat.status .== infectious)  # p for person          
+    infect_idx = optfindall(==(infectious), locdat.status, 0.5)  # allocates thousands of bytes
 
-                dtkey = (locdat.lag[p], locdat.cond[p])
-                p_agegrp = locdat.agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
-                node = get(dectree[p_agegrp], dtkey, ())
-                @inbounds if isempty(node)  # no transition for this person based on lag and condition
-                    # @assert p_tup.lag < laglim "Person made it to last day and was not removed:\n     $p_tup\n"
-                    locdat.lag[p] += 1
-                else  # change of the person p's state--a transition
-                    choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
-                    tocond = node["outcomes"][choice]
-                    if tocond == dead  # change status, leave cond and lag as last state before death or recovery                        
-                        locdat.status[p] = dead  # change the status
-                        locdat.dead_day[p] = day_ctr[:day]
-                        locdat.cond[p] = notsick
-                    elseif tocond == recovered
-                        locdat.recov_day[p] = day_ctr[:day]
-                        locdat.status[p] = recovered
-                        locdat.cond[p] = notsick
-                    else   # change disease condition
-                        locdat.cond[p] = tocond   # change the condition
-                        locdat.lag[p] += 1  
-                    end    
-                end
+    for p in infect_idx  # p for person    
+        p_lag = locdat.lag[p] 
+        p_cond = locdat.cond[p]
+        p_agegrp = locdat.agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
+        if !haskey(dectree[p_agegrp], p_lag) || !haskey(dectree[p_agegrp][p_lag], p_cond)
+            # @assert p_tup.lag < laglim "Person made it to last day and was not removed:\n     $p_tup\n"
+            locdat.lag[p] += 1
+        else  # change of the person p's state--a transition
+            node = dectree[p_agegrp][p_lag][p_cond]
+            choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
+            tocond = node["outcomes"][choice]
+            if tocond == dead  # change status, leave cond and lag as last state before death or recovery                        
+                locdat.status[p] = dead  # change the status
+                locdat.dead_day[p] = day_ctr[:day]
+                locdat.cond[p] = notsick
+            elseif tocond == recovered
+                locdat.recov_day[p] = day_ctr[:day]
+                locdat.status[p] = recovered
+                locdat.cond[p] = notsick
+            else   # change disease condition
+                locdat.cond[p] = tocond   # change the condition
+                locdat.lag[p] += 1  
+            end    
+        end
     end  # for p
+
 end
+
+
+"""
+    optfindall(p, X, maxlen=0)
+
+Returns indices to X where p, a filter, is true.
+Filters should be anonymous functions.
+For maxlen=0, the length of the temporary vector is length(x).
+For maxlen=n, the length of the temporary vector is n.
+For maxlen=0.x, the length of temporary vector is 0.x * length(x) and
+x should be in (0.0, 1.0).
+"""
+function optfindall(p, X, maxlen=0)
+    if maxlen==0
+        out = Vector{Int}(undef, length(X))
+    elseif isa(maxlen, Int)
+        out = Vector{Int}(undef, maxlen)
+    else
+        out = Vector{Int}(undef, floor(Int, maxlen * length(X)))
+    end
+    ind = 0
+    @inbounds for (i, x) in pairs(X)
+        if p(x)
+            out[ind+=1] = i
+        end
+    end
+    resize!(out, ind)
+    return out
+end
+
 
 
 """

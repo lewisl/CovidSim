@@ -87,7 +87,7 @@ end
 #  Build and update daily history series
 ################################################################################
 
-function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
+@views function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
     thisday = day_ctr[:day]
     for loc in locales
         dat = popdat[loc]  # source
@@ -97,7 +97,7 @@ function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
         #
         # cumulative data
         #
-        @views for age in agegrps
+        @inbounds for age in agegrps
             # get the source data: status
             dat_age = dat[agegrp_idx[loc][age]]
             status_today = countsarr(dat_age.status, unexposed:dead)    # outcomes for thisday

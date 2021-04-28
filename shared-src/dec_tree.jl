@@ -27,10 +27,17 @@ function setup_dt(dtfilename)
     for agegrp in agegrps
         newdict[agegrp] = Dict()
         for node in keys(trees[agegrp])
-            probs = [branch["pr"] for branch in trees[agegrp][node]]
-            outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
-            branches = [branch for branch in trees[agegrp][node]]
-            newdict[agegrp][node] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+            a = node[1]
+            b = node[2]
+                probs = [branch["pr"] for branch in trees[agegrp][node]]
+                outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
+                branches = [branch for branch in trees[agegrp][node]]
+            if haskey(newdict[agegrp], a)
+                newdict[agegrp][a][b] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+            else
+                newdict[agegrp][a]=Dict()
+                newdict[agegrp][a][b] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+            end
         end
     end
     newdict = Dict(i=>sort(newdict[i], rev=true) for i in agegrps) 

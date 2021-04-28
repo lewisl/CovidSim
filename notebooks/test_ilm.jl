@@ -19,6 +19,7 @@ using CovidSim_ilm
 # %%
 using StatsBase
 using TypedTables
+using BenchmarkTools
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src"))
@@ -85,5 +86,48 @@ cumplot(series, 38015)
 
 # %% [markdown]
 # Note that the orangle line labeled Infectious that shows the number of infected people is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: Some people got sick today. Some people get better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. Newspaper tracking shows the new active infections of each day--who got sick today? The next day, if no one new got sick the line would be at zero--even though the people who got sick aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. This is the least common way to show the data.
+
+# %%
+180 * 80000
+
+# %% [markdown]
+# ### Ways to reduce allocations for indexing
+
+# %%
+a = rand(1000); b = rand(["this", "is", "it"], 1000); c = rand(1:7,1000); i = 1:1000;
+t = Table(a=a, b=b, c=c, i=i)
+
+# %%
+function optfindall(p, X, maxlen=0)
+    if maxlen==0
+        out = Vector{Int}(undef, length(X))
+    elseif isa(maxlen, Int)
+        out = Vector{Int}(undef, maxlen)
+    else
+        out = Vector{Int}(undef, floor(Int, maxlen * length(X)))
+    end
+    ind = 0
+    @inbounds for (i, x) in pairs(X)
+        if p(x)
+            out[ind+=1] = i
+        end
+    end
+    resize!(out, ind)
+    return out
+end
+
+# %%
+floor(Int,.23  * length(t))
+
+# %% tags=[]
+@time optfindall(==(6),t.c,.2);
+
+# %%
+@time findall(t.c .== 6)
+
+# %%
+for k in eachindex(t.c .== 3)
+    println(k, " ", t.i[k])
+end
 
 # %%
