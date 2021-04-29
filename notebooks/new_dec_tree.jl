@@ -17,12 +17,17 @@
 # # New approach to decision trees for transition
 
 # %%
-using CovidSim
+using CovidSim_ilm
 
 # %%
 using StatsBase
 using DelimitedFiles
 using Distributions
+using PrettyPrint
+using JSON2
+
+# %%
+cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src"))
 
 # %%
 ilmat = readdlm("../data/ilmtestdata.csv", ',',Int, header=true)[1]
@@ -30,7 +35,22 @@ ilmat = repeat(ilmat, 10_000)
 refresh = copy(ilmat)
 
 # %% [markdown]
-# ## New Approach to Decision Trees
+# ### Current YAML Approach as of 4/28/2021
+
+# %%
+dectreefilename="../parameters/dec_tree_all_25.yml"
+
+# %%
+dectree_dict = setup_dt(dectreefilename)
+
+# %%
+dectree = dectree_dict["dt"]
+
+# %%
+display_tree(dectree)
+
+# %% [markdown]
+# ## Experiments with YAML 
 
 # %%
 dectreefilename="../parameters/dec_tree_all_25.csv"
@@ -58,7 +78,7 @@ JSON.json(dt)
 # %%
 TOML.print(newdict1)
 
-# %%
+# %% jupyter={"source_hidden": true} tags=[]
 # this is json from the YAML
 jsontxt = """
 [
@@ -251,7 +271,7 @@ using YAML
 # %%
 YAML.write_file("../parameters/test-output.yml", hand)
 
-# %%
+# %% jupyter={"source_hidden": true} tags=[]
 newyaml = """
 4:
   (9,6):
@@ -709,7 +729,7 @@ roundtrip_yaml[1]
 # %%
 roundtrip_yaml[1]["(9,7)"]
 
-# %%
+# %% jupyter={"source_hidden": true} tags=[]
 dense_yaml = """
 4:
   (9,6):
@@ -841,7 +861,7 @@ dense_yaml = """
 # %%
 dense_literal_yaml = YAML.load(dense_yaml)
 
-# %%
+# %% jupyter={"source_hidden": true} tags=[]
 hand_yaml = """
 3:
   (5,5):

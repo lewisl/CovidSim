@@ -67,43 +67,44 @@ function transition!(dat, dt_dict, locale)
     # iszero(dat[locale]) && (return)
 
     for agegrp in agegrps
-        tree = dt_dict["dt"][agegrp]
-        for node in sort(collect(keys(tree)), rev=true)  
-            nodelag, fromcond = node
-            folks = grab(fromcond, agegrp, nodelag, locale, dat)
+        agetree = dt_dict["dt"][agegrp]  # tree for a single agegrp
+        for lag in sort(collect(keys(agetree)), rev=true)  # tree for a lag value
+            lagtree = agetree[lag]
+            for fromcond in sort(collect(keys(lagtree)))
+                condtree = lagtree[fromcond]
+                folks = grab(fromcond, agegrp, lag, locale, dat)
 
-            if folks > 0
-                pr = tree[node]["probs"] # pr for all branches at the node
-                outcomes = tree[node]["outcomes"] # outcomes for all branches at the node
+                if folks > 0
+                    pr = condtree["probs"] # pr for all branches at the node
+                    outcomes = condtree["outcomes"] # outcomes for all branches at the node
 
-                distrib = countmap(rand(Categorical(pr), folks))
+                    distrib = countmap(rand(Categorical(pr), folks))
 
-                for i in keys(distrib)
-                    if outcomes[i] in [recovered, dead]
-                        plus!(distrib[i], outcomes[i], agegrp, 1, locale, dat) # lag is 1
-                        minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
-                    else  # in infectious conditions nil:severe
-                        plus!(distrib[i], outcomes[i], agegrp, nodelag, locale, dat)
-                        minus!(distrib[i], fromcond, agegrp, nodelag, locale, dat)
+                    for i in keys(distrib)
+                        if outcomes[i] in [recovered, dead]
+                            plus!(distrib[i], outcomes[i], agegrp, 1, locale, dat) # lag is 1
+                            minus!(distrib[i], fromcond, agegrp, lag, locale, dat)
+                        else  # in infectious conditions nil:severe
+                            plus!(distrib[i], outcomes[i], agegrp, lag, locale, dat)
+                            minus!(distrib[i], fromcond, agegrp, lag, locale, dat)
+                        end
                     end
-                end
-                push!(transq, (day=day_ctr[:day], lag=nodelag, agegrp=agegrp, node=node, locale=locale,   # @views primarily for debugging; can do some cool plots
-                                recovered=get(distrib, indexin(recovered,outcomes)[], 0),
-                                dead=   get(distrib, indexin(dead,outcomes)[], 0),
-                                nil=    get(distrib, indexin(nil,outcomes)[], 0),
-                                mild=   get(distrib, indexin(mild,outcomes)[], 0),
-                                sick=   get(distrib, indexin(sick,outcomes)[], 0),
-                                severe= get(distrib, indexin(severe,outcomes)[], 0))
-                       )
-
-            end
-        end
-    end
+                    push!(transq, 
+                            (day=day_ctr[:day], lag=lag, agegrp=agegrp, fromcond=fromcond, locale=locale,   # @views primarily for debugging; can do some cool plots
+                            recovered=get(distrib, indexin(recovered,outcomes)[], 0),
+                            dead=   get(distrib, indexin(dead,outcomes)[], 0),
+                            nil=    get(distrib, indexin(nil,outcomes)[], 0),
+                            mild=   get(distrib, indexin(mild,outcomes)[], 0),
+                            sick=   get(distrib, indexin(sick,outcomes)[], 0),
+                            severe= get(distrib, indexin(severe,outcomes)[], 0)))
+                end  # if folks
+            end  # for fromcond
+        end  # for lag
+    end  # for agegrp
 
     for lag in laglim-1:-1:1
         bump_up!(infectious_cases, agegrps, lag, locale, dat)
     end
-
 
     update_infectious!(locale, dat)
 end

@@ -26,17 +26,17 @@ function setup_dt(dtfilename)
     newdict = Dict()
     for agegrp in agegrps
         newdict[agegrp] = Dict()
-        for node in keys(trees[agegrp])
-            a = node[1]
-            b = node[2]
+        for node in keys(trees[agegrp])  # node is (lag, fromcond)
+            lag       = node[1]
+            fromcond  = node[2]
                 probs = [branch["pr"] for branch in trees[agegrp][node]]
                 outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
                 branches = [branch for branch in trees[agegrp][node]]
-            if haskey(newdict[agegrp], a)
-                newdict[agegrp][a][b] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+            if haskey(newdict[agegrp], lag)
+                newdict[agegrp][lag][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
             else
-                newdict[agegrp][a]=Dict()
-                newdict[agegrp][a][b] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+                newdict[agegrp][lag]=Dict()
+                newdict[agegrp][lag][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
             end
         end
     end
@@ -59,12 +59,28 @@ end
 
 
 function display_tree(tree)
-    for k in keys(sort(tree))
-        println(k)
-        for item in tree[k]
-            println("   ", item)
-        end
-    end
+    for agegrp in keys(tree)
+        agetree = tree[agegrp]
+        println("agegrp: ", agegrp, " =>")
+        for lag in keys(agetree)
+            lagtree = agetree[lag]
+            println("    lag: ", lag, " =>")
+            for fromcond in keys(lagtree)
+                condtree = lagtree[fromcond]
+                println("        fromcond: ", fromcond, " =>")
+                print("            probs: => ")
+                println(condtree["probs"])
+                #
+                print("            outcomes: => ")
+                println(condtree["outcomes"])
+                #
+                println("            branches: =>")
+                for branch in keys(condtree["branches"])
+                    println("                ", condtree["branches"][branch])   
+                end
+            end  # for fromcond
+        end  # for lag
+    end   # for agegrp     
 end
 
 
@@ -147,91 +163,392 @@ function get_the_probs(path, tree)
 end
 
 
-#  what a tree looks like for a single agegrp:
+# new trees look like this to replace the tuple as a node identifier with nested dictionaries
 
-#= type Dict{Array{Int64, 1}, Array{Dict, 1}}  
-(5, 5) =>
-    "probs"
-        [0.2, 0.65, 0.15]
-    "outcomes"
-        [5, 6, 7]
-    "branches"
-        Dict("tocond" => 5, "pr" = > 0.2, "next" => (2, 1))
-        Dict("tocond" => 6, "pr" = > 0.65, "next" => (2, 2))
-        Dict("tocond" => 7, "pr" = > 0.15, "next" => (2, 3))
-(9, 5) =>
-    "probs"
-        [0.8, 0.2]
-    "outcomes"
-        [3, 7]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 0.8, "next" => (0, 0))
-        Dict("tocond" => 7, "pr" = > 0.2, "next" => (3, 3))
-(9, 6) =>
-    "probs"
-        [1.0]
-    "outcomes"
-        [6]
-    "branches"
-        Dict("tocond" => 6, "pr" = > 1.0, "next" => (3, 2))
-(9, 7) =>
-    "probs"
-        [0.85, 0.15]
-    "outcomes"
-        [7, 8]
-    "branches"
-        Dict("tocond" => 7, "pr" = > 0.85, "next" => (3, 3))
-        Dict("tocond" => 8, "pr" = > 0.15, "next" => (3, 4))
-(14, 6) =>
-    "probs"
-        [1.0]
-    "outcomes"
-        [3]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 1.0, "next" => (0, 0))
-(14, 7) =>
-    "probs"
-        [0.8, 0.1, 0.1]
-    "outcomes"
-        [3, 7, 8]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 0.8, "next" => (0, 0))
-        Dict("tocond" => 7, "pr" = > 0.1, "next" => (5, 3))
-        Dict("tocond" => 8, "pr" = > 0.1, "next" => (4, 4))
-(14, 8) =>
-    "probs"
-        [0.45, 0.5, 0.05]
-    "outcomes"
-        [3, 8, 4]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 0.45, "next" => (0, 0))
-        Dict("tocond" => 8, "pr" = > 0.5, "next" => (4, 4))
-        Dict("tocond" => 4, "pr" = > 0.05, "next" => (0, 5))
-(19, 8) =>
-    "probs"
-        [0.85, 0.1, 0.05]
-    "outcomes"
-        [3, 8, 4]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 0.85, "next" => (0, 0))
-        Dict("tocond" => 8, "pr" = > 0.1, "next" => (5, 4))
-        Dict("tocond" => 4, "pr" = > 0.05, "next" => (0, 5))
-(25, 7) =>
-    "probs"
-        [0.9, 0.1]
-    "outcomes"
-        [3, 4]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 0.9, "next" => (0, 0))
-        Dict("tocond" => 4, "pr" = > 0.1, "next" => (0, 5))
-(25, 8) =>
-    "probs"
-        [0.6, 0.4]
-    "outcomes"
-        [3, 4]
-    "branches"
-        Dict("tocond" => 3, "pr" = > 0.6, "next" => (0, 0))
-        Dict("tocond" => 4, "pr" = > 0.4, "next" => (0, 5))
+ #=
+instead of nodes looking like this:
+    (9, 7) =>
+        "probs" =>
+            [0.85, 0.15]
+        "outcomes" =>
+            [7, 8]
+        "branches" =>
+            Dict("tocond" => 7, "pr" = > 0.85, "next" => (3, 3))
+            Dict("tocond" => 8, "pr" = > 0.15, "next" => (3, 4))
+    (9, 5) =>
+        "probs" =>
+            [0.8, 0.2]
+        "outcomes" =>
+            [3, 7]
+        "branches" =>
+            Dict("tocond" => 3, "pr" = > 0.8, "next" => (0, 0))
+            Dict("tocond" => 7, "pr" = > 0.2, "next" => (3, 3))
+
+a node looks like this:
+    9 =>
+        7 =>
+            "probs" =>
+                [0.85, 0.15]
+            "outcomes" =>
+                [7, 8]
+            "branches" =>
+                Dict("tocond" => 7, "pr" = > 0.85, "next" => (3, 3))
+                Dict("tocond" => 8, "pr" = > 0.15, "next" => (3, 4))
+        5 =>
+            "probs" =>
+                [0.8, 0.2]
+            "outcomes" =>
+                [3, 7]
+            "branches" =>
+                Dict("tocond" => 3, "pr" = > 0.8, "next" => (0, 0))
+                Dict("tocond" => 7, "pr" = > 0.2, "next" => (3, 3))
+=#
+
+#  what a tree looks like for 5 agegrps
+#= 
+agegrp: 5 =>
+    lag: 25 =>
+        fromcond: 7 =>
+            probs: => [0.682, 0.318]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.682)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.318)
+        fromcond: 8 =>
+            probs: => [0.676, 0.324]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.676)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.324)
+    lag: 19 =>
+        fromcond: 8 =>
+            probs: => [0.49, 0.24, 0.27]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.49)
+                Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.24)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.27)
+    lag: 14 =>
+        fromcond: 6 =>
+            probs: => [0.7, 0.3]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.7)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.3)
+        fromcond: 7 =>
+            probs: => [0.7, 0.1, 0.2]
+            outcomes: => [3, 7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.7)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.1)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.2)
+        fromcond: 8 =>
+            probs: => [0.12, 0.67, 0.21]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.12)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.67)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.21)
+    lag: 9 =>
+        fromcond: 5 =>
+            probs: => [0.5, 0.5]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.5)
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.5)
+        fromcond: 6 =>
+            probs: => [0.4, 0.6]
+            outcomes: => [6, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 6, "next" => (14, 6), "pr" => 0.4)
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.6)
+        fromcond: 7 =>
+            probs: => [0.6, 0.4]
+            outcomes: => [7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.6)
+                Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.4)
+    lag: 5 =>
+        fromcond: 5 =>
+            probs: => [0.1, 0.5, 0.4]
+            outcomes: => [5, 6, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 5, "next" => (9, 5), "pr" => 0.1)
+                Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.5)
+                Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.4)
+agegrp: 4 =>
+    lag: 25 =>
+        fromcond: 7 =>
+            probs: => [0.76, 0.24]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.76)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.24)
+        fromcond: 8 =>
+            probs: => [0.688, 0.312]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.688)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.312)
+    lag: 19 =>
+        fromcond: 8 =>
+            probs: => [0.81, 0.13, 0.06]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.81)
+                Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.13)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.06)
+    lag: 14 =>
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [3]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.8, 0.1, 0.1]
+            outcomes: => [3, 7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.8)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.1)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.1)
+        fromcond: 8 =>
+            probs: => [0.165, 0.715, 0.12]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.165)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.715)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.12)
+    lag: 9 =>
+        fromcond: 5 =>
+            probs: => [0.62, 0.38]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.62)
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.38)
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [6]
+            branches: =>
+                Dict{Any, Any}("tocond" => 6, "next" => (14, 6), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.78, 0.22]
+            outcomes: => [7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.78)
+                Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.22)
+    lag: 5 =>
+        fromcond: 5 =>
+            probs: => [0.15, 0.6, 0.25]
+            outcomes: => [5, 6, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 5, "next" => (9, 5), "pr" => 0.15)
+                Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.6)
+                Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.25)
+agegrp: 2 =>
+    lag: 25 =>
+        fromcond: 7 =>
+            probs: => [0.964, 0.036]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.964)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.036)
+        fromcond: 8 =>
+            probs: => [0.964, 0.036]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.964)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.036)
+    lag: 19 =>
+        fromcond: 8 =>
+            probs: => [0.922, 0.072, 0.006]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.922)
+                Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.072)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.006)
+    lag: 14 =>
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [3]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.83, 0.1, 0.07]
+            outcomes: => [3, 7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.83)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.1)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.07)
+        fromcond: 8 =>
+            probs: => [0.474, 0.514, 0.012]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.474)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.514)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.012)
+    lag: 9 =>
+        fromcond: 5 =>
+            probs: => [0.85, 0.15]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.85)
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.15)
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [6]
+            branches: =>
+                Dict{Any, Any}("tocond" => 6, "next" => (14, 6), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.9, 0.1]
+            outcomes: => [7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.9)
+                Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.1)
+    lag: 5 =>
+        fromcond: 5 =>
+            probs: => [0.2, 0.7, 0.1]
+            outcomes: => [5, 6, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 5, "next" => (9, 5), "pr" => 0.2)
+                Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.7)
+                Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.1)
+agegrp: 3 =>
+    lag: 25 =>
+        fromcond: 7 =>
+            probs: => [0.958, 0.042]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.958)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.042)
+        fromcond: 8 =>
+            probs: => [0.958, 0.042]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.958)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.042)
+    lag: 19 =>
+        fromcond: 8 =>
+            probs: => [0.856, 0.126, 0.018]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.856)
+                Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.126)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.018)
+    lag: 14 =>
+        fromcond: 6 =>
+            probs: => [0.9, 0.1]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.9)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.1)
+        fromcond: 7 =>
+            probs: => [0.85, 0.14, 0.01]
+            outcomes: => [3, 7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.85)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.14)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.01)
+        fromcond: 8 =>
+            probs: => [0.776, 0.206, 0.018]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.776)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.206)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.018)
+    lag: 9 =>
+        fromcond: 5 =>
+            probs: => [0.9, 0.1]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.9)
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.1)
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [6]
+            branches: =>
+                Dict{Any, Any}("tocond" => 6, "next" => (14, 6), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.9, 0.1]
+            outcomes: => [7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.9)
+                Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.1)
+    lag: 5 =>
+        fromcond: 5 =>
+            probs: => [0.2, 0.7, 0.1]
+            outcomes: => [5, 6, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 5, "next" => (9, 5), "pr" => 0.2)
+                Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.7)
+                Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.1)
+agegrp: 1 =>
+    lag: 25 =>
+        fromcond: 7 =>
+            probs: => [0.976, 0.024]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.976)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.024)
+        fromcond: 8 =>
+            probs: => [0.91, 0.09]
+            outcomes: => [3, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.91)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.09)
+    lag: 19 =>
+        fromcond: 8 =>
+            probs: => [0.891, 0.106, 0.003]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.891)
+                Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.106)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.003)
+    lag: 14 =>
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [3]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.85, 0.12, 0.03]
+            outcomes: => [3, 7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.85)
+                Dict{Any, Any}("tocond" => 7, "next" => (25, 7), "pr" => 0.12)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.03)
+        fromcond: 8 =>
+            probs: => [0.692, 0.302, 0.006]
+            outcomes: => [3, 8, 4]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.692)
+                Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.302)
+                Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.006)
+    lag: 9 =>
+        fromcond: 5 =>
+            probs: => [0.9, 0.1]
+            outcomes: => [3, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.9)
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.1)
+        fromcond: 6 =>
+            probs: => [1.0]
+            outcomes: => [6]
+            branches: =>
+                Dict{Any, Any}("tocond" => 6, "next" => (14, 6), "pr" => 1.0)
+        fromcond: 7 =>
+            probs: => [0.95, 0.05]
+            outcomes: => [7, 8]
+            branches: =>
+                Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.95)
+                Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.05)
+    lag: 5 =>
+        fromcond: 5 =>
+            probs: => [0.4, 0.5, 0.1]
+            outcomes: => [5, 6, 7]
+            branches: =>
+                Dict{Any, Any}("tocond" => 5, "next" => (9, 5), "pr" => 0.4)
+                Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.5)
+                Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.1)
 =#
 
 

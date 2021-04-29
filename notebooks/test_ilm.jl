@@ -70,19 +70,19 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, env, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, env, series = run_a_sim(180, 53033, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # %%
 result_dict
 
 # %%
-virus_outcome(series, 38015)
+virus_outcome(series, 53033)
 
 # %% [markdown]
 # # Plotted results
 
 # %%
-cumplot(series, 38015)
+cumplot(series, 53033)
 
 # %% [markdown]
 # Note that the orangle line labeled Infectious that shows the number of infected people is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: Some people got sick today. Some people get better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. Newspaper tracking shows the new active infections of each day--who got sick today? The next day, if no one new got sick the line would be at zero--even though the people who got sick aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. This is the least common way to show the data.
@@ -122,12 +122,14 @@ floor(Int,.23  * length(t))
 # %% tags=[]
 @time optfindall(==(6),t.c,.2);
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 @time findall(t.c .== 6)
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 for k in eachindex(t.c .== 3)
     println(k, " ", t.i[k])
 end
 
-# %%
+# %% [markdown]
+# ### show new decision trees
+# The structure was changed to 

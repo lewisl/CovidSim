@@ -21,7 +21,7 @@ using Markdown
 using InteractiveUtils
 
 # %%
-cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src"))
+cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/group-src"))
 
 # %%
 using CovidSim_group
