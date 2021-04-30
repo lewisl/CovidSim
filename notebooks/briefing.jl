@@ -26,11 +26,11 @@ gr()
 # %%
 pwd()
 
-# %% hide_input=true
+# %% hide_output=true
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, agegrps)
 seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
 
-# %% hide_input=true
+# %% 
 cd("/Users/lewis/Dropbox/Online Coursework/Covid/data")
 phoenix = 4013 
 newyork = 36061
@@ -46,7 +46,7 @@ for k in keys(phoenix_outcome)
     @printf("%-12s %f\n", k, phoenix_outcome[k])
 end
 
-# %% hide_input=true
+# %% 
 cumplot(series,phoenix,geo=geo)
 
 # %% [markdown]

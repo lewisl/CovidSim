@@ -91,12 +91,12 @@ function transition!(dat, dt_dict, locale)
                     end
                     push!(transq, 
                             (day=day_ctr[:day], lag=lag, agegrp=agegrp, fromcond=fromcond, locale=locale,   # @views primarily for debugging; can do some cool plots
-                            recovered=get(distrib, indexin(recovered,outcomes)[], 0),
-                            dead=   get(distrib, indexin(dead,outcomes)[], 0),
-                            nil=    get(distrib, indexin(nil,outcomes)[], 0),
-                            mild=   get(distrib, indexin(mild,outcomes)[], 0),
-                            sick=   get(distrib, indexin(sick,outcomes)[], 0),
-                            severe= get(distrib, indexin(severe,outcomes)[], 0)))
+                             recovered = get(distrib, indexin(recovered,outcomes)[], 0),
+                             dead      = get(distrib, indexin(dead,outcomes)[], 0),
+                             nil       = get(distrib, indexin(nil,outcomes)[], 0),
+                             mild      = get(distrib, indexin(mild,outcomes)[], 0),
+                             sick      = get(distrib, indexin(sick,outcomes)[], 0),
+                             severe    = get(distrib, indexin(severe,outcomes)[], 0)))
                 end  # if folks
             end  # for fromcond
         end  # for lag
