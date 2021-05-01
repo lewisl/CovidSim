@@ -1,12 +1,12 @@
 ######################################################################################
-# setup and initialization functions
+# setup and initialization functions: ILM Model
 ######################################################################################
 
 
-function setup(n_days, locales; 
-    geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/dec_tree_all_25.yml",
-    spfilename="../parameters/spread_params_ilm.yml")
+function setup(n_days, locales;  # must provide following inputs
+    geofilename, 
+    dectreefilename,
+    spfilename)
 
     # geodata
         geodata = buildgeodata(geofilename)

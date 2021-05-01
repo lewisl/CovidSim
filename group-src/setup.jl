@@ -1,12 +1,12 @@
 ######################################################################################
-# setup and initialization functions
+# setup and initialization functions: Group Model
 ######################################################################################
 
 
-function setup(n_days; 
-    geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/dec_tree_all_25.csv",
-    spfilename="../parameters/spread_params.yml")
+function setup(n_days; # must provide following inputs
+    geofilename, 
+    dectreefilename,
+    spfilename)
 
     # geodata
         geodata = readgeodata(geofilename)
