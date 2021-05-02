@@ -260,3 +260,15 @@ function current_quar(locdat, leakage = .05)
     
     return iq_filt
 end
+
+
+function in_quarantine(locdat, p, leakage = 0.05)::Bool
+    @assert 0.0 <= leakage <= 1.0 "leakage value must be between 0.0 and 1.0 inclusive"
+    if leakage == 1.0
+        return false  # everyone leaks quarantine is always false
+    elseif leakage == 0.0
+        return locdat.quar[p] # no one leaks--depends on the person's status
+    else
+        rand() < leakage ? false : locdat.quar[p]
+    end
+end

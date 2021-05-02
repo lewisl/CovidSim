@@ -22,7 +22,7 @@ using TypedTables
 using BenchmarkTools
 
 # %%
-cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src"))
+cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
 
 # %% [markdown]
 # # Test setup and population matrix
@@ -55,10 +55,19 @@ density_factor = geodf[geodf[!, :fips] .== 38015, :density_factor][]
 alldict["sp"]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
-alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
+send_risk = alldict["sp"][:send_risk]
 
 # %%
-alldict["dt_dict"]["decpoints"]  # the decpoints for all agegrps are loaded as array of day values
+recv_risk = alldict["sp"][:recv_risk]
+
+# %%
+alldict["sp"][:contact_factors]
+
+# %%
+alldict["sp"][:touch_factors]
+
+# %%
+alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
 
 # %% [markdown]
 # # Create a seed case
@@ -70,25 +79,31 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, env, series = run_a_sim(180, 53033, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, env, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # %%
 result_dict
 
 # %%
-virus_outcome(series, 53033)
+popdat = result_dict["dat"]["popdat"][38015]
+
+# %%
+countmap(popdat.cond)
+
+# %%
+countmap(popdat.status)
+
+# %%
+virus_outcome(series, 38015)
 
 # %% [markdown]
 # # Plotted results
 
 # %%
-cumplot(series, 53033)
+cumplot(series, 38015)
 
 # %% [markdown]
 # Note that the orangle line labeled Infectious that shows the number of infected people is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: Some people got sick today. Some people get better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. Newspaper tracking shows the new active infections of each day--who got sick today? The next day, if no one new got sick the line would be at zero--even though the people who got sick aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. This is the least common way to show the data.
-
-# %%
-180 * 80000
 
 # %% [markdown]
 # ### Ways to reduce allocations for indexing
@@ -129,7 +144,3 @@ floor(Int,.23  * length(t))
 for k in eachindex(t.c .== 3)
     println(k, " ", t.i[k])
 end
-
-# %% [markdown]
-# ### show new decision trees
-# The structure was changed to 

@@ -38,9 +38,8 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     # filttime = @elapsed
     begin # indices of all spreaders; indices of all who could be contacted
-        cq = current_quar(locdat, 0.0)  # filter out currently quarantined and complying people
-        spread_idx = findall((locdat.status .== infectious) .& .!cq)  # must use parens around 1st comparison for operator precedence
-        contactable_idx = findall((locdat.status .!= dead) .& .!cq) 
+        spread_idx = findall(locdat.status .== infectious)   # must use parens around 1st comparison for operator precedence
+        contactable_idx = findall(locdat.status .!= dead)
         shuffle!(spread_idx); shuffle!(contactable_idx)
 
         n_spreaders = size(spread_idx, 1)
@@ -162,6 +161,10 @@ end
     @inbounds for p in spread_idx      # p is the person who is the spreader
 
         # spreader's characteristics
+
+        if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
+            return
+        end
         thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
         thisagegrp = locdat.agegrp[p]
         thislag = locdat.lag[p]
@@ -173,6 +176,9 @@ end
                                 # TODO we could keep track of contacts for contact tracing
         @inbounds for contact in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
             # contacts's characteristics
+            if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
+                return
+            end
             status = locdat.status[contact]  
             agegrp = locdat.agegrp[contact]
             cond = locdat.cond[contact]
