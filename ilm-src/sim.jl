@@ -6,7 +6,7 @@
 
 function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
-            dtfilename="../parameters/dec_tree_all_25.yml",
+            dectreefilename="../parameters/dec_tree_all_25.yml",
             spfilename="../parameters/spread_params.yml")
 
     empty_all_caches!() # from previous runs
@@ -15,9 +15,9 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
     # access input data and pre-allocate storage
     alldict = setup(n_days, locales; geofilename=geofilename, 
-                    dectreefilename=dtfilename, spfilename=spfilename)
+                    dectreefilename=dectreefilename, spfilename=spfilename)
 
-        dt_dict = alldict["dt_dict"]  # decision trees for transition
+        dectree = alldict["dt_dict"]["dt"]  # decision trees for transition
         popdat = alldict["dat"]["popdat"]
         agegrp_idx = alldict["dat"]["agegrp_idx"]
         cumhistmx = alldict["dat"]["cumhistmx"]
@@ -42,28 +42,29 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     for i = 1:n_days
         inc!(day_ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", day_ctr[:day])
-        for loc in locales     # @inbounds
 
+        for loc in locales     # @inbounds
+            
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             for case in runcases
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
             sprtime += @elapsed  spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
-            trtime += @elapsed  transition!(popdat, loc, dt_dict)                       # trtime += @elapsed 
+            trtime += @elapsed  transition!(popdat, loc, dectree)                       # trtime += @elapsed 
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(age_dist, popdat, loc, dt_dict, env, density_factor)
+                current_r0 = r0_sim(age_dist, popdat, loc, dectree, env, density_factor)
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
         end
 
         histtime += @elapsed do_history!(locales, popdat, cumhistmx, newhistmx, agegrp_idx)
-
+        silent || println("Simulation completed for $(day_ctr[:day]) days.")
     end
-    silent || println("Simulation completed for $(day_ctr[:day]) days.")
+
     #######################
 
     # simulatio history series for plotting: arrays NOT dataframes
@@ -210,6 +211,35 @@ function empty_all_caches!()
 end
 
 
+"""
+    optfindall(p, X, maxlen=0)
+
+Returns indices to X where p, a filter, is true.
+Filters should be anonymous functions.
+For maxlen=0, the length of the temporary vector is length(x).
+For maxlen=n, the length of the temporary vector is n.
+For maxlen=0.x, the length of temporary vector is 0.x * length(x) and
+x should be in (0.0, 1.0).
+"""
+function optfindall(p, X, maxlen=1)
+    if maxlen==1
+        out = Vector{Int}(undef, length(X))
+    elseif isa(maxlen, Int)
+        out = Vector{Int}(undef, maxlen)
+    else
+        out = Vector{Int}(undef, floor(Int, maxlen * length(X)))
+    end
+    ind = 0
+    @inbounds for (i, x) in pairs(X)
+        if p(x)
+            out[ind+=1] = i
+        end
+    end
+    resize!(out, ind)
+    return out
+end
+
+
 #######################################################################################
 #  probability
 #######################################################################################
@@ -350,7 +380,7 @@ function make_sick!(dat; cnt, fromage, tocond, tolag=1)
 
     @assert size(cnt, 1) == size(fromage, 1)
 
-    filt_unexp = findall(dat.status .== unexposed) # must be unexposed
+    filt_unexp = optfindall(==(unexposed), dat.status, 1) # must be unexposed
 
     for i in 1:size(fromage, 1)  # by target age groups
 

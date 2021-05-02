@@ -4,9 +4,11 @@
 
 
 function setup(n_days, locales;  # must provide following inputs
-    geofilename, 
-    dectreefilename,
-    spfilename)
+    geofilename="../data/geo2data.csv", 
+    dectreefilename="../parameters/dec_tree_all_25.yml",
+    spfilename="../parameters/spread_params.yml")
+
+
 
     # geodata
         geodata = buildgeodata(geofilename)
@@ -119,7 +121,7 @@ function read_spread_params(spfilename)
 
     spread_params = YAML.load_file(spfilename)
 
-    required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors"]
+    required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors", "shape"]
     has_all = true
     missing = []
     for p in required_params
@@ -130,13 +132,14 @@ function read_spread_params(spfilename)
     end
     @assert has_all "required keys: $missing not in $(spfilename)"
 
-    # reshape and flip contact_factors
-        cf = copy(spread_params["contact_factors"])
-        spread_params["contact_factors"] = permutedims(reshape(cf,5,4), (2,1))
-    # reshape and flip touch_factors
-        tf = copy(spread_params["touch_factors"])
-        spread_params["touch_factors"] = permutedims(reshape(tf,5,6), (2,1))
-    # change keys to symbols--so we can use this as keyword arguments
+    # # reshape and flip contact_factors
+    #     cf = copy(spread_params["contact_factors"])
+    #     spread_params["contact_factors"] = permutedims(reshape(cf,5,4), (2,1))
+    # # reshape and flip touch_factors
+    #     tf = copy(spread_params["touch_factors"])
+    #     spread_params["touch_factors"] = permutedims(reshape(tf,5,6), (2,1))
+    # # change keys to symbols--so we can use this as keyword arguments
+
     return Dict(Symbol(k)=>v for (k,v) in spread_params)
 end
 
@@ -194,10 +197,11 @@ Struct for variables used by many functions = the simulation environment
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::DataFrames.DataFrame
     riskmx::Array{Float64, 2}            # laglim,5
-    contact_factors::Array{Float64, 2}   # 4,5 parameters for spread!
-    touch_factors::Array{Float64, 2}     #  6,5  parameters for spread!
-    send_risk_by_lag::Array{Float64, 1}  # laglim,  parameters for spread!
-    recv_risk_by_age::Array{Float64,1}   # 5,  parameters for spread!
+    contact_factors::Dict{Int64, Dict{Any, Any}}   # 4,5 parameters for spread!
+    touch_factors::Dict{Int64,Dict{Any, Any}}     #  6,5  parameters for spread!
+    send_risk::Array{Float64, 1}  # laglim,  parameters for spread!
+    recv_risk::Array{Float64,1}   # 5,  parameters for spread!
+
     shape::Float64                       # parameter for spread!
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
@@ -205,13 +209,13 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     function SimEnv{T}(; 
             geodata=DataFrame, # geodata
             riskmx=zeros(Float64, 0,0),
-            contact_factors=zeros(Float64, 0,0),
-            touch_factors=zeros(Float64, 0,0),
-            send_risk_by_lag=zeros(Float64,laglim),
-            recv_risk_by_age=zeros(Float64, 5),
+            contact_factors=Dict(),
+            touch_factors=Dict(),
+            send_risk=zeros(Float64,laglim),
+            recv_risk=zeros(Float64, 5),
             shape=1.0
         ) where T<:Integer
-        return new(geodata, riskmx, contact_factors, touch_factors, send_risk_by_lag, recv_risk_by_age, shape)
+        return new(geodata, riskmx, contact_factors, touch_factors, send_risk, recv_risk, shape)
 
     end
 end
@@ -225,8 +229,8 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
         riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
         contact_factors = contact_factors,
         touch_factors = touch_factors,
-        send_risk_by_lag = send_risk,
-        recv_risk_by_age = recv_risk,
+        send_risk = send_risk,
+        recv_risk = recv_risk,
         shape = shape)
 
     return ret

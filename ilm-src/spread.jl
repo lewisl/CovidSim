@@ -38,12 +38,12 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     # filttime = @elapsed
     begin # indices of all spreaders; indices of all who could be contacted
-        spread_idx = findall(locdat.status .== infectious)   # must use parens around 1st comparison for operator precedence
-        contactable_idx = findall(locdat.status .!= dead)
-        shuffle!(spread_idx); shuffle!(contactable_idx)
+        spread_idx = findall(locdat.status .== infectious)    # optfindall(==(infectious), locdat.status, 0.5)   # must use parens around 1st comparison for operator precedence
+        contactable_idx = findall(locdat.status .!= dead)     # optfindall(!=(dead), locdat.status, 1)
+        # shuffle!(spread_idx); shuffle!(contactable_idx)
 
-        n_spreaders = size(spread_idx, 1)
-        n_contactable = size(contactable_idx, 1)
+        # n_spreaders = size(spread_idx, 1)
+        # n_contactable = size(contactable_idx, 1)
     end
     # @show filttime
 
@@ -51,20 +51,20 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     if isempty(spreadcases) && !do_case  # no cases left and do_case is false 
 
-        n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, contactable_idx,
+        _spread!(locdat, spread_idx, contactable_idx,  # n_contacts, n_touched, n_newly_infected = 
                 env.contact_factors, env.touch_factors, env.riskmx, env.shape, density_factor)
             
     else  # a case may start today OR we have an active case
 
-        n_contacts, n_touched, n_newly_infected = spread_cases(locdat, spreadcases, 
+        spread_cases(locdat, spreadcases,           # n_contacts, n_touched, n_newly_infected = 
                 spread_idx, contactable_idx, env, density_factor)
             
     end
 
-    push!(spreadq,   (day=day_ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
-                      touched=n_touched, infected=n_newly_infected))
+    # push!(spreadq,   (day=day_ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
+                    #   touched=n_touched, infected=n_newly_infected))
 
-    return n_spreaders, n_contacts, n_touched, n_newly_infected
+    return #n_spreaders, n_contacts, n_touched, n_newly_infected
 end
 
 
@@ -147,7 +147,7 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
                         density_factor)
     end
 
-    return n_contacts, n_touched, n_newly_infected
+    return #n_contacts, n_touched, n_newly_infected
 end
 
 
@@ -162,41 +162,41 @@ end
 
         # spreader's characteristics
 
-        if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
-            return
-        end
-        thiscond = locdat.cond[p] - 4  # map 5-8 to 1-4
-        thisagegrp = locdat.agegrp[p]
-        thislag = locdat.lag[p]
+        # if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
+        #     return
+        # end
+        spreadercond = locdat.cond[p]  # map 5-8 to 1-4
+        spreaderagegrp = locdat.agegrp[p]
+        spreaderlag = locdat.lag[p]
 
-        scale = density_factor * contact_factors[thiscond, thisagegrp]
+        scale = density_factor * contact_factors[spreaderagegrp][condnames[spreadercond]]
 
         nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
         n_contacts += nc
                                 # TODO we could keep track of contacts for contact tracing
         @inbounds for contact in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
             # contacts's characteristics
-            if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
-                return
-            end
-            status = locdat.status[contact]  
-            agegrp = locdat.agegrp[contact]
-            cond = locdat.cond[contact]
-            lookup = if status == unexposed   # set lookup row in touch_factors
-                        1  # row 1
-                     elseif status == recovered
-                        2  # row 2
+            # if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
+            #     return
+            # end
+            contactstatus = locdat.status[contact]  
+            contactagegrp = locdat.agegrp[contact]
+            contactcond = locdat.cond[contact]
+            contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
+                        "unexposed"  # row 1
+                     elseif contactstatus == recovered
+                        "recovered"  # row 2
                      else
-                        cond - 2  # 5:8 - 2 -> rows 3:6
+                        condnames[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
                      end
 
             # touch outcome
-            touched = rand(Binomial(1, touch_factors[lookup, agegrp]))
+            touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
             n_touched += touched
 
             # infection outcome
-            if (touched == 1) && (status == unexposed)    # TODO some recovered people will become susceptible again
-                prob = riskmx[thislag, agegrp]            # TODO also vaccinated people will have partially unsusceptible
+            if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
+                prob = riskmx[spreaderlag, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
                 newly_infected = rand(Binomial(1, prob))
                 if newly_infected == 1
                     locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
@@ -208,7 +208,7 @@ end
         end
     end
 
-    return n_contacts, n_touched, n_newly_infected
+    return # n_contacts, n_touched, n_newly_infected
 end
 
 
@@ -246,7 +246,7 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_
         end
     else  # simulate r0 at the current state of locale being simulated
         r0pop = deepcopy(dat[locale])
-        ignore_idx = findall(r0pop.status .== infectious)
+        ignore_idx = optfindall(==(infectious), r0pop.status, 0.5)
         r0pop.status[ignore_idx] .= recovered # can't catch what they already have; won't spread for calc of r0
 
         cnt_accessible = count(r0pop.status .== unexposed)

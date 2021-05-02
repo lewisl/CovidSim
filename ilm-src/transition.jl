@@ -60,11 +60,11 @@ they move to recovered or dead.
 
 Works for a single locale.
 """
-@views function transition!(dat, locale::Int, dt_dict)
+@views function transition!(dat, locale::Int, dectree)
 
     locdat = locale == 0 ? dat : dat[locale] #allocates 112 bytes
 
-    dectree = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
+    # dectree = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
     infect_idx = optfindall(==(infectious), locdat.status, 0.5)  # allocates thousands of bytes
 
@@ -95,36 +95,6 @@ Works for a single locale.
     end  # for p
 
 end
-
-
-"""
-    optfindall(p, X, maxlen=0)
-
-Returns indices to X where p, a filter, is true.
-Filters should be anonymous functions.
-For maxlen=0, the length of the temporary vector is length(x).
-For maxlen=n, the length of the temporary vector is n.
-For maxlen=0.x, the length of temporary vector is 0.x * length(x) and
-x should be in (0.0, 1.0).
-"""
-function optfindall(p, X, maxlen=0)
-    if maxlen==0
-        out = Vector{Int}(undef, length(X))
-    elseif isa(maxlen, Int)
-        out = Vector{Int}(undef, maxlen)
-    else
-        out = Vector{Int}(undef, floor(Int, maxlen * length(X)))
-    end
-    ind = 0
-    @inbounds for (i, x) in pairs(X)
-        if p(x)
-            out[ind+=1] = i
-        end
-    end
-    resize!(out, ind)
-    return out
-end
-
 
 
 """

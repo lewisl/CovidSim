@@ -1,27 +1,39 @@
-# send_risk must be as long as the number of lags--we like 25
+---
+# new approach to contact factors
+#
+# send_risk must be as long as the number of sickdays--we like 25
 send_risk:  [0.0, 0.3, 0.65, 0.75, 0.85, 0.85, 0.75, 0.7, 0.65, 0.6, 
              0.5, 0.2, 0.1, 0.1, 0.1, 0.05, 0.05, 0.0, 0.0, 0.0, 
              0.0, 0.0, 0.0, 0.0, 0.0]
 
-# recv_risk must have 5 entries between 0.0 and 1.0
+# recv_risk must have 5 entries between 0.0 and 1.0 1 for each agegrp
 recv_risk: [0.1, 0.39, 0.44, 0.54, 0.56]
-
+#
 # shape parameter of gamma distribution used to calculate contacts
 shape: 1.0
-
-# contact_factors and touch_factors reshaped to 2d array after loaded 
-# to look like the arrangements below
-  # size(contact_factors) to (4,5) => input in yaml is (20, ) reshaped to 4 x 5
-  # size(touch_factors) to (6,5) => input in yaml is (30,) reshaped to 6 x 5
-
-contact_factors:  [1.1,    2.1,    2.1,     1.7,   1.0,    # nil
-                   1.1,    2.0,    2.0,     1.6,   0.9,    # mild
-                   0.7,    1.0,    1.0,     0.7,   0.6,    # sick
-                   0.5,    0.6,    0.6,     0.5,   0.5]    # severe
-#       # agegrp    1       2       3        4       5
-touch_factors:    [0.55,   0.63,    0.61,   0.41,   0.35,   # unexposed
-                   0.55,   0.63,    0.61,   0.41,   0.35,   # recovered
-                   0.55,   0.63,    0.61,   0.41,   0.35,   # nil
-                   0.55,   0.62,    0.58,   0.41,   0.28,   # mild
-                   0.28,   0.35,    0.3,    0.18,   0.18,   # sick
-                   0.18,   0.18,    0.18,   0.18,   0.18]   # severe
+#
+# contact_factors: gamma distribution size parameter for spreaders determines number of
+#         contacts per day
+contact_factors:                                        # loads as dict
+  1:                                                    # key for agegrp 1
+    {nil: 1.1, mild: 1.1, sick: 0.7, severe: 0.5}       # loads as dict
+  2:
+    {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+  3:
+    {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+  4:
+    {nil: 1.7, mild: 1.6, sick: 0.7, severe: 0.5}
+  5:
+    {nil: 1.0, mild: 0.9, sick: 0.6, severe: 0.5}
+#
+touch_factors:
+  1:                                                    # agegrp 1
+    {unexposed: 0.55, recovered: 0.55, nil: 0.55, mild: 0.55, sick: 0.28, severe: 0.18}
+  2:
+    {unexposed: 0.63, recovered: 0.63, nil: 0.63, mild: 0.62, sick: 0.35, severe: 0.18}
+  3:
+    {unexposed: 0.61, recovered: 0.61, nil: 0.61, mild: 0.58, sick: 0.3, severe: 0.18}
+  4:
+    {unexposed: 0.41, recovered: 0.41, nil: 0.41, mild: 0.41, sick: 0.18, severe: 0.18}
+  5:
+    {unexposed: 0.35, recovered: 0.35, nil: 0.35, mild: 0.28, sick: 0.18, severe: 0.18}

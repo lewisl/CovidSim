@@ -11,6 +11,11 @@
 # TODO for individual level model
     # get rid of indirection for lowlevel population updates
     # add transq to ilm and test
+    # Fix spread to use new spread params format: read_spread_params, simenv, spread
+    # new approach to social distancing spreadcases
+    # vaccination with 3 vaccines / 1 or 2 shots
+    # extend to one year
+    # change meaningful constants to _nil_, _severe_, _dead_ etc.
 
 # Done
     # do unquarantine for ilm
@@ -174,7 +179,7 @@ export
     age80_up, 
     agegrps,
     n_agegrps,
-    recv_risk_by_age,
+    recv_risk,
     col_status,
     col_agegrp,
     col_cond,
@@ -265,7 +270,7 @@ const infectious_cases  = [nil, mild, sick, severe]
 const transition_cases  = [recovered, nil, mild, sick, severe, dead]
 const agegrps           = [1,2,3,4,5]
 const n_agegrps         = length(agegrps)
-const condnames         = Dict(1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
+const condnames         = Dict(0=>"notsick", 1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
                                 5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
 
 const totinfected       = 9
