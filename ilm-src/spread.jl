@@ -32,17 +32,17 @@ previously unexposed people, by agegrp?  For a single locale...
 The alternative method processes spreadcases for social distancing. If comply percentage
 is not 1.0 or 0.0, the population is split into complying and non-complying.
 """
-function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1.0)
+@inline function spread!(locdat, infect_idx, contactable_idx, spreadcases, env, density_factor::Float64 = 1.0)
 
-    locdat = locale == 0 ? dat : dat[locale]
+    # locdat = locale == 0 ? dat : dat[locale]
 
     # filttime = @elapsed
     begin # indices of all spreaders; indices of all who could be contacted
-        spread_idx = findall(locdat.status .== infectious)    # optfindall(==(infectious), locdat.status, 0.5)   # must use parens around 1st comparison for operator precedence
-        contactable_idx = findall(locdat.status .!= dead)     # optfindall(!=(dead), locdat.status, 1)
-        # shuffle!(spread_idx); shuffle!(contactable_idx)
+        # infect_idx = findall(locdat.status .== infectious)    # optfindall(==(infectious), locdat.status, 0.5)   # must use parens around 1st comparison for operator precedence
+        # contactable_idx = findall(locdat.status .!= dead)     # optfindall(!=(dead), locdat.status, 1)
+        # shuffle!(infect_idx); shuffle!(contactable_idx)
 
-        # n_spreaders = size(spread_idx, 1)
+        # n_spreaders = size(infect_idx, 1)
         # n_contactable = size(contactable_idx, 1)
     end
     # @show filttime
@@ -51,13 +51,13 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 
     if isempty(spreadcases) && !do_case  # no cases left and do_case is false 
 
-        _spread!(locdat, spread_idx, contactable_idx,  # n_contacts, n_touched, n_newly_infected = 
+        _spread!(locdat, infect_idx, contactable_idx,  # n_contacts, n_touched, n_newly_infected = 
                 env.contact_factors, env.touch_factors, env.riskmx, env.shape, density_factor)
             
     else  # a case may start today OR we have an active case
 
         spread_cases(locdat, spreadcases,           # n_contacts, n_touched, n_newly_infected = 
-                spread_idx, contactable_idx, env, density_factor)
+                infect_idx, contactable_idx, env, density_factor)
             
     end
 
@@ -68,7 +68,7 @@ function spread!(dat, locale::Int, spreadcases, env, density_factor::Float64 = 1
 end
 
 
-function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, density_factor)
+function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, env, density_factor)
 
     for (i,case) in enumerate(spreadcases)
         if case.day == day_ctr[:day] # there is a case that starts today!
@@ -91,12 +91,12 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
     do_case = get(sim_stash, :do_case, false)
 
     if do_case
-        n_spreaders = size(spread_idx, 1);
+        n_spreaders = size(infect_idx, 1);
         n_contactable = size(contactable_idx, 1)            
 
         if sim_stash[:comply] == 1.0 # we have a case that applies to everyone using the case parameters
 
-            n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, 
+             _spread!(locdat, infect_idx,                                      # n_contacts, n_touched, n_newly_infected =
                             contactable_idx, sim_stash[:cf], sim_stash[:tf], 
                             env.riskmx, env.shape, density_factor)
                 
@@ -105,18 +105,18 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
             @views begin
                 n_spreaders_comply = round(Int, sim_stash[:comply] * n_spreaders)
                 n_contactable_comply = round(Int, sim_stash[:comply] * n_contactable)
-                spread_idx_split = Dict()
+                infect_idx_split = Dict()
                 contactable_idx_split = Dict()
 
-                shuffle!(spread_idx); shuffle!(contactable_idx)  # enable random split of each
-                spread_idx_split[:comply] = spread_idx[1:n_spreaders_comply]
-                spread_idx_split[:nocomply] = spread_idx[(n_spreaders_comply + 1):n_spreaders]
+                shuffle!(infect_idx); shuffle!(contactable_idx)  # enable random split of each
+                infect_idx_split[:comply] = infect_idx[1:n_spreaders_comply]
+                infect_idx_split[:nocomply] = infect_idx[(n_spreaders_comply + 1):n_spreaders]
 
                 contactable_idx_split[:comply] = contactable_idx[1:n_contactable_comply]
                 contactable_idx_split[:nocomply] = contactable_idx[(n_contactable_comply + 1):n_contactable]
 
 
-                n_contacts = n_touched = n_newly_infected = 0
+                # n_contacts = n_touched = n_newly_infected = 0
 
                 for pass in [:comply, :nocomply]
                     if pass == :comply  # use case input factors
@@ -133,37 +133,37 @@ function spread_cases(locdat, spreadcases, spread_idx, contactable_idx, env, den
                         ncon = n_contactable - n_contactable_comply            
                     end
 
-                    pass_spread_idx = spread_idx_split[pass]
+                    pass_infect_idx = infect_idx_split[pass]
                     pass_contactable_idx = contactable_idx_split[pass] 
 
-                    n_contacts, n_touched, n_newly_infected = .+((n_contacts, n_touched, n_newly_infected),
-                                _spread!(locdat, pass_spread_idx, pass_contactable_idx, pass_cf, pass_tf, env.riskmx, env.shape, density_factor))
+                    # n_contacts, n_touched, n_newly_infected = .+((n_contacts, n_touched, n_newly_infected),
+                                _spread!(locdat, pass_infect_idx, pass_contactable_idx, pass_cf, pass_tf, env.riskmx, env.shape, density_factor)   #)
                 end
             end # begin block
         end
     else  # a case was zero'ed out today--this is same as running spread! -> that might happen next day if no more cnt_accessible
-        n_contacts, n_touched, n_newly_infected = _spread!(locdat, spread_idx, contactable_idx, 
-                        env.contact_factors, env.touch_factors, env.riskmx, env.shape,
-                        density_factor)
+        _spread!(locdat, infect_idx, contactable_idx,                                    # n_contacts, n_touched, n_newly_infected =
+                env.contact_factors, env.touch_factors, env.riskmx, env.shape,
+                density_factor)
     end
 
     return #n_contacts, n_touched, n_newly_infected
 end
 
 
-@views function _spread!(locdat, spread_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
+@inline @views function _spread!(locdat, infect_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
 
-    n_contacts = 0
-    n_touched = 0
-    n_newly_infected = 0
+    # n_contacts = 0
+    # n_touched = 0
+    # n_newly_infected = 0
 
     # assign contacts, do touches, do new infections
-    @inbounds for p in spread_idx      # p is the person who is the spreader
+    @inbounds for p in infect_idx      # p is the person who is the spreader
 
         # spreader's characteristics
 
         # if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
-        #     return
+        #     return  # or continue
         # end
         spreadercond = locdat.cond[p]  # map 5-8 to 1-4
         spreaderagegrp = locdat.agegrp[p]
@@ -172,7 +172,7 @@ end
         scale = density_factor * contact_factors[spreaderagegrp][condnames[spreadercond]]
 
         nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
-        n_contacts += nc
+        # n_contacts += nc
                                 # TODO we could keep track of contacts for contact tracing
         @inbounds for contact in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
             # contacts's characteristics
@@ -192,7 +192,7 @@ end
 
             # touch outcome
             touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
-            n_touched += touched
+            # n_touched += touched
 
             # infection outcome
             if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
@@ -201,9 +201,10 @@ end
                 if newly_infected == 1
                     locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                     locdat.status[contact] = infectious
-                    # lag remains zero because person was unexposed; transition! function updates lag
+                    locdat.lag[contact] = 1
+                    # NOT ANY MORE lag remains zero because person was unexposed; transition! function updates lag
                 end
-                n_newly_infected += newly_infected
+                # n_newly_infected += newly_infected
             end
         end
     end

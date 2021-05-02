@@ -8,24 +8,6 @@
 ####################################################
 
 
-"""
-Map a condition index from rows in the data matrix to
-indices for the transition probabilities:
-
-```
-               unexposed  infectious  recovered  dead   nil  mild  sick  severe
-data rows         1          2            3        4     5     6     7     8
-transition pr    -1         -1            1        6     2     3     4     5
-```
-
-Transition probability indices that return -1 are not used and will raise an error.
-
-- Use with text literal in code as map2pr.nil => 2
-- Use with variables that stand for the data rows as map2pr[nil] => 2
-"""
-const map2pr = (unexposed=-1, infectious=-1, recovered=1, dead=6, nil=2, mild=3, sick=4, severe=5)
-
-
 function seed!(day, cnt, lag, conds, agegrps, locale, dat)
     @assert length(lag) == 1 "input only one lag value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
@@ -60,13 +42,13 @@ they move to recovered or dead.
 
 Works for a single locale.
 """
-@views function transition!(dat, locale::Int, dectree)
+@inline function transition!(locdat, infect_idx, dectree)
 
-    locdat = locale == 0 ? dat : dat[locale] #allocates 112 bytes
+    # locdat = locale == 0 ? dat : dat[locale] #allocates 112 bytes
 
     # dectree = dt_dict["dt"]  # decision tree for illness changes over time to recovery or death
 
-    infect_idx = optfindall(==(infectious), locdat.status, 0.5)  # allocates thousands of bytes
+    # infect_idx = optfindall(==(infectious), locdat.status, 0.5)  # allocates thousands of bytes
 
     for p in infect_idx  # p for person    
         p_lag = locdat.lag[p] 

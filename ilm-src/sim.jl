@@ -45,13 +45,17 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
         for loc in locales     # @inbounds
             
+            locdat = popdat[loc]
+            
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             for case in runcases
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
-            sprtime += @elapsed  spread!(popdat, loc, spreadcases, env, density_factor)  # sptime += @elapsed 
-            trtime += @elapsed  transition!(popdat, loc, dectree)                       # trtime += @elapsed 
+            infect_idx = findall(locdat.status .== infectious)
+            contactable_idx = findall(locdat.status .!= dead)
+            sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, spreadcases, env, density_factor)  # sptime += @elapsed 
+            trtime += @elapsed  transition!(locdat, infect_idx, dectree)                       # trtime += @elapsed 
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
