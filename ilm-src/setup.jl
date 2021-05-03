@@ -132,14 +132,6 @@ function read_spread_params(spfilename)
     end
     @assert has_all "required keys: $missing not in $(spfilename)"
 
-    # # reshape and flip contact_factors
-    #     cf = copy(spread_params["contact_factors"])
-    #     spread_params["contact_factors"] = permutedims(reshape(cf,5,4), (2,1))
-    # # reshape and flip touch_factors
-    #     tf = copy(spread_params["touch_factors"])
-    #     spread_params["touch_factors"] = permutedims(reshape(tf,5,6), (2,1))
-    # # change keys to symbols--so we can use this as keyword arguments
-
     return Dict(Symbol(k)=>v for (k,v) in spread_params)
 end
 
@@ -197,8 +189,8 @@ Struct for variables used by many functions = the simulation environment
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::DataFrames.DataFrame
     riskmx::Array{Float64, 2}            # laglim,5
-    contact_factors::Dict{Int64, Dict{Any, Any}}   # 4,5 parameters for spread!
-    touch_factors::Dict{Int64,Dict{Any, Any}}     #  6,5  parameters for spread!
+    contact_factors::Dict{Int64, Dict{String, Float64}}   # 4,5 parameters for spread!
+    touch_factors::Dict{Int64, Dict{String, Float64}}    #  6,5  parameters for spread!
     send_risk::Array{Float64, 1}  # laglim,  parameters for spread!
     recv_risk::Array{Float64,1}   # 5,  parameters for spread!
 
@@ -209,8 +201,8 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     function SimEnv{T}(; 
             geodata=DataFrame, # geodata
             riskmx=zeros(Float64, 0,0),
-            contact_factors=Dict(),
-            touch_factors=Dict(),
+            contact_factors=Dict{Int64, Dict{String, Float64}}(),
+            touch_factors=Dict{Int64, Dict{String, Float64}}(),
             send_risk=zeros(Float64,laglim),
             recv_risk=zeros(Float64, 5),
             shape=1.0
@@ -236,21 +228,3 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
     return ret
 end
 
-    # contact_factors and touch_factors look like:
-    #=
-    contact_factors = [
-        1    1.8    1.8     1.5     1.0;     # nil
-        1    1.7    1.7     1.4     0.9;     # mild
-        0.7  1.0    1.0     0.7     0.5;   # sick
-        0.5  0.8    0.8     0.5     0.3]   # severe
-
-    # agegrp    1     2      3       4       5
-
-    touch_factors = [
-        .55    .62     .58     .4    .35;    # unexposed
-        .55    .62     .58     .4    .35;    # recovered
-        .55    .62     .58     .4    .35;    # nil
-        .55    .6      .5      .35   .28;    # mild
-        .28   .35      .28     .18   .18;    # sick
-        .18   .18      .18     .18   .18]    # severe
-    =#

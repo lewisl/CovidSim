@@ -20,6 +20,7 @@ using CovidSim_ilm
 using StatsBase
 using TypedTables
 using BenchmarkTools
+using Distributions
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
@@ -61,13 +62,48 @@ send_risk = alldict["sp"][:send_risk]
 recv_risk = alldict["sp"][:recv_risk]
 
 # %%
-alldict["sp"][:contact_factors]
+contact_factors = alldict["sp"][:contact_factors]
+
+# %%
+@btime $contact_factors[5]["sick"];
+
+ # %%
+ contact_factors=Dict{Int64, Dict{String, Float64}}()
+
+# %%
+touch_factors =  alldict["sp"][:touch_factors]
+
+# %%
+touch_factors[1]
 
 # %%
 alldict["sp"][:touch_factors]
 
 # %%
-alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
+dectree = alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
+
+# %%
+typeof(dectree)
+
+# %% [markdown]
+# Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
+
+# %%
+dectree[5][25]
+
+# %%
+typeof(dectree[5][25][7]["outcomes"])
+
+# %%
+function get_node(dectree, agegrp, lag, fromcond)
+    dectree[agegrp][lag][fromcond]
+end
+
+# %%
+@time node = get_node(dectree, 5, 25, 7)
+
+# %%
+@btime get_node(dectree, 5, 25, 7)["probs"]
 
 # %% [markdown]
 # # Create a seed case

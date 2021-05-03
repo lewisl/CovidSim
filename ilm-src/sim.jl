@@ -37,8 +37,9 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
     ######################
     sprtime = 0
     trtime = 0
-    simtime = 0
+    idxtime = 0
     histtime = 0
+
     for i = 1:n_days
         inc!(day_ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", day_ctr[:day])
@@ -52,8 +53,10 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
                 # case(loc, popdat, isolatedmx, testmx, env)   
                 case(loc, popdat, [], [], env)   
             end
-            infect_idx = findall(locdat.status .== infectious)
-            contactable_idx = findall(locdat.status .!= dead)
+            idxtime += @elapsed begin
+                infect_idx = findall(locdat.status .== infectious)
+                contactable_idx = findall(locdat.status .!= dead)
+            end
             sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, spreadcases, env, density_factor)  # sptime += @elapsed 
             trtime += @elapsed  transition!(locdat, infect_idx, dectree)                       # trtime += @elapsed 
 
@@ -81,7 +84,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         add_totinfected_series!(series, loc)
     end
 
-    @show sprtime, trtime, histtime
+    @show idxtime, sprtime, trtime, histtime
 
     return alldict, env, series
 end

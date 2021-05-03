@@ -37,14 +37,14 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
     # locdat = locale == 0 ? dat : dat[locale]
 
     # filttime = @elapsed
-    begin # indices of all spreaders; indices of all who could be contacted
+    # begin # indices of all spreaders; indices of all who could be contacted
         # infect_idx = findall(locdat.status .== infectious)    # optfindall(==(infectious), locdat.status, 0.5)   # must use parens around 1st comparison for operator precedence
         # contactable_idx = findall(locdat.status .!= dead)     # optfindall(!=(dead), locdat.status, 1)
         # shuffle!(infect_idx); shuffle!(contactable_idx)
 
         # n_spreaders = size(infect_idx, 1)
         # n_contactable = size(contactable_idx, 1)
-    end
+    # end
     # @show filttime
 
     do_case = get(sim_stash, :do_case, false) # we've never had a case or we shut down the previous case
@@ -151,14 +151,14 @@ function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, env, den
 end
 
 
-@inline @views function _spread!(locdat, infect_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
+@inline function _spread!(locdat, infect_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
 
     # n_contacts = 0
     # n_touched = 0
     # n_newly_infected = 0
 
     # assign contacts, do touches, do new infections
-    @inbounds for p in infect_idx      # p is the person who is the spreader
+    @inbounds @fastmath for p in infect_idx      # p is the person who is the spreader
 
         # spreader's characteristics
 
@@ -174,7 +174,7 @@ end
         nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
         # n_contacts += nc
                                 # TODO we could keep track of contacts for contact tracing
-        @inbounds for contact in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
+        @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
             # contacts's characteristics
             # if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
             #     return
