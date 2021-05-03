@@ -52,51 +52,51 @@ dts = Dict(i=>sort(alldict["dt"][i], rev=true) for i in 1:5)
 collect(keys(dts[4]))
 
 # %%
-lags_by_age = Dict{Int,Array{Int,1}}()  # empty
+sickdays_by_age = Dict{Int,Array{Int,1}}()  # empty
 fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
 for i in 1:5
-    lags_by_age[i] = [k[1] for k in collect(keys(dts[i]))]
+    sickdays_by_age[i] = [k[1] for k in collect(keys(dts[i]))]
     fromconds_by_age[i] = [k[2] for k in collect(keys(dts[i]))]
 end
-display(lags_by_age)
+display(sickdays_by_age)
 display(fromconds_by_age)
 
 # %%
 infected_idx = findall(locdat[:,1] .== 2);
-sorted_by_lag = sortperm(locdat[infected_idx,4], rev=true);
+sorted_by_sickday = sortperm(locdat[infected_idx,4], rev=true);
 
 # %%
-@elapsed for p in infected_idx[sorted_by_lag]  # p is the index to the person
-    (pstat, page, plag, pcond) = locdat[p,[cpop_status, cpop_agegrp, cpop_lag, cpop_cond]]
+@elapsed for p in infected_idx[sorted_by_sickday]  # p is the index to the person
+    (pstat, page, psickday, pcond) = locdat[p,[cpop_status, cpop_agegrp, cpop_sickday, cpop_cond]]
 
-    lagfound = findall(x->x==plag, lags_by_age[page])
-    if isempty(lagfound)  # person's lag doesn't match any decision point lag
-        # test against laglim, then increment
-        if plag == laglim
-            @error "person made it to end of laglim and was not removed"
+    sickdayfound = findall(x->x==psickday, sickdays_by_age[page])
+    if isempty(sickdayfound)  # person's sickday doesn't match any decision point sickday
+        # test against sickdaylim, then increment
+        if psickday == sickdaylim
+            @error "person made it to end of sickdaylim and was not removed"
         else
-            locdat[p,cpop_lag] += 1
+            locdat[p,cpop_sickday] += 1
         end
     else
-        condfound = findall(x->x==pcond, fromconds_by_age[page][lagfound])
+        condfound = findall(x->x==pcond, fromconds_by_age[page][sickdayfound])
         if isempty(condfound)
-            if plag == laglim
-                @error "person made it to end of laglim and was not removed"
+            if psickday == sickdaylim
+                @error "person made it to end of sickdaylim and was not removed"
             else
-                locdat[p,cpop_lag] += 1
+                locdat[p,cpop_sickday] += 1
             end
         else
-            # do the transition for lag and from cond and the probabilities of all outcomes at this branch
-            dtkey = [plag, pcond]
+            # do the transition for sickday and from cond and the probabilities of all outcomes at this branch
+            dtkey = [psickday, pcond]
             probs = dts[page][dtkey]["probs"]
             outcomes = dts[page][dtkey]["outcomes"]
             choice = rand(Categorical(probs), 1)
             tocond = outcomes[choice][]
-            if tocond in [dead, recovered]  # change status, leave cond and lag as last state before death or recovery
+            if tocond in [dead, recovered]  # change status, leave cond and sickday as last state before death or recovery
                 locdat[p, cpop_status] = tocond
             else   # change disease condition
                 locdat[p, cpop_cond] = tocond
-                locdat[p, cpop_lag] += 1  
+                locdat[p, cpop_sickday] += 1  
             end                      
         end
     end    

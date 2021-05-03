@@ -8,15 +8,15 @@
 ####################################################
 
 
-function seed!(day, cnt, lag, conds, agegrps, locale, dat)
-    @assert length(lag) == 1 "input only one lag value"
+function seed!(day, cnt, sickday, conds, agegrps, locale, dat)
+    @assert length(sickday) == 1 "input only one sickday value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
     if day == day_ctr[:day]
         println("*** seed day $(day_ctr[:day]) locale $locale....")
         for loc in locale
             for cond in conds
                 @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-                make_sick!(dat[loc]; cnt=cnt, fromage=agegrps, tocond=nil, tolag=lag)
+                make_sick!(dat[loc]; cnt=cnt, fromage=agegrps, tocond=nil, tosickday=sickday)
             end
         end
     end
@@ -51,17 +51,17 @@ Works for a single locale.
     # infect_idx = optfindall(==(infectious), locdat.status, 0.5)  # allocates thousands of bytes
 
     for p in infect_idx  # p for person    
-        p_lag = locdat.lag[p] 
+        p_sickday = locdat.sickday[p] 
         p_cond = locdat.cond[p]
         p_agegrp = locdat.agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
-        if !haskey(dectree[p_agegrp], p_lag) || !haskey(dectree[p_agegrp][p_lag], p_cond)
-            # @assert p_tup.lag < laglim "Person made it to last day and was not removed:\n     $p_tup\n"
-            locdat.lag[p] += 1
+        if !haskey(dectree[p_agegrp], p_sickday) || !haskey(dectree[p_agegrp][p_sickday], p_cond)
+            # @assert p_tup.sickday < sickdaylim "Person made it to last day and was not removed:\n     $p_tup\n"
+            locdat.sickday[p] += 1
         else  # change of the person p's state--a transition
-            node = dectree[p_agegrp][p_lag][p_cond]
+            node = dectree[p_agegrp][p_sickday][p_cond]
             choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
             tocond = node["outcomes"][choice]
-            if tocond == dead  # change status, leave cond and lag as last state before death or recovery                        
+            if tocond == dead  # change status, leave cond and sickday as last state before death or recovery                        
                 locdat.status[p] = dead  # change the status
                 locdat.dead_day[p] = day_ctr[:day]
                 locdat.cond[p] = notsick
@@ -71,7 +71,7 @@ Works for a single locale.
                 locdat.cond[p] = notsick
             else   # change disease condition
                 locdat.cond[p] = tocond   # change the condition
-                locdat.lag[p] += 1  
+                locdat.sickday[p] += 1  
             end    
         end
     end  # for p
@@ -87,7 +87,7 @@ other locale. Add to the travelq.
 function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MORE!
     # 10.5 microseconds for 5 locales
     # choose distribution of people traveling by age and condition:
-        # unexposed, infectious, recovered -> ignore lag for now
+        # unexposed, infectious, recovered -> ignore sickday for now
     # TODO: more frequent travel to and from Major and Large cities
     # TODO: should the caller do the loop across locales?   YES
     travdests = collect(locales)
@@ -96,8 +96,8 @@ function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MO
     for agegrp in agegrps
         for cond in [unexposed, infectious, recovered]
             name = condnames[cond]
-            for lag in lags
-                numfolks = sum(grab(cond, agegrp, lag, fromloc)) # the from locale, all lags
+            for sickday in sickdays
+                numfolks = sum(grab(cond, agegrp, sickday, fromloc)) # the from locale, all sickdays
                 travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
                 x = rand(travdests, travcnt)  # randomize across destinations
                 bydest = bucket(x, vals=1:length(travdests))
@@ -105,7 +105,7 @@ function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MO
                     isempty(bydest) && continue
                     cnt = bydest[dest]
                     iszero(cnt) && continue
-                    enqueue!(travelq, travitem(cnt, fromloc, dest, agegrp, lag, name))
+                    enqueue!(travelq, travitem(cnt, fromloc, dest, agegrp, sickday, name))
                 end
             end
         end
@@ -116,15 +116,15 @@ end
 """
 Assuming a daily cycle, at the beginning of the day
 process the queue of travelers from the end of the previous day.
-Remove groups of travelers by agegrp, lag, and condition
+Remove groups of travelers by agegrp, sickday, and condition
 from where they departed.  Add them to their destination.
 """
 function travelin!(dat=popdat)
     while !isempty(travelq)
         g = dequeue!(travelq)
         cond = eval(Symbol(g.cond))
-        minus!(g.cnt, cond, g.agegrp, g.lag, g.from, dat=dat)
-        plus!(g.cnt, cond, g.agegrp, g.lag, g.to, dat=dat)
+        minus!(g.cnt, cond, g.agegrp, g.sickday, g.from, dat=dat)
+        plus!(g.cnt, cond, g.agegrp, g.sickday, g.to, dat=dat)
     end
 end
 

@@ -1,5 +1,5 @@
 # TODO
-    # get rid of all uses of integer literals for lag, agegrps, conditions
+    # get rid of all uses of integer literals for sickday, agegrps, conditions
         # in dectrees, for instance
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
@@ -136,8 +136,8 @@ export
 # control constants
 export                  
     age_dist,
-    lags,
-    laglim
+    sickdays,
+    sickdaylim
 
 # constants for geo data
 export      
@@ -183,7 +183,7 @@ export
     col_status,
     col_agegrp,
     col_cond,
-    col_lag,
+    col_sickday,
     col_cluster,
     col_recov_day,
     col_dead_day,
@@ -218,8 +218,8 @@ const day_ctr = counter(Symbol) # from package DataStructures
 
 # control constants
 const age_dist = [0.251, 0.271, 0.255, 0.184, 0.039]
-const laglim = 25
-const lags = 1:laglim   # rows
+const sickdaylim = 25
+const sickdays = 1:sickdaylim   # rows
 
 # geo data: fips,county,city,state,sizecat,pop,density
 const fips = 1
@@ -281,7 +281,7 @@ const isolated          = 11
 const col_status        = 1
 const col_agegrp        = 2
 const col_cond          = 3
-const col_lag           = 4
+const col_sickday           = 4
 const col_cluster       = 5
 const col_recov_day     = 6
 const col_dead_day      = 7

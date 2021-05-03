@@ -26,26 +26,26 @@ function setup_dt(dtfilename)
     newdict = Dict()
     for agegrp in agegrps
         newdict[agegrp] = Dict()
-        for node in keys(trees[agegrp])  # node is (lag, fromcond)
-            lag       = node[1]
+        for node in keys(trees[agegrp])  # node is (sickday, fromcond)
+            sickday       = node[1]
             fromcond  = node[2]
                 probs = [branch["pr"] for branch in trees[agegrp][node]]
                 outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
                 branches = [branch for branch in trees[agegrp][node]]
-            if haskey(newdict[agegrp], lag)
-                newdict[agegrp][lag][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+            if haskey(newdict[agegrp], sickday)
+                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
             else
-                newdict[agegrp][lag]=Dict()
-                newdict[agegrp][lag][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+                newdict[agegrp][sickday]=Dict()
+                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
             end
         end
     end
     newdict = Dict(i=>sort(newdict[i], rev=true) for i in agegrps) 
 
-    lags_by_age = Dict{Int,Array{Int,1}}()  # empty
+    sickdays_by_age = Dict{Int,Array{Int,1}}()  # empty
     fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
     for agegrp in agegrps
-        lags_by_age[agegrp] = [k[1] for k in collect(keys(trees[agegrp]))]
+        sickdays_by_age[agegrp] = [k[1] for k in collect(keys(trees[agegrp]))]
         fromconds_by_age[agegrp] = [k[2] for k in collect(keys(trees[agegrp]))]
     end
 
@@ -54,7 +54,7 @@ function setup_dt(dtfilename)
         decpoints[i] = unique([k[1] for k in keys(trees[i])])
     end
 
-    return Dict("dt"=>newdict, "decpoints"=>decpoints, "lags"=>lags_by_age, "fromconds"=>fromconds_by_age)
+    return Dict("dt"=>newdict, "decpoints"=>decpoints, "sickdays"=>sickdays_by_age, "fromconds"=>fromconds_by_age)
 end
 
 
@@ -62,11 +62,11 @@ function display_tree(tree)
     for agegrp in keys(tree)
         agetree = tree[agegrp]
         println("agegrp: ", agegrp, " =>")
-        for lag in keys(agetree)
-            lagtree = agetree[lag]
-            println("    lag: ", lag, " =>")
-            for fromcond in keys(lagtree)
-                condtree = lagtree[fromcond]
+        for sickday in keys(agetree)
+            sickdaytree = agetree[sickday]
+            println("    sickday: ", sickday, " =>")
+            for fromcond in keys(sickdaytree)
+                condtree = sickdaytree[fromcond]
                 println("        fromcond: ", fromcond, " =>")
                 print("            probs: => ")
                 println(condtree["probs"])
@@ -79,7 +79,7 @@ function display_tree(tree)
                     println("                ", condtree["branches"][branch])   
                 end
             end  # for fromcond
-        end  # for lag
+        end  # for sickday
     end   # for agegrp     
 end
 
@@ -207,7 +207,7 @@ a node looks like this:
 #  what a tree looks like for 5 agegrps
 #= 
 agegrp: 5 =>
-    lag: 25 =>
+    sickday: 25 =>
         fromcond: 7 =>
             probs: => [0.682, 0.318]
             outcomes: => [3, 4]
@@ -220,7 +220,7 @@ agegrp: 5 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.676)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.324)
-    lag: 19 =>
+    sickday: 19 =>
         fromcond: 8 =>
             probs: => [0.49, 0.24, 0.27]
             outcomes: => [3, 8, 4]
@@ -228,7 +228,7 @@ agegrp: 5 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.49)
                 Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.24)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.27)
-    lag: 14 =>
+    sickday: 14 =>
         fromcond: 6 =>
             probs: => [0.7, 0.3]
             outcomes: => [3, 7]
@@ -249,7 +249,7 @@ agegrp: 5 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.12)
                 Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.67)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.21)
-    lag: 9 =>
+    sickday: 9 =>
         fromcond: 5 =>
             probs: => [0.5, 0.5]
             outcomes: => [3, 7]
@@ -268,7 +268,7 @@ agegrp: 5 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.6)
                 Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.4)
-    lag: 5 =>
+    sickday: 5 =>
         fromcond: 5 =>
             probs: => [0.1, 0.5, 0.4]
             outcomes: => [5, 6, 7]
@@ -277,7 +277,7 @@ agegrp: 5 =>
                 Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.5)
                 Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.4)
 agegrp: 4 =>
-    lag: 25 =>
+    sickday: 25 =>
         fromcond: 7 =>
             probs: => [0.76, 0.24]
             outcomes: => [3, 4]
@@ -290,7 +290,7 @@ agegrp: 4 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.688)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.312)
-    lag: 19 =>
+    sickday: 19 =>
         fromcond: 8 =>
             probs: => [0.81, 0.13, 0.06]
             outcomes: => [3, 8, 4]
@@ -298,7 +298,7 @@ agegrp: 4 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.81)
                 Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.13)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.06)
-    lag: 14 =>
+    sickday: 14 =>
         fromcond: 6 =>
             probs: => [1.0]
             outcomes: => [3]
@@ -318,7 +318,7 @@ agegrp: 4 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.165)
                 Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.715)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.12)
-    lag: 9 =>
+    sickday: 9 =>
         fromcond: 5 =>
             probs: => [0.62, 0.38]
             outcomes: => [3, 7]
@@ -336,7 +336,7 @@ agegrp: 4 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.78)
                 Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.22)
-    lag: 5 =>
+    sickday: 5 =>
         fromcond: 5 =>
             probs: => [0.15, 0.6, 0.25]
             outcomes: => [5, 6, 7]
@@ -345,7 +345,7 @@ agegrp: 4 =>
                 Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.6)
                 Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.25)
 agegrp: 2 =>
-    lag: 25 =>
+    sickday: 25 =>
         fromcond: 7 =>
             probs: => [0.964, 0.036]
             outcomes: => [3, 4]
@@ -358,7 +358,7 @@ agegrp: 2 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.964)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.036)
-    lag: 19 =>
+    sickday: 19 =>
         fromcond: 8 =>
             probs: => [0.922, 0.072, 0.006]
             outcomes: => [3, 8, 4]
@@ -366,7 +366,7 @@ agegrp: 2 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.922)
                 Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.072)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.006)
-    lag: 14 =>
+    sickday: 14 =>
         fromcond: 6 =>
             probs: => [1.0]
             outcomes: => [3]
@@ -386,7 +386,7 @@ agegrp: 2 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.474)
                 Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.514)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.012)
-    lag: 9 =>
+    sickday: 9 =>
         fromcond: 5 =>
             probs: => [0.85, 0.15]
             outcomes: => [3, 7]
@@ -404,7 +404,7 @@ agegrp: 2 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.9)
                 Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.1)
-    lag: 5 =>
+    sickday: 5 =>
         fromcond: 5 =>
             probs: => [0.2, 0.7, 0.1]
             outcomes: => [5, 6, 7]
@@ -413,7 +413,7 @@ agegrp: 2 =>
                 Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.7)
                 Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.1)
 agegrp: 3 =>
-    lag: 25 =>
+    sickday: 25 =>
         fromcond: 7 =>
             probs: => [0.958, 0.042]
             outcomes: => [3, 4]
@@ -426,7 +426,7 @@ agegrp: 3 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.958)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.042)
-    lag: 19 =>
+    sickday: 19 =>
         fromcond: 8 =>
             probs: => [0.856, 0.126, 0.018]
             outcomes: => [3, 8, 4]
@@ -434,7 +434,7 @@ agegrp: 3 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.856)
                 Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.126)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.018)
-    lag: 14 =>
+    sickday: 14 =>
         fromcond: 6 =>
             probs: => [0.9, 0.1]
             outcomes: => [3, 7]
@@ -455,7 +455,7 @@ agegrp: 3 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.776)
                 Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.206)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.018)
-    lag: 9 =>
+    sickday: 9 =>
         fromcond: 5 =>
             probs: => [0.9, 0.1]
             outcomes: => [3, 7]
@@ -473,7 +473,7 @@ agegrp: 3 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.9)
                 Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.1)
-    lag: 5 =>
+    sickday: 5 =>
         fromcond: 5 =>
             probs: => [0.2, 0.7, 0.1]
             outcomes: => [5, 6, 7]
@@ -482,7 +482,7 @@ agegrp: 3 =>
                 Dict{Any, Any}("tocond" => 6, "next" => (9, 6), "pr" => 0.7)
                 Dict{Any, Any}("tocond" => 7, "next" => (9, 7), "pr" => 0.1)
 agegrp: 1 =>
-    lag: 25 =>
+    sickday: 25 =>
         fromcond: 7 =>
             probs: => [0.976, 0.024]
             outcomes: => [3, 4]
@@ -495,7 +495,7 @@ agegrp: 1 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.91)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.09)
-    lag: 19 =>
+    sickday: 19 =>
         fromcond: 8 =>
             probs: => [0.891, 0.106, 0.003]
             outcomes: => [3, 8, 4]
@@ -503,7 +503,7 @@ agegrp: 1 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.891)
                 Dict{Any, Any}("tocond" => 8, "next" => (25, 8), "pr" => 0.106)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.003)
-    lag: 14 =>
+    sickday: 14 =>
         fromcond: 6 =>
             probs: => [1.0]
             outcomes: => [3]
@@ -523,7 +523,7 @@ agegrp: 1 =>
                 Dict{Any, Any}("tocond" => 3, "next" => (0, 0), "pr" => 0.692)
                 Dict{Any, Any}("tocond" => 8, "next" => (19, 8), "pr" => 0.302)
                 Dict{Any, Any}("tocond" => 4, "next" => (0, 5), "pr" => 0.006)
-    lag: 9 =>
+    sickday: 9 =>
         fromcond: 5 =>
             probs: => [0.9, 0.1]
             outcomes: => [3, 7]
@@ -541,7 +541,7 @@ agegrp: 1 =>
             branches: =>
                 Dict{Any, Any}("tocond" => 7, "next" => (14, 7), "pr" => 0.95)
                 Dict{Any, Any}("tocond" => 8, "next" => (14, 8), "pr" => 0.05)
-    lag: 5 =>
+    sickday: 5 =>
         fromcond: 5 =>
             probs: => [0.4, 0.5, 0.1]
             outcomes: => [5, 6, 7]
@@ -577,7 +577,7 @@ agegrp: 1 =>
 
 #=
 1:                                          # agegrp
-  [5,5]:                                      # node is [lagday effective, from condition]
+  [5,5]:                                      # node is [sickdayday effective, from condition]
     - {tocond: 5, next: [9, 5], pr: 0.4}
     - {tocond: 6, next: [9, 6], pr: 0.5}
     - {tocond: 7, next: [9, 7], pr: 0.1}

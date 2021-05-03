@@ -20,14 +20,14 @@
 
 """
 Generate seeding cases.
-inputs: day, cnt, lag, cond, agegrp
+inputs: day, cnt, sickday, cond, agegrp
 Two of the inputs may refer to multiple items and must match in number of items.
 
 Returns a function that can be used in runcases input to run_a_sim.
 """
-function seed_case_gen(day, cnt, lag, cond, agegrp) # these args go into the returned seed! case
+function seed_case_gen(day, cnt, sickday, cond, agegrp) # these args go into the returned seed! case
     function scase(locale, opendat, isodat, testdat, env)  # args must match runcases loop in run_a_sim
-        seed!(day, cnt, lag, cond, agegrp, locale, opendat)
+        seed!(day, cnt, sickday, cond, agegrp, locale, opendat)
     end
 end
 
@@ -44,41 +44,41 @@ end
 function isolate_case_1(locale; opendat, isodat, testdat, env)
     if day_ctr[:day] == 15
         isolate!(.25,[unexposed, nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     elseif day_ctr[:day] == 23
         isolate!(.50,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        isolate!(.70,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_1(locale; opendat, isodat, testdat, env)
     if day_ctr[:day]  == 120
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 
 function isolate_case_2(locale; opendat, isodat, testdat, env)
     if day_ctr[:day] == 15
         isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     elseif day_ctr[:day] == 23
         isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_2(locale; opendat, isodat, testdat, env)
     if day_ctr[:day]  == 69
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        unisolate!(1.0,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_2b(locale; opendat, isodat, testdat, env)
     if day_ctr[:day]  == 84
         unisolate!(.6,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(.6,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        unisolate!(.6,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 
@@ -86,17 +86,17 @@ end
 function isolate_case_3(locale; opendat, isodat, testdat, env)
     if day_ctr[:day] == 40
         isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     elseif day_ctr[:day] == 50
         isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:laglim,locale, opendat, isodat)
+        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 
 function unisolate_case_3(locale; opendat, isodat, testdat, env)
     if day_ctr[:day]  == 80
         unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(1.0,[mild,sick,severe],agegrps,1:laglim,locale, opendat, isodat)
+        unisolate!(1.0,[mild,sick,severe],agegrps,1:sickdaylim,locale, opendat, isodat)
     end
 end
 

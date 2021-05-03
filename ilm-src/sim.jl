@@ -383,7 +383,7 @@ mutable struct filts
 end
 
 
-function make_sick!(dat; cnt, fromage, tocond, tolag=1)
+function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
 
     @assert size(cnt, 1) == size(fromage, 1)
 
@@ -394,11 +394,11 @@ function make_sick!(dat; cnt, fromage, tocond, tolag=1)
         filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
         rowrange = 1:cnt[i]
         filt_all = filt_unexp[filt_age][rowrange]
-        cols = [col_status, col_cond, col_lag]
+        cols = [col_status, col_cond, col_sickday]
 
         dat.status[filt_all] .= infectious
         dat.cond[filt_all] .= tocond
-        dat.lag[filt_all] .= tolag
+        dat.sickday[filt_all] .= tosickday
     end
 end
 

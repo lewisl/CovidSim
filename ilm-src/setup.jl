@@ -66,7 +66,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
             status = fill(intype(unexposed), pop),    
             agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
             cond = zeros(intype, pop),
-            lag = zeros(intype, pop),   
+            sickday = zeros(intype, pop),   
             recov_day = zeros(intype, pop),  
             dead_day = zeros(intype, pop),   
             cluster = zeros(intype, pop),   
@@ -83,7 +83,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
             status = fill(intype(unexposed), pop),        
             agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
             cond = zeros(intype, pop),  
-            lag = zeros(intype, pop))  
+            sickday = zeros(intype, pop))  
 
     else
         @error "Wrong choice of cols in pop_data: $cols"
@@ -188,10 +188,10 @@ Struct for variables used by many functions = the simulation environment
 """
 struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
     geodata::DataFrames.DataFrame
-    riskmx::Array{Float64, 2}            # laglim,5
+    riskmx::Array{Float64, 2}            # sickdaylim,5
     contact_factors::Dict{Int64, Dict{String, Float64}}   # 4,5 parameters for spread!
     touch_factors::Dict{Int64, Dict{String, Float64}}    #  6,5  parameters for spread!
-    send_risk::Array{Float64, 1}  # laglim,  parameters for spread!
+    send_risk::Array{Float64, 1}  # sickdaylim,  parameters for spread!
     recv_risk::Array{Float64,1}   # 5,  parameters for spread!
 
     shape::Float64                       # parameter for spread!
@@ -203,7 +203,7 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
             riskmx=zeros(Float64, 0,0),
             contact_factors=Dict{Int64, Dict{String, Float64}}(),
             touch_factors=Dict{Int64, Dict{String, Float64}}(),
-            send_risk=zeros(Float64,laglim),
+            send_risk=zeros(Float64,sickdaylim),
             recv_risk=zeros(Float64, 5),
             shape=1.0
         ) where T<:Integer
@@ -218,7 +218,7 @@ function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, 
 
     ret = SimEnv{T_int[]}(
         geodata=geodata,
-        riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,laglim,5),
+        riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,sickdaylim,5),
         contact_factors = contact_factors,
         touch_factors = touch_factors,
         send_risk = send_risk,

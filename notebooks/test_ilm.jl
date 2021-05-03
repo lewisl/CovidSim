@@ -95,8 +95,8 @@ dectree[5][25]
 typeof(dectree[5][25][7]["outcomes"])
 
 # %%
-function get_node(dectree, agegrp, lag, fromcond)
-    dectree[agegrp][lag][fromcond]
+function get_node(dectree, agegrp, sickday, fromcond)
+    dectree[agegrp][sickday][fromcond]
 end
 
 # %%
@@ -115,7 +115,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, env, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, env, series = run_a_sim(180, 36061, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # %%
 result_dict

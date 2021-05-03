@@ -249,7 +249,7 @@ CovidSim is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation 
 - Sick
 - Severe
 
-The groups are further divided by age groups (0-20, 20-40, 40-60, 60-80, 80+) and "lag," which refers to the number of days an infected person has had the disease. It is very easy to reduce or extend the maximum lag and to run a simulation for any duration.
+The groups are further divided by age groups (0-20, 20-40, 40-60, 60-80, 80+) and "sickday," which refers to the number of days an infected person has had the disease. It is very easy to reduce or extend the maximum sickday and to run a simulation for any duration.
 
 The basic processes of the simulation are:
 
@@ -269,25 +269,25 @@ There are many input parameters that control the behavior of the simulation. Key
 - send_risk and recv_risk 
   Determine the probability of actually transmitting the virus from sender, which varies by number of days the person has had the disease, and the probability of infecting the recipient, which varies by age group.
 - r0 simulation
-  The model is more complicated than assuming one r0 applies to the entire population. R0 is *not* an input; it is an outcome. The factors above provide different effective transmission rates for different age groups, disease conditions, and stage of infection. The r0 simulation provides a sanity check on transmission to see the resulting r0 for a single cohort that includes all age groups and lags. The model defaults provide for an early stage R0 of roughly 1.8. (Early stage assumes that the infected group is small relative to the population so that transmission is not affected by a large group of non-susceptible people, who may be dead, recovered, or already infected).  The r0 simulation can be run "mid-stream" during a simulation to see how case scenarios and epidemic dynamics change shortrun r0, which is as much socially determined as biologically.
+  The model is more complicated than assuming one r0 applies to the entire population. R0 is *not* an input; it is an outcome. The factors above provide different effective transmission rates for different age groups, disease conditions, and stage of infection. The r0 simulation provides a sanity check on transmission to see the resulting r0 for a single cohort that includes all age groups and sickdays. The model defaults provide for an early stage R0 of roughly 1.8. (Early stage assumes that the infected group is small relative to the population so that transmission is not affected by a large group of non-susceptible people, who may be dead, recovered, or already infected).  The r0 simulation can be run "mid-stream" during a simulation to see how case scenarios and epidemic dynamics change shortrun r0, which is as much socially determined as biologically.
 
 Transition of infected individuals (in the disease cell groups above) is controlled by input decision trees:
 
 - decision trees 
   1 per age group, determine when the condition of an infected person shifts from nil, to mild, to sick, to severe, to recovering or dying. The tree provides different paths through the stages in varying number of days and probabilities, including skipping disease states.
 - sanity check on decision trees
-  Each decision tree (for an age group) must insure that all infected individuals resolve to recovered or dead at the end of the maximum lag period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this provides the expected (mean) % of recovered and dead by age group, which can be compared to reported clinical outcomes. Read more...
+  Each decision tree (for an age group) must insure that all infected individuals resolve to recovered or dead at the end of the maximum sickday period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this provides the expected (mean) % of recovered and dead by age group, which can be compared to reported clinical outcomes. Read more...
 
 A benefit of the model is comparative ease for running a variety of test cases to examine the response of disease progression to events and potential policy interventions:
 
 - seeding
-  Travel modeling is planned. In the meantime, seeding events can be defined to introduce infectious people to a locale.  This can occur on any day and introduce people of any condition or lag.  This enables "manually" causing travel of the disease to new locales when multiple locales are simulated. Multiple seeding events can easily be included in a single simulation run.
+  Travel modeling is planned. In the meantime, seeding events can be defined to introduce infectious people to a locale.  This can occur on any day and introduce people of any condition or sickday.  This enables "manually" causing travel of the disease to new locales when multiple locales are simulated. Multiple seeding events can easily be included in a single simulation run.
 - isolation
   With a simple callback function approach, people can be isolated on a given day in a given locale and can be "un-isolated" later.
 - social distancing
   The factors that drive spread of the virus can be changed with a complying and non-complying group. A subsequent "event" can change the degree of social distancing and the compliance to simulate varying degrees of "opening up."
 - test, trace and isolate
-  A group-based SEIR model cannot trace individual testing and outcomes but we can distribute tests for breadth, determine outcomes for the tested group, determine contacts, isolate those with positive test results and repeat through multiple generations of contacts. Many factors can be set such as test capacity per day, test compliance, contact compliance, early "breakout" from isolation, and lag time to receive test results.
+  A group-based SEIR model cannot trace individual testing and outcomes but we can distribute tests for breadth, determine outcomes for the tested group, determine contacts, isolate those with positive test results and repeat through multiple generations of contacts. Many factors can be set such as test capacity per day, test compliance, contact compliance, early "breakout" from isolation, and sickday time to receive test results.
 
 Epidemiological Models
 

@@ -165,71 +165,71 @@ end
 ####################################################################################
 
 """
-    function grab(condition, agegrp, lag, locale, dat)
+    function grab(condition, agegrp, sickday, locale, dat)
 
-Inputs condition, agegrp and lag can be single or multiple (array or range).
+Inputs condition, agegrp and sickday can be single or multiple (array or range).
 Only one locale can be accessed. Caller should loop over locales to retrieve
 data from multiple locales.
 
-The returned array has dimensions (lag, condition, agegrp).
+The returned array has dimensions (sickday, condition, agegrp).
 """
-function grab(condition, agegrp, lag, locale, dat)
+function grab(condition, agegrp, sickday, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
 
-    return dat[locale][lag, condition, agegrp]
+    return dat[locale][sickday, condition, agegrp]
 end
 
 
 """
-    function input!(val, condition, agegrp, lag, locale, dat)
+    function input!(val, condition, agegrp, sickday, locale, dat)
 
-Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
+Input val can be an array. Its dimensions must match the inputs for sickday, condition, agegrp.
 Only one locale can be provided.
 
-ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
+ex: if size(val) is (25, 4, 5) then length(sickday) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
 
 Inputs overwrite existing data at the referenced location of the target population matrix dat.
 """
-function input!(val, condition, agegrp, lag, locale, dat)
+function input!(val, condition, agegrp, sickday, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale, dat)
-    dat[locale][lag, condition, agegrp] = val
+    current = grab(condition, agegrp, sickday, locale, dat)
+    dat[locale][sickday, condition, agegrp] = val
 end
 
 
 """
-    function plus!(val, condition, agegrp, lag, locale, dat)
+    function plus!(val, condition, agegrp, sickday, locale, dat)
 
-Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
+Input val can be an array. Its dimensions must match the inputs for sickday, condition, agegrp.
 Only one locale can be provided.
 
-ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
+ex: if size(val) is (25, 4, 5) then length(sickday) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
 
 Inputs are added to the existing data at the referenced location of the target population matrix dat.
 """
-function plus!(val, condition, agegrp, lag, locale, dat) 
+function plus!(val, condition, agegrp, sickday, locale, dat) 
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
 
-    dat[locale][lag, condition, agegrp] += val    # T(val)
+    dat[locale][sickday, condition, agegrp] += val    # T(val)
 end
 
 
 """
-    function minus!(val, condition, agegrp, lag, locale, dat)
+    function minus!(val, condition, agegrp, sickday, locale, dat)
 
-Input val can be an array. Its dimensions must match the inputs for lag, condition, agegrp.
+Input val can be an array. Its dimensions must match the inputs for sickday, condition, agegrp.
 Only one locale can be provided.
 
-ex: if size(val) is (25, 4, 5) then length(lag) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
+ex: if size(val) is (25, 4, 5) then length(sickday) must = 25, length(condition) must = 4, and length(agegrp) must = 5.
 
 If subtraction from the existing data would result in negative values at the referenced locations of the target population matrix dat,
 an error will be raised. The population matrix must contain positive integer values.
 """
-function minus!(val, condition, agegrp, lag, locale, dat)
+function minus!(val, condition, agegrp, sickday, locale, dat)
     # @assert (length(locale) == 1 || typeof(locale) <: NamedTuple) "locale must be a single Int or NamedTuple"
-    current = grab(condition, agegrp, lag, locale, dat)
-    @assert sum(val) <= sum(current) "subtracting > than existing: day $(day_ctr[:day]) loc $locale lag $lag cond $condition agegrp $agegrp"
-    dat[locale][lag, condition, agegrp] -= val
+    current = grab(condition, agegrp, sickday, locale, dat)
+    @assert sum(val) <= sum(current) "subtracting > than existing: day $(day_ctr[:day]) loc $locale sickday $sickday cond $condition agegrp $agegrp"
+    dat[locale][sickday, condition, agegrp] -= val
 end
 
 

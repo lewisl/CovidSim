@@ -167,7 +167,7 @@ end
         # end
         spreadercond = locdat.cond[p]  # map 5-8 to 1-4
         spreaderagegrp = locdat.agegrp[p]
-        spreaderlag = locdat.lag[p]
+        spreadersickday = locdat.sickday[p]
 
         scale = density_factor * contact_factors[spreaderagegrp][condnames[spreadercond]]
 
@@ -196,13 +196,13 @@ end
 
             # infection outcome
             if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                prob = riskmx[spreaderlag, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
+                prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
                 newly_infected = rand(Binomial(1, prob))
                 if newly_infected == 1
                     locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                     locdat.status[contact] = infectious
-                    locdat.lag[contact] = 1
-                    # NOT ANY MORE lag remains zero because person was unexposed; transition! function updates lag
+                    locdat.sickday[contact] = 1
+                    # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
                 end
                 # n_newly_infected += newly_infected
             end
@@ -214,7 +214,7 @@ end
 
 
 function send_risk_by_recv_risk(send_risk, recv_risk)
-    recv_risk' .* send_risk  # (laglim, agegrps)
+    recv_risk' .* send_risk  # (sickdaylim, agegrps)
 end
 
 
@@ -241,7 +241,7 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_
             for j = 1:age_relative[i]
                 r0pop.status[idx] = infectious
                 r0pop.cond[idx] = nil
-                r0pop.lag[idx] = 1
+                r0pop.sickday[idx] = 1
                 idx += 1
             end
         end
@@ -262,22 +262,22 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, env, density_factor, pop=1_
                 p = idx[j]
                 r0pop.status[p] = infectious
                 r0pop.cond[p] = nil
-                r0pop.lag[p] = 1
+                r0pop.sickday[p] = 1
             end
         end        
     end
 
     ret = [0,0,0,0] # n_spreaders, n_contacts, n_touched, n_newly_infected 
-    for i = 1:laglim                                          
+    for i = 1:sickdaylim                                          
         ret[:] .+= spread!(r0pop, 0, [], env, density_factor)  # dat, locale, spreadcases, env, density_factor::Float64 = 1.0)
 
         transition!(r0pop, 0, dt_dict) 
 
         # eliminate the new spreaders so we only track the original spreaders
-        newsick_idx = findall(r0pop.lag .== 1)
+        newsick_idx = findall(r0pop.sickday .== 1)
 
         r0pop.status[newsick_idx] .= unexposed
-        r0pop.lag[newsick_idx] .= 0
+        r0pop.sickday[newsick_idx] .= 0
     end
 
     r0 =  ret[4] / cnt_spreaders   # n_newly_infected / cnt_spreaders
