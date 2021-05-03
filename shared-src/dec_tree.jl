@@ -22,6 +22,7 @@ function setup_dt(dtfilename)
 
     # pre-calculate the array of probabilities for all branches at a node
     # pre-calculate the array of outcome conditions ("tocond") for all branches at a node
+    # then we are done with the input branches: we don't use them during simulation
 
     newdict = Dict()
     for agegrp in agegrps
@@ -31,12 +32,12 @@ function setup_dt(dtfilename)
             fromcond  = node[2]
                 probs = [branch["pr"] for branch in trees[agegrp][node]]
                 outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
-                branches = [branch for branch in trees[agegrp][node]]
+                # branches = [branch for branch in trees[agegrp][node]]
             if haskey(newdict[agegrp], sickday)
-                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes,) # "branches"=>branches
             else
                 newdict[agegrp][sickday]=Dict()
-                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes, "branches"=>branches)
+                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes,) # "branches"=>branches
             end
         end
     end
@@ -74,16 +75,16 @@ function display_tree(tree)
                 print("            outcomes: => ")
                 println(condtree["outcomes"])
                 #
-                println("            branches: =>")
-                for branch in keys(condtree["branches"])
-                    println("                ", condtree["branches"][branch])   
-                end
+                # println("            branches: =>")
+                # for branch in keys(condtree["branches"])
+                #     println("                ", condtree["branches"][branch])   
+                # end
             end  # for fromcond
         end  # for sickday
     end   # for agegrp     
 end
 
-
+# TODO This won't work any more: need a new way to test dectrees
 function walktree(dt, top)
     done = []
     todo = [[top]]
@@ -119,6 +120,7 @@ function sanity_test_all(dtfname::String)
 end
 
 # TODO: check that probs of all branches at a node add to one
+# TODO: this won't work any more
 
 function sanity_test(paths, tree)
     probs = []
@@ -164,6 +166,7 @@ end
 
 
 # new trees look like this to replace the tuple as a node identifier with nested dictionaries
+# "branches" dict is no longer included
 
  #=
 instead of nodes looking like this:

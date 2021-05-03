@@ -6,7 +6,7 @@
   9:
     5:                                     
       probs: [0.9, 0.1]
-      outcomes: [0,7]
+      outcomes: [0, 7]
     6:   
       probs: [1.0]
       outcomes: [6]                                 
@@ -24,15 +24,15 @@
     - {tocond: 8, next: [19,8], pr: 0.302}
     - {tocond: 4, next: [0,5], pr: 0.006}     # branch. node [0,5] denotes dead
   [19,8]:
-    - {tocond: 3, next: [0,0], pr: 0.891}
-    - {tocond: 8, next: [25,8], pr: 0.106}
-    - {tocond: 4, next: [0,5], pr: 0.003}
+    - {tocond: 3, next: [0, 0], pr: 0.891}
+    - {tocond: 8, next: [25, 8], pr: 0.106}
+    - {tocond: 4, next: [0, 5], pr: 0.003}
   [25,7]:
-    - {tocond: 3, next: [0,0], pr: 0.976}
-    - {tocond: 4, next: [0,5], pr: 0.024}
+    - {tocond: 3, next: [0, 0], pr: 0.976}
+    - {tocond: 4, next: [0, 5], pr: 0.024}
   [25,8]:
-    - {tocond: 3, next: [0,0], pr: 0.91}
-    - {tocond: 4, next: [0,5], pr: 0.09}
+    - {tocond: 3, next: [0, 0], pr: 0.91}
+    - {tocond: 4, next: [0, 5], pr: 0.09}
 2:
   [5,5]:
     - {tocond: 5, next: [9, 5], pr: 0.2}
