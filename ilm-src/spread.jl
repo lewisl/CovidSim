@@ -190,21 +190,23 @@ end
                         condnames[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
                      end
 
-            # touch outcome
-            touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
-            # n_touched += touched
+            if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
+                # touch outcome
+                touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
+                # n_touched += touched
 
-            # infection outcome
-            if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
-                newly_infected = rand(Binomial(1, prob))
-                if newly_infected == 1
-                    locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
-                    locdat.status[contact] = infectious
-                    locdat.sickday[contact] = 1
-                    # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
+                # infection outcome
+                if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
+                    prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
+                    newly_infected = rand(Binomial(1, prob))
+                    if newly_infected == 1
+                        locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
+                        locdat.status[contact] = infectious
+                        locdat.sickday[contact] = 1
+                        # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
+                    end
+                    # n_newly_infected += newly_infected
                 end
-                # n_newly_infected += newly_infected
             end
         end
     end
