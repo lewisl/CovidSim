@@ -15,7 +15,7 @@ function setup(n_days, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, n_days)
 
     # spread parameters
-        spreaddict = build_spread_params(spfilename)
+        spreadparams = build_spread_params(spfilename)
 
     # transition decision trees     
         dt_dict = setup_dt(dectreefilename)
@@ -23,7 +23,7 @@ function setup(n_days, locales;  # must provide following inputs
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spreaddict)  
+    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spreadparams)  
 end
 
 
@@ -132,19 +132,19 @@ function build_spread_params(spfilename)
 
     send_risk = send_risk_by_recv_risk(spread_params["send_risk"], spread_params["recv_risk"])
 
-    # must type everything for performance: YAML library returns any=>  (any => any) --untyped dicts
-    spreaddict = Dict(
-        :send_risk          => spread_params["send_risk"]::Vector{Float64},
-        :recv_risk          => spread_params["recv_risk"]::Vector{Float64},
-        :contact_factors    => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) 
+    # named tuple doesn't result in type instability of Dict that requires "function barrier" to fix
+    spreadparams = (
+        # send_risk          = spread_params["send_risk"]::Vector{Float64},
+        # recv_risk          = spread_params["recv_risk"]::Vector{Float64},
+        contact_factors    = Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) 
                                     for (k1, v1) in spread_params["contact_factors"]),
-        :touch_factors      => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) 
+        touch_factors      = Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) 
                                     for (k1, v1) in spread_params["touch_factors"]),
-        :shape              => spread_params["shape"]::Float64,
-        :riskmx             => send_risk::Array{Float64, 2}
+        shape              = spread_params["shape"]::Float64,
+        riskmx             = send_risk::Array{Float64, 2}
         )
     
-    return spreaddict
+    return spreadparams
 end
 
 
