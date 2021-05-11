@@ -27,7 +27,7 @@ using CovidSim_ilm
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # ╔═╡ bac12bbe-2957-42c9-99a7-61f0eeae0d53
-result_dict, env, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # ╔═╡ df7ef52f-893c-4219-9fc8-eb8c096abff8
 cumplot(series, 38015)

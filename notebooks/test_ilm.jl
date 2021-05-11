@@ -30,7 +30,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
 
 # %%
 # set locale
-locale = 53033
+locale = 38015
 
 # %%
 alldict = setup(150, [locale])
@@ -116,7 +116,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, env, series = run_a_sim(180, locale, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # %%
 result_dict
@@ -132,6 +132,9 @@ countmap(popdat.status)
 
 # %%
 virus_outcome(series, locale)
+
+# %%
+Int(5.0)
 
 # %% [markdown]
 # # Plotted results

@@ -27,7 +27,7 @@ seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
 cd("/Users/lewis/Dropbox/Online Coursework/Covid/data")
 phoenix = 4013 
 newyork 36061
-alldict, env, series = run_a_sim(180, phoenix, silent=true,
+alldict, series = run_a_sim(180, phoenix, silent=true,
             showr0 = false,
             spreadcases=[],
             runcases=[seed_1_6, seed_6_12]);
@@ -120,7 +120,7 @@ dayplot(spreadq)
 
 # %%
 str_60 = sd_gen(start=60, comply=.75, cf=(.3,1.2), tf=(.18,.4));
-alldict, env, series, = run_a_sim(180,locale,showr0=false,silent=true,
+alldict, series, = run_a_sim(180,locale,showr0=false,silent=true,
        spreadcases=[str_60],
        runcases=[seed_1_6, seed_6_12]);
 
@@ -146,7 +146,7 @@ cumplot(series, locale, [infectious, dead], geo=geo)
 
 # %%
 str_50 = sd_gen(start=50, comply=.75, cf=(.2,1.2), tf=(.18,.4));
-alldict, env, series = run_a_sim(180,locale,showr0=false, silent=true,
+alldict, series = run_a_sim(180,locale,showr0=false, silent=true,
        spreadcases=[str_50],
        runcases=[seed_1_6, seed_6_12]);
 
@@ -165,7 +165,7 @@ infection_outcome(series, locale)
 
 # %%
 open_all = sd_gen(start=90, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
-alldict, env, series = run_a_sim(180,locale,showr0=false, silent=true,
+alldict, series = run_a_sim(180,locale,showr0=false, silent=true,
         spreadcases=[str_50,open_all],  # strong social distancing, then open
         runcases=[seed_1_6, seed_6_12]);
 
@@ -195,7 +195,7 @@ infection_outcome(series, locale)
 # %%
 locale = 38015 # Bismarck
 open_all = sd_gen(start=90, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); # 0% compliance is a signal to end social distancing
-alldict, env, series = run_a_sim(180,locale,showr0=false, silent=true,
+alldict, series = run_a_sim(180,locale,showr0=false, silent=true,
        spreadcases=[str_60,open_all],  # strong social distancing, then open
        runcases=[seed_1_6, seed_6_12]);
 
@@ -205,7 +205,7 @@ cumplot(series, locale, geo=geo)
 # %%
 close = sd_gen(start=50, comply=.75, cf=(.2,1.0), tf=(.18,.4));
 open = sd_gen(start=90, comply=0.0, cf=(.2,1.5), tf=(.18,.55));
-alldict, env, series = run_a_sim(180,locale,showr0=false, silent=true,
+alldict, series = run_a_sim(180,locale,showr0=false, silent=true,
        spreadcases=[close, open],
        runcases=[seed_1_6, seed_6_12]);
 
@@ -239,7 +239,7 @@ infection_outcome(series, locale)
 # Finally, for comparison here is what Bismarck, ND could look like with no social distancing at all.
 
 # %%
-alldict, env, series = run_a_sim(180,locale, showr0=false,
+alldict, series = run_a_sim(180,locale, showr0=false,
        silent=true,spreadcases=[open_all],
        runcases=[seed_1_6, seed_6_12]);
 

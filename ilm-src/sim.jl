@@ -23,9 +23,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         cumhistmx = alldict["dat"]["cumhistmx"]
         newhistmx = alldict["dat"]["newhistmx"]
         geodf = alldict["geo"]
-        spread_params = alldict["sp"]
-
-        env = initialize_sim_env(geodf; spread_params...)
+        spreaddict = alldict["sp"]
 
     # start the day counter at zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -50,19 +48,19 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             for case in runcases
-                # case(loc, popdat, isolatedmx, testmx, env)   
-                case(loc, popdat, [], [], env)   
+                case(loc, popdat, spreaddict)   
             end
             idxtime += @elapsed begin
                 infect_idx = findall(locdat.status .== infectious)
                 contactable_idx = findall(locdat.status .!= dead)
             end
-            sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, spreadcases, env, density_factor)  # sptime += @elapsed 
+            sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, spreadcases, 
+                spreaddict, density_factor)  # sptime += @elapsed 
             trtime += @elapsed  transition!(locdat, infect_idx, dectree)                       # trtime += @elapsed 
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(age_dist, popdat, loc, dectree, env, density_factor)
+                current_r0 = r0_sim(age_dist, popdat, loc, dectree, spreaddict, density_factor)
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
@@ -86,7 +84,7 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
     @show idxtime, sprtime, trtime, histtime
 
-    return alldict, env, series
+    return alldict, series
 end
 
 

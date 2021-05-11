@@ -8,8 +8,6 @@ function setup(n_days, locales;  # must provide following inputs
     dectreefilename="../parameters/dec_tree_all_25.yml",
     spfilename="../parameters/spread_params.yml")
 
-
-
     # geodata
         geodata = buildgeodata(geofilename)
 
@@ -17,7 +15,7 @@ function setup(n_days, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, n_days)
 
     # spread parameters
-        spread_params = read_spread_params(spfilename)
+        spreaddict = build_spread_params(spfilename)
 
     # transition decision trees     
         dt_dict = setup_dt(dectreefilename)
@@ -25,7 +23,7 @@ function setup(n_days, locales;  # must provide following inputs
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spread_params)  
+    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spreaddict)  
 end
 
 
@@ -117,7 +115,7 @@ function buildgeodata(filename)
 end
 
 
-function read_spread_params(spfilename)
+function build_spread_params(spfilename)
 
     spread_params = YAML.load_file(spfilename)
 
@@ -132,7 +130,19 @@ function read_spread_params(spfilename)
     end
     @assert has_all "required keys: $missing not in $(spfilename)"
 
-    return Dict(Symbol(k)=>v for (k,v) in spread_params)
+    send_risk = send_risk_by_recv_risk(spread_params["send_risk"], spread_params["recv_risk"])
+
+    # must type everything for performance: YAML library returns any=>  (any => any) --untyped dicts
+    spreaddict = Dict(
+        :send_risk          => spread_params["send_risk"]::Vector{Float64},
+        :recv_risk          => spread_params["recv_risk"]::Vector{Float64},
+        :contact_factors    => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) for (k1, v1) in spread_params["contact_factors"]),
+        :touch_factors      => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) for (k1, v1) in spread_params["touch_factors"]),
+        :shape              => spread_params["shape"]::Float64,
+        :riskmx             => send_risk::Array{Float64, 2}
+        )
+    
+    return spreaddict
 end
 
 
@@ -171,60 +181,3 @@ function precalc_agegrp_filt(dat)  # dat for a single locale
     return agegrp_filt_bit, agegrp_filt_idx
 end
 # agegrp_filt_bit, agegrp_filt_idx = precalc_agegrp_filt(ilmat);
-
-
-
-
-######################################################################################
-# SimEnv: simulation environment
-######################################################################################
-
-
-"""
-Struct for variables used by many functions = the simulation environment
-    
-- pre-allocate large arrays, accessed and modified frequently
-- hold complex parameter sets
-"""
-struct SimEnv{T<:Integer}      # the members are all mutable so we can change their values
-    geodata::DataFrames.DataFrame
-    riskmx::Array{Float64, 2}            # sickdaylim,5
-    contact_factors::Dict{Int64, Dict{String, Float64}}   # 4,5 parameters for spread!
-    touch_factors::Dict{Int64, Dict{String, Float64}}    #  6,5  parameters for spread!
-    send_risk::Array{Float64, 1}  # sickdaylim,  parameters for spread!
-    recv_risk::Array{Float64,1}   # 5,  parameters for spread!
-
-    shape::Float64                       # parameter for spread!
-
-    # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
-    # T_int[] should be one of Int64, Int32 when calling the constructor
-    function SimEnv{T}(; 
-            geodata=DataFrame, # geodata
-            riskmx=zeros(Float64, 0,0),
-            contact_factors=Dict{Int64, Dict{String, Float64}}(),
-            touch_factors=Dict{Int64, Dict{String, Float64}}(),
-            send_risk=zeros(Float64,sickdaylim),
-            recv_risk=zeros(Float64, 5),
-            shape=1.0
-        ) where T<:Integer
-        return new(geodata, riskmx, contact_factors, touch_factors, send_risk, recv_risk, shape)
-
-    end
-end
-
-
-
-function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk, shape)
-
-    ret = SimEnv{T_int[]}(
-        geodata=geodata,
-        riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,sickdaylim,5),
-        contact_factors = contact_factors,
-        touch_factors = touch_factors,
-        send_risk = send_risk,
-        recv_risk = recv_risk,
-        shape = shape)
-
-    return ret
-end
-

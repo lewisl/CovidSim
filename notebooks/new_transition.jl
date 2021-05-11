@@ -31,7 +31,7 @@ using Distributions
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, env, series = run_a_sim(80, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+alldict, series = run_a_sim(80, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # %%
 locdat = alldict["dat"]["openmx"][38015];

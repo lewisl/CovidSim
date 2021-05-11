@@ -3,25 +3,7 @@
 #     change status of folks in simulation:
 #           transition
 #           travel
-#           seed
-#           isolate
 ####################################################
-
-
-function seed!(day, cnt, sickday, conds, agegrps, locale, dat)
-    @assert length(sickday) == 1 "input only one sickday value"
-    # @warn "Seeding is for testing and may result in case counts out of balance"
-    if day == day_ctr[:day]
-        println("*** seed day $(day_ctr[:day]) locale $locale....")
-        for loc in locale
-            for cond in conds
-                @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-                make_sick!(dat[loc]; cnt=cnt, fromage=agegrps, tocond=nil, tosickday=sickday)
-            end
-        end
-    end
-end
-
 
 # method to run through all existing locales in isolation
 function transition!(dat, dt_dict)
@@ -29,7 +11,6 @@ function transition!(dat, dt_dict)
         transition!(dat, locale, dt_dict)
     end
 end
-
 
     
 """
@@ -141,55 +122,6 @@ end
 
 function doquery(dat, pq::Popquery, row)
     return (pq.op)(pq.val, getproperty(dat, pq.col)[row])
-end
-
-
-# TODO THIS NO LONGER WORKS!    
-
-"""
-    function isolate!(locdat, qty, filters::Array, val::Bool=true)
-
-Place people into isolation or quarantine when val is the default: true.
-Remove people from quarantine by setting val to false.
-
-"""
-function isolate!(locdat, qty, filters::Array, val=true)  
-    # val = true adds to quarantine; val = false removes from quarantine
-
-    thisday = day_ctr[:day]
-    filts = copy(filters)
-
-    push!(filts, Popquery(:quar, ==, !val)) # don't isolate people already in quarantine
-
-    # break apart filters into tuples of values, operations, columns
-    qvals = Tuple(q.val for q in filts)
-    qops = Tuple(q.op for q in filts)
-    qcols = Tuple(q.col for q in filts)
-
-    isoq = 0
-    rand_idx = randperm(size(locdat.status, 1))
-    for samp in Iterators.partition(rand_idx, qty), p in samp
-        conditions = true
-        for (j,col) in enumerate(qcols)
-            # conditions &= (qops[j])(qvals[j],  getproperty(locdat, col)[p]) 
-            conditions &= doquery(locdat, Popquery(col, qops[j], qvals[j]), p)
-        end
-        
-        if conditions
-            isoq += 1
-            locdat.quar[p] = val
-            locdat.quar_day[p] = val ? thisday : 0
-        end
-
-        if isoq >= qty
-            break
-        end
-    end
-
-    sim_stash[:quar_cnt] = (val ? get(sim_stash, :quar_cnt, 0) + isoq 
-                                :  get(sim_stash, :quar_cnt, 0) - isoq) 
-
-    return isoq
 end
 
 

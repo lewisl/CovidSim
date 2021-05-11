@@ -35,7 +35,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation for 40 days
 
 # %%
-result_dict, env, series = run_a_sim(40, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, series = run_a_sim(40, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 # %%
 keys(result_dict)
@@ -224,7 +224,7 @@ isa(6, Dict)
 # ### Check allocations of spreading (2 functions)
 
 # %%
-@time spread!(popdat, 38015, [], env) # returns (n_spreaders, n_contacts, n_touched, n_newly_infected)
+@time spread!(popdat, 38015, [], spreaddict) # returns (n_spreaders, n_contacts, n_touched, n_newly_infected)
 
 # %% [markdown]
 # not terrible: 0.005223 seconds (1.29 k allocations: 899.457 KiB, 69.25% compilation time)

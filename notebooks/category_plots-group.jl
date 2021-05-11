@@ -30,7 +30,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 seattle = 53033
 
 # %%
-alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
         spreadcases=[],
         runcases=[seed_1_6]);
 
@@ -174,7 +174,7 @@ str_65 = sd_gen(start=65, comply=.8, cf=(.2,1.25), tf=(.18,.41))
 open_more = sd_gen(start=105, cf=(.5,1.50), tf=(.18,.53),comply=1.0)
 
 # %%
-alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
         spreadcases=[str_65],
         runcases=[seed_1_6]);
 
@@ -185,7 +185,7 @@ cumplot(series,seattle,geo=alldict["geo"], [infectious, dead])
 # ## Strong Social Distancing followed by Opening Up
 
 # %%
-alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
         spreadcases=[str_65, open_more],
         runcases=[seed_1_6]);
 
@@ -222,7 +222,7 @@ death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # - opening up 45 days later, but less than fully
 
 # %%
-function isolate_vulnerable(locale, opendat, isodat,testdat, env)
+function isolate_vulnerable(locale, opendat, isodat,testdat, spreaddict)
     if day_ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:sickdaylim, locale, opendat, isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:sickdaylim, locale, opendat, isodat)
@@ -230,7 +230,7 @@ function isolate_vulnerable(locale, opendat, isodat,testdat, env)
 end
 
 # %%
-alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
         spreadcases=[str_65, open_more],
         runcases=[seed_1_6, isolate_vulnerable]);
 

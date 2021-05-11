@@ -27,7 +27,7 @@ geo[:,1:7]
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -45,7 +45,7 @@ infection_outcome(series, newyork.fips)
 # Reset the model to defaults.
 
 # %%
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -54,7 +54,7 @@ alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 str_50 = sd_gen(start=50, comply=.9, cf=(.5,1.2), tf=(.18,.42))
 
 # %%
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
@@ -71,7 +71,7 @@ infection_outcome(series, newyork.fips)
 
 # %%
 # Reset to defaults
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -80,7 +80,7 @@ alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 open = sd_gen(start=95, comply=0.0, cf=(.3,1.8), tf=(.18,.62))
 
 # %%
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6]);
@@ -90,7 +90,7 @@ nycopen=cumplot(series,newyork.fips,[infectious, dead],geo=geo)
 
 # %%
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
-                compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, env=env)
+                compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, spreaddict=spreaddict)
 
 # %% [markdown]
 # The preceding estimate of R0 tracks one cohort across all demographic groups of the simulation through the duration of the disease for 25 days, though much of the cohort will "drop out" through recovery or death prior to the 25th day. Infectiveness varies across the number of days a person has been infected.  
@@ -100,7 +100,7 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[
 
 # %%
 # reset the model to defaults
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -109,7 +109,7 @@ alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 open = sd_gen(start=95, comply=0.7, cf=(.5,1.5), tf=(.25,.50))
 
 # %%
-alldict, env, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
+alldict, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6]);
@@ -129,10 +129,10 @@ open_more = sd_gen(start=95, cf=(.5,1.55), tf=(.25,.55),comply=.6)
 
 # %%
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
-                compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, env=env)
+                compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, spreaddict=spreaddict)
 
 # %%
-function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx,testdat=openmx, env=env)
+function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx,testdat=openmx, spreaddict=spreaddict)
     if day_ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:sickdaylim, locale; opendat=opendat, isodat=isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:sickdaylim, locale; opendat=opendat, isodat=isodat)
@@ -141,13 +141,13 @@ end
 
 # %%
 # reset the model to defaults
-alldict, env, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[]);
 
 # %%
-alldict, env, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
+alldict, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6, isolate_vulnerable]);

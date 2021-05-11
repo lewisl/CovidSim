@@ -11,7 +11,6 @@
 # TODO for individual level model
     # get rid of indirection for lowlevel population updates
     # add transq to ilm and test
-    # Fix spread to use new spread params format: read_spread_params, simenv, spread
     # new approach to social distancing spreadcases
     # vaccination with 3 vaccines / 1 or 2 shots
     # extend to one year
@@ -75,8 +74,6 @@ export
     plus!,
     minus!,
     sumit,
-    SimEnv,
-    initialize_sim_env,
     r0_sim,
     set_by_level
 

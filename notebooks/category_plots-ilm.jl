@@ -33,7 +33,7 @@ str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.2), tf=(.18,.41))
 seattle = 53033
 
 # %%
-alldict, env, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
         spreadcases=[],
         runcases=[seed_1_6]);
 

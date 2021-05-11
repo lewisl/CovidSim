@@ -26,8 +26,28 @@ Two of the inputs may refer to multiple items and must match in number of items.
 Returns a function that can be used in runcases input to run_a_sim.
 """
 function seed_case_gen(day, cnt, sickday, cond, agegrp) # these args go into the returned seed! case
-    function scase(locale, opendat, isodat, testdat, env)  # args must match runcases loop in run_a_sim
+    function scase(locale, opendat, spreaddict)  # args must match runcases loop in run_a_sim
         seed!(day, cnt, sickday, cond, agegrp, locale, opendat)
+    end
+end
+
+
+"""
+    seed!(day, cnt, sickday, conds, agegrps, locale, dat)
+
+This is the action function that implements a seeding case.
+"""
+function seed!(day, cnt, sickday, conds, agegrps, locale, dat)
+    @assert length(sickday) == 1 "input only one sickday value"
+    # @warn "Seeding is for testing and may result in case counts out of balance"
+    if day == day_ctr[:day]
+        println("*** seed day $(day_ctr[:day]) locale $locale....")
+        for loc in locale
+            for cond in conds
+                @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
+                make_sick!(dat[loc]; cnt=cnt, fromage=agegrps, tocond=nil, tosickday=sickday)
+            end
+        end
     end
 end
 
@@ -41,64 +61,7 @@ end
 # isolation cases
 ####################################################################
 
-function isolate_case_1(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day] == 15
-        isolate!(.25,[unexposed, nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    elseif day_ctr[:day] == 23
-        isolate!(.50,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.70,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
 
-function unisolate_case_1(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day]  == 120
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
-
-function isolate_case_2(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day] == 15
-        isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    elseif day_ctr[:day] == 23
-        isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
-
-function unisolate_case_2(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day]  == 69
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(1.0,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
-
-function unisolate_case_2b(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day]  == 84
-        unisolate!(.6,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(.6,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
-
-
-function isolate_case_3(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day] == 40
-        isolate!(.40,[unexposed, nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    elseif day_ctr[:day] == 50
-        isolate!(.60,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        isolate!(.75,[mild,sick, severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
-
-function unisolate_case_3(locale; opendat, isodat, testdat, env)
-    if day_ctr[:day]  == 80
-        unisolate!(1.0,[unexposed,nil],agegrps,1,locale, opendat, isodat)
-        unisolate!(1.0,[mild,sick,severe],agegrps,1:sickdaylim,locale, opendat, isodat)
-    end
-end
 
 
 ####################################################################

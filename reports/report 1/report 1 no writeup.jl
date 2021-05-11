@@ -48,7 +48,7 @@ dayplot(spreadq)
 
 # %%
 str_60 = sd_gen(start=60, comply=.75, cf=(.3,1.2), tf=(.18,.4));
-alldict, env, series = run_a_sim(180, locale, silent=true,
+alldict, series = run_a_sim(180, locale, silent=true,
     spreadcases=[str_60], 
     runcases=[seed_1_6, seed_6_12]);
 
@@ -60,7 +60,7 @@ cumplot(series, locale, [infectious, dead],geo=geo)
 
 # %%
 str_50 = sd_gen(start=50, comply=.75, cf=(.3,1.2), tf=(.18,.4));
-alldict, env, series = run_a_sim(180, locale, silent=true,
+alldict, series = run_a_sim(180, locale, silent=true,
     spreadcases=[str_50],
     runcases=[seed_1_6, seed_6_12]);
 
@@ -78,7 +78,7 @@ cumplot(series, locale, geo=geo)
 # %%
 bismarck = 38015
 open_all = sd_gen(start=80, comply=0.0, cf=(.2,1.8), tf=(.18,.62)); 
-alldict, env, series = run_a_sim(180, bismarck, silent=true,
+alldict, series = run_a_sim(180, bismarck, silent=true,
     spreadcases=[str_50,open_all],
     runcases=[seed_1_6, seed_6_12]);  
 
@@ -102,7 +102,7 @@ cumplot(series, bismarck, geo=geo)
 
 # %%
 close = sd_gen(start=50, comply=.75, cf=(.3,1.2), tf=(.18,.4)); open = sd_gen(start=90, comply=.75, cf=(.2,1.5), tf=(.18,.5));
-alldict, env, series = run_a_sim(180, bismarck, silent=true, 
+alldict, series = run_a_sim(180, bismarck, silent=true, 
     spreadcases=[close, open], 
     runcases=[seed_1_6, seed_6_12]);
 
@@ -110,7 +110,7 @@ alldict, env, series = run_a_sim(180, bismarck, silent=true,
 cumplot(series, bismarck, [infectious, dead], geo=geo)
 
 # %%
-alldict, env, series = run_a_sim(180, bismarck, silent=true,
+alldict, series = run_a_sim(180, bismarck, silent=true,
     spreadcases=[],
     runcases=[seed_1_6, seed_6_12]);
 
