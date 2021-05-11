@@ -41,6 +41,10 @@ end
 # %% [markdown]
 # ## function to build spread params as a struct
 # The dicts for touch_factors and contact_factors are maps from agegrp to a named tuple for each.
+# This eliminates a function barrier to breakup the dictionary, establish concrete types (no {Any}) 
+# for Julia, which significantly improves performance. If we get rid of the dictionary, we can get rid 
+# of the function barrier (which is a hideous thing). But, there are other complexities to this
+# struct and the necessary named tuples.
 # %%
 function build_spread_params(spfilename)
 
