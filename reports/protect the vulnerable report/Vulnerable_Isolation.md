@@ -204,7 +204,7 @@ cumplot(series,newyork.fips,[infectious, dead],geo=geo)
 
 ```julia
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
-                compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, spreaddict=spreaddict)
+                compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, spreadparams=spreadparams)
 ```
 
 
@@ -304,7 +304,7 @@ open_more = sd_gen(start=95, cf=(.5,1.55), tf=(.25,.55),comply=.6)
 
 ```julia
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
-                compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, spreaddict=spreaddict)
+                compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, spreadparams=spreadparams)
 ```
 
 
@@ -316,7 +316,7 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[
 
 
 ```julia
-function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx,testdat=openmx, spreaddict=spreaddict)
+function isolate_vulnerable(locale; opendat=openmx, isodat=isolatedmx,testdat=openmx, spreadparams=spreadparams)
     if day_ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:sickdaylim, locale; opendat=opendat, isodat=isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:sickdaylim, locale; opendat=opendat, isodat=isodat)

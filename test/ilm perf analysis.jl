@@ -18,7 +18,7 @@ agegrp_idx = alldict["dat"]["agegrp_idx"]
 cumhistmx = alldict["dat"]["cumhistmx"]
 newhistmx = alldict["dat"]["newhistmx"]
 geodf = alldict["geo"]
-spreaddict = alldict["sp"]
+spreadparams = alldict["sp"]
 
 density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
 
@@ -33,7 +33,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, CovidSim_ilm.nil, CovidSim_ilm.agegr
 
 ##
 inc!(day_ctr, :day)  # increment the simulation day counter
-spread!(popdat, loc, [], spreaddict, density_factor)  
+spread!(popdat, loc, [], spreadparams, density_factor)  
 
 ##
 transition!(popdat, loc, dt_dict) 
@@ -42,7 +42,7 @@ transition!(popdat, loc, dt_dict)
 
 ##
 
-result_dict, spreaddict, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, spreadparams, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
 
 
 ##

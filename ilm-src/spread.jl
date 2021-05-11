@@ -24,20 +24,6 @@ function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
 end
 
 
-# this hideous aberration is a function barrier to expose to Julia the types of each dict
-# member and compile the other spread! method knowing the types
-function spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, density_factor)
-    contact_factors = spreaddict[:contact_factors]
-    touch_factors = spreaddict[:touch_factors]
-    riskmx = spreaddict[:riskmx] 
-    shape = spreaddict[:shape]
-
-    spread!(locdat, infect_idx, contactable_idx, spreadcases,
-        contact_factors, touch_factors, riskmx, shape, density_factor
-        )
-end
-
-
 """
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
@@ -46,7 +32,12 @@ The alternative method processes spreadcases for social distancing. If comply pe
 is not 1.0 or 0.0, the population is split into complying and non-complying.
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, spreadcases, 
-    contact_factors, touch_factors, riskmx, shape, density_factor)
+    spreadparams, density_factor)
+
+    contact_factors = spreadparams.contact_factors
+    touch_factors = spreadparams.touch_factors
+    riskmx = spreadparams.riskmx
+    shape = spreadparams.shape
 
     # assign contacts, do touches, do new infections
     @inbounds @fastmath for p in infect_idx      # p is the person who is the spreader
@@ -106,7 +97,7 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
 end
 
 
-@inline function old_spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, 
+@inline function old_spread!(locdat, infect_idx, contactable_idx, spreadcases, spreadparams, 
                          density_factor::Float64 = 1.0)
 
     # locdat = locale == 0 ? dat : dat[locale]
@@ -127,13 +118,13 @@ end
     if isempty(spreadcases) && !do_case  # no cases left and do_case is false 
 
         _spread!(locdat, infect_idx, contactable_idx,
-                spreaddict[:contact_factors], spreaddict[:touch_factors], 
-                spreaddict[:riskmx], spreaddict[:shape], density_factor)  # n_contacts, n_touched, n_newly_infected = 
+                spreadparams.contact_factors, spreadparams.touch_factors, 
+                spreadparams.riskmx, spreadparams.shape, density_factor)  # n_contacts, n_touched, n_newly_infected = 
             
     else  # a case may start today OR we have an active case
 
         spread_cases(locdat, spreadcases,           # n_contacts, n_touched, n_newly_infected = 
-                infect_idx, contactable_idx, spreaddict, density_factor)
+                infect_idx, contactable_idx, spreadparams, density_factor)
             
     end
 
@@ -144,7 +135,7 @@ end
 end
 
 
-function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddict, density_factor)
+function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreadparams, density_factor)
 
     for (i,case) in enumerate(spreadcases)
         if case.day == day_ctr[:day] # there is a case that starts today!
@@ -153,8 +144,8 @@ function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddi
             elseif 0.0 < case.comply <= 1.0    # use case inputs 
                 sim_stash[:do_case] = true
                 sim_stash[:comply] = case.comply
-                sim_stash[:cf] = shifter(spreaddict[:contact_factors], case.cf...)
-                sim_stash[:tf] = shifter(spreaddict[:touch_factors], case.tf...)
+                sim_stash[:cf] = shifter(spreadparams.contact_factors, case.cf...)
+                sim_stash[:tf] = shifter(spreadparams.touch_factors, case.tf...)
             else
                 @error "spreadcase comply value must be >= 0.0 and <= 1.0: got $(case.comply)"
             end
@@ -174,7 +165,7 @@ function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddi
 
              _spread!(locdat, infect_idx,                                      # n_contacts, n_touched, n_newly_infected =
                             contactable_idx, sim_stash[:cf], sim_stash[:tf], 
-                            spreaddict[:riskmx], spreaddict[:shape], density_factor)
+                            spreadparams.riskmx, spreadparams.shape, density_factor)
                 
 
         elseif 0.0 < sim_stash[:comply] < 1.0  # split the population into comply and nocomply for 0.0 < comply < 1.0: 
@@ -202,8 +193,8 @@ function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddi
                         nsp = n_spreaders_comply  
                         ncon = n_contactable_comply            
                     elseif pass == :nocomply # use default factors
-                        pass_cf = spreaddict[:contact_factors]
-                        pass_tf = spreaddict[:touch_factors]
+                        pass_cf = spreadparams.contact_factors
+                        pass_tf = spreadparams.touch_factors
 
                         nsp = n_spreaders - n_spreaders_comply  
                         ncon = n_contactable - n_contactable_comply            
@@ -213,14 +204,14 @@ function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddi
                     pass_contactable_idx = contactable_idx_split[pass] 
 
                     # n_contacts, n_touched, n_newly_infected = .+((n_contacts, n_touched, n_newly_infected),
-                    _spread!(locdat, pass_infect_idx, pass_contactable_idx, pass_cf, pass_tf, spreaddict[:riskmx], spreaddict[:shape], density_factor)   #)
+                    _spread!(locdat, pass_infect_idx, pass_contactable_idx, pass_cf, pass_tf, spreadparams.riskmx, spreadparams.shape, density_factor)   #)
                 end
             end # begin block
         end
     else  # a case was zero'ed out today--this is same as running spread! -> that might happen next day if no more cnt_accessible
         _spread!(locdat, infect_idx, contactable_idx,                                    # n_contacts, n_touched, n_newly_infected =
-                spreaddict[:contact_factors], spreaddict[:touch_factors], spreaddict[:riskmx], 
-                spreaddict[:shape], density_factor)
+                spreadparams.contact_factors, spreadparams.touch_factors, spreadparams.riskmx, 
+                spreadparams.shape, density_factor)
     end
 
     return #n_contacts, n_touched, n_newly_infected
@@ -242,7 +233,7 @@ function cleanup_stash(stash)
 end
 
 
-function r0_sim(age_dist, dat, locale::Int, dt_dict, spreaddict, density_factor, pop=1_000_000; scale=10)
+function r0_sim(age_dist, dat, locale::Int, dt_dict, spreadparams, density_factor, pop=1_000_000; scale=10)
 
     # setup a fake locale or use the current locale in the simulation
     @views if locale == 0 # simulate with fake locale with pop people
@@ -286,7 +277,7 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, spreaddict, density_factor,
 
     ret = [0,0,0,0] # n_spreaders, n_contacts, n_touched, n_newly_infected 
     for i = 1:sickdaylim                                          
-        ret[:] .+= spread!(r0pop, 0, [], spreaddict, density_factor)  
+        ret[:] .+= spread!(r0pop, 0, [], spreadparams, density_factor)  
 
         transition!(r0pop, 0, dt_dict) 
 
@@ -314,13 +305,13 @@ function set_by_level(x, levels=[[1, 300_000], [5, 500_000], [10, 10_000_000_000
 end
 
 
-function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; spreaddict=spreaddict, dt=dt)
+function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; spreadparams=spreadparams, dt=dt)
     tbl = zeros(n+1,n+1)
     cfiter = [cfstart + (i-1) * .1 for i=1:n]
     tfiter = [tfstart + (i-1) * 0.05 for i=1:n]
     for (j,cf) in enumerate(cfiter)
         for (i,tf) = enumerate(tfiter)
-            tbl[i+1,j+1] = r0_sim(spreaddict=spreaddict, dt=dt, decpoints=decpoints, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
+            tbl[i+1,j+1] = r0_sim(spreadparams=spreadparams, dt=dt, decpoints=decpoints, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
         end
     end
     tbl[1, 2:n+1] .= cfiter

@@ -26,7 +26,7 @@ Two of the inputs may refer to multiple items and must match in number of items.
 Returns a function that can be used in runcases input to run_a_sim.
 """
 function seed_case_gen(day, cnt, sickday, cond, agegrp) # these args go into the returned seed! case
-    function scase(locale, opendat, spreaddict)  # args must match runcases loop in run_a_sim
+    function scase(locale, opendat, spreadparams)  # args must match runcases loop in run_a_sim
         seed!(day, cnt, sickday, cond, agegrp, locale, opendat)
     end
 end

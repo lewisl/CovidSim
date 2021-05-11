@@ -97,7 +97,7 @@ alldict, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
        runcases=[seed_1_6]);
 
 # %%
-sim_r0(spreaddict, alldict["dt"], alldict["decpoints"])
+sim_r0(spreadparams, alldict["dt"], alldict["decpoints"])
 
 # %%
 cumplot(series,seattle.fips,geo=geo)

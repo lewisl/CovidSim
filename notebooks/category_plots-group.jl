@@ -222,7 +222,7 @@ death_dist_by_age = hcat(agelabels, deadvals, pctvals)
 # - opening up 45 days later, but less than fully
 
 # %%
-function isolate_vulnerable(locale, opendat, isodat,testdat, spreaddict)
+function isolate_vulnerable(locale, opendat, isodat,testdat, spreadparams)
     if day_ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:sickdaylim, locale, opendat, isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:sickdaylim, locale, opendat, isodat)

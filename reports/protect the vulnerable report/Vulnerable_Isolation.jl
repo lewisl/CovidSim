@@ -88,7 +88,7 @@ cumplot(series,newyork.fips,[infectious, dead],geo=geo)
 
 # %%
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], decpoints=alldict["decpoints"],
-        cf=[], tf=[], compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, spreaddict=spreaddict)
+        cf=[], tf=[], compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, spreadparams=spreadparams)
 
 # %% [markdown]
 # The preceding estimate of R0 tracks one cohort across all demographic groups of the simulation through the duration of the disease for 25 days, though much of the cohort will "drop out" through recovery or death prior to the 25th day. Infectiveness varies across the number of days a person has been infected.  
@@ -142,10 +142,10 @@ open_more = sd_gen(start=95, cf=(.5,1.55), tf=(.25,.55),comply=.6)
 
 # %%
 r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], decpoints=alldict["decpoints"],
-        cf=[], tf=[], compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, spreaddict=spreaddict)
+        cf=[], tf=[], compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, spreadparams=spreadparams)
 
 # %%
-function isolate_vulnerable(locale, opendat, isodat, testdat, spreaddict)
+function isolate_vulnerable(locale, opendat, isodat, testdat, spreadparams)
     if day_ctr[:day] == 105
         isolate!(.70,[unexposed, nil,mild,sick, severe],[5],1:sickdaylim, locale, opendat, isodat)
         isolate!(.50,[unexposed,nil,mild,sick, severe],[4],1:sickdaylim, locale, opendat, isodat)

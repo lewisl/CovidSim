@@ -224,7 +224,7 @@ isa(6, Dict)
 # ### Check allocations of spreading (2 functions)
 
 # %%
-@time spread!(popdat, 38015, [], spreaddict) # returns (n_spreaders, n_contacts, n_touched, n_newly_infected)
+@time spread!(popdat, 38015, [], spreadparams) # returns (n_spreaders, n_contacts, n_touched, n_newly_infected)
 
 # %% [markdown]
 # not terrible: 0.005223 seconds (1.29 k allocations: 899.457 KiB, 69.25% compilation time)
