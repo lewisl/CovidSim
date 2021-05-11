@@ -24,6 +24,19 @@ function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
 end
 
 
+# this hideous aberration is a function barrier to expose to Julia the types of each dict
+# member and compile the other spread! method knowing the types
+function spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, density_factor)
+    contact_factors = spreaddict[:contact_factors]
+    touch_factors = spreaddict[:touch_factors]
+    riskmx = spreaddict[:riskmx] 
+    shape = spreaddict[:shape]
+
+    spread!(locdat, infect_idx, contactable_idx, spreadcases,
+        contact_factors, touch_factors, riskmx, shape, density_factor
+        )
+end
+
 
 """
 How far do the infectious people spread the virus to
@@ -32,7 +45,68 @@ previously unexposed people, by agegrp?  For a single locale...
 The alternative method processes spreadcases for social distancing. If comply percentage
 is not 1.0 or 0.0, the population is split into complying and non-complying.
 """
-@inline function spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, 
+@inline function spread!(locdat, infect_idx, contactable_idx, spreadcases, 
+    contact_factors, touch_factors, riskmx, shape, density_factor)
+
+    # assign contacts, do touches, do new infections
+    @inbounds @fastmath for p in infect_idx      # p is the person who is the spreader
+
+        # spreader's characteristics
+
+        # if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
+        #     return  # or continue
+        # end
+        spreadercond = locdat.cond[p]  # map 5-8 to 1-4
+        spreaderagegrp = locdat.agegrp[p]
+        spreadersickday = locdat.sickday[p]
+
+        scale = density_factor * contact_factors[spreaderagegrp][condnames[spreadercond]]
+
+        nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
+        # n_contacts += nc
+                                # TODO we could keep track of contacts for contact tracing
+        @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
+            # contacts's characteristics
+            # if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
+            #     return
+            # end
+            contactstatus = locdat.status[contact]  
+            contactagegrp = locdat.agegrp[contact]
+            contactcond = locdat.cond[contact]
+            contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
+                        "unexposed"  # row 1
+                     elseif contactstatus == recovered
+                        "recovered"  # row 2
+                     else
+                        condnames[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
+                     end
+
+            if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
+                # touch outcome
+                touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
+                # n_touched += touched
+
+                # infection outcome
+                if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
+                    prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
+                    newly_infected = rand(Binomial(1, prob))
+                    if newly_infected == 1
+                        locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
+                        locdat.status[contact] = infectious
+                        locdat.sickday[contact] = 1
+                        # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
+                    end
+                    # n_newly_infected += newly_infected
+                end
+            end
+        end
+    end
+
+    return # n_contacts, n_touched, n_newly_infected
+end
+
+
+@inline function old_spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, 
                          density_factor::Float64 = 1.0)
 
     # locdat = locale == 0 ? dat : dat[locale]
@@ -52,9 +126,9 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
 
     if isempty(spreadcases) && !do_case  # no cases left and do_case is false 
 
-        _spread!(locdat, infect_idx, contactable_idx,                               # n_contacts, n_touched, n_newly_infected = 
+        _spread!(locdat, infect_idx, contactable_idx,
                 spreaddict[:contact_factors], spreaddict[:touch_factors], 
-                spreaddict[:riskmx], spreaddict[:shape], density_factor)
+                spreaddict[:riskmx], spreaddict[:shape], density_factor)  # n_contacts, n_touched, n_newly_infected = 
             
     else  # a case may start today OR we have an active case
 
@@ -153,68 +227,7 @@ function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddi
 end
 
 
-@inline function _spread!(locdat, infect_idx, contactable_idx, contact_factors, touch_factors, riskmx, shape, density_factor)
 
-    # n_contacts = 0
-    # n_touched = 0
-    # n_newly_infected = 0
-
-    # assign contacts, do touches, do new infections
-    @inbounds @fastmath for p in infect_idx      # p is the person who is the spreader
-
-        # spreader's characteristics
-
-        # if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
-        #     return  # or continue
-        # end
-        spreadercond = locdat.cond[p]  # map 5-8 to 1-4
-        spreaderagegrp = locdat.agegrp[p]
-        spreadersickday = locdat.sickday[p]
-
-        scale = density_factor * contact_factors[spreaderagegrp][condnames[spreadercond]]
-
-        nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
-        # n_contacts += nc
-                                # TODO we could keep track of contacts for contact tracing
-        @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
-            # contacts's characteristics
-            # if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
-            #     return
-            # end
-            contactstatus = locdat.status[contact]  
-            contactagegrp = locdat.agegrp[contact]
-            contactcond = locdat.cond[contact]
-            contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
-                        "unexposed"  # row 1
-                     elseif contactstatus == recovered
-                        "recovered"  # row 2
-                     else
-                        condnames[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
-                     end
-
-            if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                # touch outcome
-                touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
-                # n_touched += touched
-
-                # infection outcome
-                if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                    prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
-                    newly_infected = rand(Binomial(1, prob))
-                    if newly_infected == 1
-                        locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
-                        locdat.status[contact] = infectious
-                        locdat.sickday[contact] = 1
-                        # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
-                    end
-                    # n_newly_infected += newly_infected
-                end
-            end
-        end
-    end
-
-    return # n_contacts, n_touched, n_newly_infected
-end
 
 
 function send_risk_by_recv_risk(send_risk, recv_risk)

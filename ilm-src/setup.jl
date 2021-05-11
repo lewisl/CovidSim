@@ -136,8 +136,10 @@ function build_spread_params(spfilename)
     spreaddict = Dict(
         :send_risk          => spread_params["send_risk"]::Vector{Float64},
         :recv_risk          => spread_params["recv_risk"]::Vector{Float64},
-        :contact_factors    => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) for (k1, v1) in spread_params["contact_factors"]),
-        :touch_factors      => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) for (k1, v1) in spread_params["touch_factors"]),
+        :contact_factors    => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) 
+                                    for (k1, v1) in spread_params["contact_factors"]),
+        :touch_factors      => Dict(Int(k1) => Dict(string(k2) => Float64(v2) for (k2,v2) in v1) 
+                                    for (k1, v1) in spread_params["touch_factors"]),
         :shape              => spread_params["shape"]::Float64,
         :riskmx             => send_risk::Array{Float64, 2}
         )
