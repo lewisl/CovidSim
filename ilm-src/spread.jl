@@ -57,7 +57,8 @@ end
 
         # load the s_d_comply column of the population table
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
-        filter1 = findall(((locdat.status .== 1) .| (locdat.status .== 3)) .| ((locdat.cond .== 5) .| (locdat.cond .== 6)))
+        filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
+                ((locdat.cond .== nil) .| (locdat.cond .== mild)))
         if (comply == 1.0)   # include everyone in filter1
             complyfilter = filter1
         else
@@ -134,11 +135,10 @@ previously unexposed people, by agegrp?  For a single locale...
         spreadersdcomply = locdat.s_d_comply[p]
 
         nc =    if spreadersdcomply == :none
-                    numcontacts(density_factor, shape, spreaderagegrp, spreadercond, contact_factors) 
+                    numcontacts(density_factor, shape, spreaderagegrp, spreadercond, contact_factors)  # this method is faster
                 else
                     numcontacts(density_factor, shape, spreaderagegrp, spreadercond, sdcases[spreadersdcomply])
                 end
-        # n_contacts += nc
                                 # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
             # contacts's characteristics
@@ -159,7 +159,7 @@ previously unexposed people, by agegrp?  For a single locale...
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
                 touched =   if contactcomply == :none
-                                istouched(contactagegrp, contactlookup, touch_factors)
+                                istouched(contactagegrp, contactlookup, touch_factors)  # this method is faster
                             else
                                 istouched(contactagegrp, contactlookup, sdcases[contactcomply])
                             end

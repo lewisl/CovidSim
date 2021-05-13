@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: jl:percent
+#     formats: jl:percent,ipynb
 #     text_representation:
 #       extension: .jl
 #       format_name: percent
@@ -130,9 +130,6 @@ countmap(popdat.status)
 # %%
 virus_outcome(series, locale)
 
-# %%
-Int(5.0)
-
 # %% [markdown]
 # # Plotted results
 
@@ -147,8 +144,6 @@ cumplot(series, locale)
 
 # %%
 sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, agegrps=[])    
-# (;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
-#    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps)
 
 # %%
 sd1_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, agegrps=[])
@@ -165,10 +160,43 @@ cumplot(series, locale)
 # %%
 outdat = result_dict["dat"]["popdat"][locale]
 
+# %% [markdown]
+# ## Social distancing only among those age40_59, age60_79, age80_plus
+
 # %%
-foo = collect(1:3:70)
-comply = 0.85
-rfoo = sample(foo, round(Int, comply*length(foo)), replace=false)
+sdolder = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, 
+    agegrps=[age40_59, age60_79, age80_up])    
+
+# %%
+sdolder_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
+    agegrps=[age40_59, age60_79, age80_up])    
+
+# %%
+result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
+    runcases=[seed_1_6, sdolder, sdolder_end]);
+
+
+# %%
+cumplot(series, locale)
+
+# %% [markdown]
+# ## Social Distancing starts with everyone and then the younger folks party
+
+# %%
+sdyoung_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
+    agegrps=[age0_19, age20_39])    
+
+# %%
+result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
+    runcases=[seed_1_6, sd1, sdolder_end]);
+
+# %%
+cumplot(series, locale)
+
+# %%
+cumplot(series, locale, [infectious, dead])
+
+# %%
 
 # %% [markdown]
 # ### Ways to reduce allocations for indexing
@@ -202,10 +230,10 @@ floor(Int,.23  * length(t))
 # %% tags=[]
 @time optfindall(==(6),t.c,.2);
 
-# %% jupyter={"outputs_hidden": true} tags=[]
+# %% tags=[]
 @time findall(t.c .== 6)
 
-# %% jupyter={"outputs_hidden": true} tags=[]
+# %% tags=[]
 for k in eachindex(t.c .== 3)
     println(k, " ", t.i[k])
 end
