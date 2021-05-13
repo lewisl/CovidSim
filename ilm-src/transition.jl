@@ -49,7 +49,7 @@ Works for a single locale.
         else # just increment sickday: one more day feeling the same kind of sick
             # @assert p_tup.sickday < sickdaylim "Person made it to last day and was not removed:\n     $p_tup\n"
             locdat.sickday[p] += 1
-        end
+        end  # if haskey ... else
     end  # for p
 
 end
@@ -102,26 +102,6 @@ function travelin!(dat=popdat)
         minus!(g.cnt, cond, g.agegrp, g.sickday, g.from, dat=dat)
         plus!(g.cnt, cond, g.agegrp, g.sickday, g.to, dat=dat)
     end
-end
-
-
-"""
-    Struct for supplying terms that make up a query of the population matrix.
-    Fields of the struct are:
-    - col: Symbol that is the column name in the population matrix
-    - op: logical test operation, one of: ==, !=, <, >, <=, >=, etc.
-    - val: the value to be compared, either Int or bit type for Bool: true, false
-"""
-struct Popquery
-    col::Symbol
-    op::Function
-    val::Union{Int64, Bool}
-    # row::Int
-end
-
-
-function doquery(dat, pq::Popquery, row)
-    return (pq.op)(pq.val, getproperty(dat, pq.col)[row])
 end
 
 

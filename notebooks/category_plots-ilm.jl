@@ -34,7 +34,6 @@ seattle = 53033
 
 # %%
 alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[],
         runcases=[seed_1_6]);
 
 # %%

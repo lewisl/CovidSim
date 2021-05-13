@@ -67,8 +67,9 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
             sickday = zeros(intype, pop),   
             recov_day = zeros(intype, pop),  
             dead_day = zeros(intype, pop),   
-            cluster = zeros(intype, pop),   
-            vax = falses(pop),   
+            cluster = zeros(intype, pop), 
+            s_d_comply = fill(:none, pop),  
+            vax = zeros(intype, pop),   
             vax_day = zeros(intype, pop),  
             test = falses(pop),  
             test_day = zeros(intype, pop),  
@@ -115,6 +116,11 @@ function buildgeodata(filename)
 end
 
 
+function send_risk_by_recv_risk(send_risk, recv_risk)
+    recv_risk' .* send_risk  # (sickdaylim, agegrps)
+end
+
+
 function build_spread_params(spfilename)
 
     spread_params = YAML.load_file(spfilename)
@@ -148,17 +154,55 @@ function build_spread_params(spfilename)
 end
 
 
-# calculate density_factor in setup, per locale
+#####################################################################################
+# dodgy math helper functions
+#####################################################################################
 
 function shifter(x::Array, oldmin, oldmax, newmin, newmax)
     newmin .+ (newmax - newmin) / (oldmax - oldmin) .* (x .- oldmin)
 end
 
 
-function shifter(x, newmin=0.9, newmax=1.5)
+function shifter(x::Array, newmin, newmax)
     oldmin = minimum(x)
     oldmax = maximum(x)
     shifter(x, oldmin, oldmax, newmin, newmax)
+end
+
+
+"""
+Warning: not general! works on dict with 2 levels and 
+numerical values at the lower level.
+"""
+function limdict(dct::Dict, op::Function)
+    minop = <
+    cv = op == minop ? Inf : -Inf
+    for v1 in values(dct)
+        for v2 in values(v1)
+            cv = op(v2, cv) ? v2 : cv
+        end
+    end
+    return cv
+end
+
+
+"""
+Warning: not general! works on dict with 2 levels and 
+numerical values at the lower level.
+"""
+@inline function shifter(d::Dict, newmin, newmax)
+    ret = deepcopy(d)
+    oldmin = limdict(d, <)
+    oldmax = limdict(d, >)
+    
+    @fastmath for k1 in keys(ret)
+        for k2 in keys(ret[k1])
+            x = ret[k1][k2]
+            ret[k1][k2] = newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
+        end
+    end
+
+    return ret
 end
 
 

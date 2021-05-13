@@ -29,7 +29,6 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # %%
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
@@ -47,7 +46,6 @@ infection_outcome(series, newyork.fips)
 # %%
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
@@ -143,7 +141,6 @@ end
 # reset the model to defaults
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[]);
 
 # %%

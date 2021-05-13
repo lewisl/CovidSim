@@ -24,7 +24,6 @@ seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, agegrps)
 cd("/Users/lewis/Dropbox/Online Coursework/Covid/src")
 locale = 4013 # Phoenix, Maricopa County
 alldict, evn, series = run_a_sim(180, locale, silent=true,
-        spreadcases=[], 
         runcases=[seed_1_6, seed_6_12]);
 geo = alldict["geo"];
 
@@ -111,7 +110,6 @@ cumplot(series, bismarck, [infectious, dead], geo=geo)
 
 # %%
 alldict, series = run_a_sim(180, bismarck, silent=true,
-    spreadcases=[],
     runcases=[seed_1_6, seed_6_12]);
 
 # %% slideshow={"slide_type": "slide"}

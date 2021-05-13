@@ -31,7 +31,6 @@ seattle = 53033
 
 # %%
 alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[],
         runcases=[seed_1_6]);
 
 # %%
@@ -175,7 +174,6 @@ open_more = sd_gen(start=105, cf=(.5,1.50), tf=(.18,.53),comply=1.0)
 
 # %%
 alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[str_65],
         runcases=[seed_1_6]);
 
 # %%
@@ -186,7 +184,6 @@ cumplot(series,seattle,geo=alldict["geo"], [infectious, dead])
 
 # %%
 alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[str_65, open_more],
         runcases=[seed_1_6]);
 
 # %%
@@ -231,7 +228,6 @@ end
 
 # %%
 alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
-        spreadcases=[str_65, open_more],
         runcases=[seed_1_6, isolate_vulnerable]);
 
 # %%
