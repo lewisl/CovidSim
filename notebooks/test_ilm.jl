@@ -42,6 +42,9 @@ alldict["dat"]
 ilmat = alldict["dat"]["popdat"][locale]
 
 # %%
+ages = alldict["dat"]["agegrp_idx"][38015]
+
+# %%
 columnnames(ilmat)
 
 # %%
@@ -57,28 +60,22 @@ geodf = alldict["geo"]   # the date for all locales has been read into a datafra
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-alldict["sp"]  # the spread parameters are loaded as a dict of float arrays
+spreadparams = alldict["sp"];  # the spread parameters are loaded as a dict of float arrays
 
 # %%
-send_risk = alldict["sp"][:send_risk]
+keys(spreadparams)
 
 # %%
-recv_risk = alldict["sp"][:recv_risk]
-
-# %%
-contact_factors = alldict["sp"][:contact_factors]
+contact_factors = spreadparams.contact_factors
 
 # %%
 contact_factors[5]
 
 # %%
-touch_factors =  alldict["sp"][:touch_factors]
+touch_factors =  spreadparams.touch_factors
 
 # %%
 touch_factors[1]
-
-# %%
-alldict["sp"][:touch_factors]
 
 # %%
 dectree = alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
@@ -145,8 +142,40 @@ cumplot(series, locale)
 # %% [markdown]
 # Note that the orangle line labeled Infectious that shows the number of infected people is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: Some people got sick today. Some people get better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. Newspaper tracking shows the new active infections of each day--who got sick today? The next day, if no one new got sick the line would be at zero--even though the people who got sick aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. This is the least common way to show the data.
 
+# %% [markdown]
+# ## Test a social distancing case
+
 # %%
-818/95626
+sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, agegrps=[])    
+# (;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
+#    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps)
+
+# %%
+sd1_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, agegrps=[])
+
+# %%
+result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6, sd1, sd1_end]);
+
+# %%
+virus_outcome(series, locale)
+
+# %%
+cumplot(series, locale)
+
+# %%
+
+# %%
+
+# %%
+outdat = result_dict["dat"]["popdat"][locale]
+
+# %%
+filter1 = findall(((outdat.status .== 1) .| (outdat.status .== 3)) .| ((outdat.cond .== 5) .| (outdat.cond .== 6)))
+
+# %%
+foo = collect(1:3:70)
+comply = 0.85
+rfoo = sample(foo, round(Int, comply*length(foo)), replace=false)
 
 # %% [markdown]
 # ### Ways to reduce allocations for indexing

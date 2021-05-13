@@ -30,6 +30,8 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 
     locales = locales   # force local scope to be visible in the loop
 
+    sdcases = Dict{Symbol, Spreadcase}()  # hold definitions of spreadcases
+
     ######################
     # simulation loop
     ######################
@@ -43,18 +45,21 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
         silent || println("simulation day: ", day_ctr[:day])
 
         for loc in locales     # @inbounds
+
+            silent || println("Simulation starting for location $loc")
             
             locdat = popdat[loc]
+            ages = agegrp_idx[loc]
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             for case in runcases
-                case(loc, popdat, spreadparams)   
+                case(loc, popdat, spreadparams, sdcases, ages)  
             end
             idxtime += @elapsed begin
                 infect_idx = findall(locdat.status .== infectious)
                 contactable_idx = findall(locdat.status .!= dead)
             end
-            sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, spreadcases, 
+            sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, sdcases, 
                 spreadparams, density_factor)  # sptime += @elapsed 
             trtime += @elapsed  transition!(locdat, infect_idx, dectree)                       # trtime += @elapsed 
 
@@ -205,6 +210,12 @@ end
 #  other functions used in simulation
 #####################################################################################
 
+function cleanup_stash(stash)
+    for k in keys(stash)
+        delete!(stash, k)
+    end
+end
+
 
 function empty_all_caches!()
     # empty tracking queues
@@ -212,7 +223,6 @@ function empty_all_caches!()
     !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
     !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
     !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))  
-    cleanup_stash(sim_stash) 
 end
 
 
@@ -392,7 +402,6 @@ function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
         filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
         rowrange = 1:cnt[i]
         filt_all = filt_unexp[filt_age][rowrange]
-        cols = [col_status, col_cond, col_sickday]
 
         dat.status[filt_all] .= infectious
         dat.cond[filt_all] .= tocond

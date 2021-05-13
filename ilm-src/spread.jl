@@ -1,27 +1,110 @@
 ################################
 # spread.jl for ilm model
+#    social distancing cases
+#    spreading the infection
 ################################
 
-"""
-Stash for temporary values changed during simulation cases
-- to change just once and then get the originals back
-- it is the users responsibility to empty the stash
-- there may be (will be) side effects if you don't empty the stash between simulations
-"""
-const sim_stash = Dict{Symbol, Any}()
+
+#######################################################################
+# social distancing cases
+#      struct to hold parameters for defining the case
+#      implement the case: 
+#           - set social distance compliance for each person
+#           - define the contact_factors and touch_factors for the case
+#######################################################################          
 
 
-struct Spreadcase
+Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword arguments in constructor
     day::Int
-    cf::Tuple{Float64,Float64}  # (4,5)  # contact factors
-    tf::Tuple{Float64,Float64}  # (6,5)  # touch factors
-    comply::Float64             # compliance percentage
+    cfdelta::Tuple{Float64,Float64}  
+    tfdelta::Tuple{Float64,Float64}  
+    comply::Float64             # compliance fraction
+    cfcase::Dict{Int64, Dict{String, Float64}}
+    tfcase::Dict{Int64, Dict{String, Float64}}
+end
+
+function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
+    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps)
+    function scase(locale, dat, spreadparams, sdcases, ages)   # scase(locale, dat, spreadparams, sdcases)
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
+    end
 end
 
 
-function sd_gen(;start=45, comply=.7, cf=(.2, 1.6), tf=(.18,.7))
-    Spreadcase(start, cf, tf, comply)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
+    @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
+    
+    if startday == day_ctr[:day]
+        name = Symbol(name)
+        locdat = dat[locale]
+
+        if comply == 0.0  # magic signal: if comply is zero turn off this case for the selected agegrps
+            cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+            return
+        end
+
+        # create the Spreadcase in sdcases
+        sdcases[name] = Spreadcase(
+            day     = startday,   
+            cfdelta = cf,         
+            tfdelta = tf,         
+            comply  = comply,     
+            cfcase  = shifter(spreadparams.contact_factors, cf...),  
+            tfcase  = shifter(spreadparams.touch_factors, tf...)     
+            )
+
+        # load the s_d_comply column of the population table
+        # filter1 is everyone who is unexposed, recovered or sick: nil or mild
+        filter1 = findall(((locdat.status .== 1) .| (locdat.status .== 3)) .| ((locdat.cond .== 5) .| (locdat.cond .== 6)))
+        if (comply == 1.0) | (comply == 0.0)  # include everyone in filter1
+            complyfilter = filter1
+        else
+            complyfilter = sample(filter1, round(Int, comply*length(filter1)), replace=false)
+        end
+        
+        if isempty(agegrps)   # include all agegrps
+            locdat.s_d_comply[complyfilter] .= name
+        else
+            byage_idx = intersect(complyfilter, union((ages[i] for i in agegrps)...))
+            locdat.s_d_comply[byage_idx] .= name
+        end
+    end
 end
+
+
+function cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+    # filter on who is in this case now
+    incase_idx = findall(locdat.s_d_comply .== name)
+
+    if isempty(agegrps)   # include all agegrps
+        locdat.s_d_comply[incase_idx] .= :none
+        delete!(sdcases, name)  # there is no one left...
+    else  # only turn it off for some agegrps
+        byage_idx = intersect(incase_idx, union((ages[i] for i in agegrps)...))
+        locdat.s_d_comply[byage_idx] .= :none
+    end    
+
+end
+
+
+@inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
+    scale = density_factor * contact_factors[agegrp][condnames[cond]]
+    round(Int,rand(Gamma(shape, scale)))
+end
+
+@inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
+    scale = density_factor * acase.cfcase[agegrp][condnames[cond]]  
+    round(Int,rand(Gamma(shape, scale)))
+end
+
+@inline @inbounds @fastmath function ftouched(agegrp, lookup, touch_factors)::Int
+    rand(Binomial(1, touch_factors[agegrp][lookup]))    
+end
+
+@inline @inbounds @fastmath function ftouched(agegrp, lookup, acase::Spreadcase)::Int
+    rand(Binomial(1, acase.tfcase[agegrp][lookup]))  
+end
+
 
 
 """
@@ -31,7 +114,7 @@ previously unexposed people, by agegrp?  For a single locale...
 The alternative method processes spreadcases for social distancing. If comply percentage
 is not 1.0 or 0.0, the population is split into complying and non-complying.
 """
-@inline function spread!(locdat, infect_idx, contactable_idx, spreadcases, spreadparams, density_factor)
+@inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
 
     contact_factors = spreadparams.contact_factors
     touch_factors = spreadparams.touch_factors
@@ -49,10 +132,13 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
         spreadercond = locdat.cond[p]  # map 5-8 to 1-4
         spreaderagegrp = locdat.agegrp[p]
         spreadersickday = locdat.sickday[p]
+        spreadersdcomply = locdat.s_d_comply[p]
 
-        scale = density_factor * contact_factors[spreaderagegrp][condnames[spreadercond]]
-
-        nc = round(Int,rand(Gamma(shape, scale))) # number of contacts for 1 spreader
+        nc =    if spreadersdcomply == :none
+                    numcontacts(density_factor, shape, spreaderagegrp, spreadercond, contact_factors) 
+                else
+                    numcontacts(density_factor, shape, spreaderagegrp, spreadercond, sdcases[spreadersdcomply])
+                end
         # n_contacts += nc
                                 # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
@@ -63,6 +149,7 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
             contactstatus = locdat.status[contact]  
             contactagegrp = locdat.agegrp[contact]
             contactcond = locdat.cond[contact]
+            contactcomply = locdat.s_d_comply[contact]
             contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
                         "unexposed"  # row 1
                      elseif contactstatus == recovered
@@ -72,9 +159,11 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
                      end
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                # touch outcome
-                touched = rand(Binomial(1, touch_factors[contactagegrp][contactlookup]))
-                # n_touched += touched
+                touched =   if contactcomply == :none
+                                ftouched(contactagegrp, contactlookup, touch_factors)
+                            else
+                                ftouched(contactagegrp, contactlookup, sdcases[contactcomply])
+                            end
 
                 # infection outcome
                 if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
@@ -86,149 +175,12 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
                         locdat.sickday[contact] = 1
                         # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
                     end
-                    # n_newly_infected += newly_infected
                 end
             end
         end
     end
 
     return # n_contacts, n_touched, n_newly_infected
-end
-
-
-@inline function old_spread!(locdat, infect_idx, contactable_idx, spreadcases, spreadparams, 
-                         density_factor::Float64 = 1.0)
-
-    # locdat = locale == 0 ? dat : dat[locale]
-
-    # filttime = @elapsed
-    # begin # indices of all spreaders; indices of all who could be contacted
-        # infect_idx = findall(locdat.status .== infectious)    # optfindall(==(infectious), locdat.status, 0.5)   # must use parens around 1st comparison for operator precedence
-        # contactable_idx = findall(locdat.status .!= dead)     # optfindall(!=(dead), locdat.status, 1)
-        # shuffle!(infect_idx); shuffle!(contactable_idx)
-
-        # n_spreaders = size(infect_idx, 1)
-        # n_contactable = size(contactable_idx, 1)
-    # end
-    # @show filttime
-
-    do_case = get(sim_stash, :do_case, false) # we've never had a case or we shut down the previous case
-
-    if isempty(spreadcases) && !do_case  # no cases left and do_case is false 
-
-        _spread!(locdat, infect_idx, contactable_idx,
-                spreadparams.contact_factors, spreadparams.touch_factors, 
-                spreadparams.riskmx, spreadparams.shape, density_factor)  # n_contacts, n_touched, n_newly_infected = 
-            
-    else  # a case may start today OR we have an active case
-
-        spread_cases(locdat, spreadcases,           # n_contacts, n_touched, n_newly_infected = 
-                infect_idx, contactable_idx, spreadparams, density_factor)
-            
-    end
-
-    # push!(spreadq,   (day=day_ctr[:day], locale=locale, spreaders=n_spreaders, contacts=n_contacts,
-                    #   touched=n_touched, infected=n_newly_infected))
-
-    return #n_spreaders, n_contacts, n_touched, n_newly_infected
-end
-
-
-function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreadparams, density_factor)
-
-    for (i,case) in enumerate(spreadcases)
-        if case.day == day_ctr[:day] # there is a case that starts today!
-            if case.comply == 0.0  # cancel spreadcase and restore defaults
-                sim_stash[:do_case] = false  # run spread! without cases
-            elseif 0.0 < case.comply <= 1.0    # use case inputs 
-                sim_stash[:do_case] = true
-                sim_stash[:comply] = case.comply
-                sim_stash[:cf] = shifter(spreadparams.contact_factors, case.cf...)
-                sim_stash[:tf] = shifter(spreadparams.touch_factors, case.tf...)
-            else
-                @error "spreadcase comply value must be >= 0.0 and <= 1.0: got $(case.comply)"
-            end
-            
-            deleteat!(spreadcases, i) # pop this case:  we don't need to look at it again
-            break   # we can only have one active case at a time; new cases replaces prior case; do one per day
-        end
-    end # if we go through loop w/o finding a case today, then nothing changes in sim_stash
-
-    do_case = get(sim_stash, :do_case, false)
-
-    if do_case
-        n_spreaders = size(infect_idx, 1);
-        n_contactable = size(contactable_idx, 1)            
-
-        if sim_stash[:comply] == 1.0 # we have a case that applies to everyone using the case parameters
-
-             _spread!(locdat, infect_idx,                                      # n_contacts, n_touched, n_newly_infected =
-                            contactable_idx, sim_stash[:cf], sim_stash[:tf], 
-                            spreadparams.riskmx, spreadparams.shape, density_factor)
-                
-
-        elseif 0.0 < sim_stash[:comply] < 1.0  # split the population into comply and nocomply for 0.0 < comply < 1.0: 
-            @views begin
-                n_spreaders_comply = round(Int, sim_stash[:comply] * n_spreaders)
-                n_contactable_comply = round(Int, sim_stash[:comply] * n_contactable)
-                infect_idx_split = Dict()
-                contactable_idx_split = Dict()
-
-                shuffle!(infect_idx); shuffle!(contactable_idx)  # enable random split of each
-                infect_idx_split[:comply] = infect_idx[1:n_spreaders_comply]
-                infect_idx_split[:nocomply] = infect_idx[(n_spreaders_comply + 1):n_spreaders]
-
-                contactable_idx_split[:comply] = contactable_idx[1:n_contactable_comply]
-                contactable_idx_split[:nocomply] = contactable_idx[(n_contactable_comply + 1):n_contactable]
-
-
-                # n_contacts = n_touched = n_newly_infected = 0
-
-                for pass in [:comply, :nocomply]
-                    if pass == :comply  # use case input factors
-                        pass_cf = sim_stash[:cf]
-                        pass_tf = sim_stash[:tf]
-
-                        nsp = n_spreaders_comply  
-                        ncon = n_contactable_comply            
-                    elseif pass == :nocomply # use default factors
-                        pass_cf = spreadparams.contact_factors
-                        pass_tf = spreadparams.touch_factors
-
-                        nsp = n_spreaders - n_spreaders_comply  
-                        ncon = n_contactable - n_contactable_comply            
-                    end
-
-                    pass_infect_idx = infect_idx_split[pass]
-                    pass_contactable_idx = contactable_idx_split[pass] 
-
-                    # n_contacts, n_touched, n_newly_infected = .+((n_contacts, n_touched, n_newly_infected),
-                    _spread!(locdat, pass_infect_idx, pass_contactable_idx, pass_cf, pass_tf, spreadparams.riskmx, spreadparams.shape, density_factor)   #)
-                end
-            end # begin block
-        end
-    else  # a case was zero'ed out today--this is same as running spread! -> that might happen next day if no more cnt_accessible
-        _spread!(locdat, infect_idx, contactable_idx,                                    # n_contacts, n_touched, n_newly_infected =
-                spreadparams.contact_factors, spreadparams.touch_factors, spreadparams.riskmx, 
-                spreadparams.shape, density_factor)
-    end
-
-    return #n_contacts, n_touched, n_newly_infected
-end
-
-
-
-
-
-function send_risk_by_recv_risk(send_risk, recv_risk)
-    recv_risk' .* send_risk  # (sickdaylim, agegrps)
-end
-
-
-function cleanup_stash(stash)
-    for k in keys(stash)
-        delete!(stash, k)
-    end
 end
 
 
