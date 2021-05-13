@@ -113,7 +113,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6]);
 
 # %%
 result_dict
@@ -154,7 +154,7 @@ sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, 
 sd1_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, agegrps=[])
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6, sd1, sd1_end]);
+result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
 
 # %%
 virus_outcome(series, locale)
@@ -163,14 +163,7 @@ virus_outcome(series, locale)
 cumplot(series, locale)
 
 # %%
-
-# %%
-
-# %%
 outdat = result_dict["dat"]["popdat"][locale]
-
-# %%
-filter1 = findall(((outdat.status .== 1) .| (outdat.status .== 3)) .| ((outdat.cond .== 5) .| (outdat.cond .== 6)))
 
 # %%
 foo = collect(1:3:70)

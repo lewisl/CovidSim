@@ -169,6 +169,7 @@ function shifter(x::Array, newmin, newmax)
     shifter(x, oldmin, oldmax, newmin, newmax)
 end
 
+
 """
 Warning: not general! works on dict with 2 levels and 
 numerical values at the lower level.
@@ -183,6 +184,7 @@ function limdict(dct::Dict, op::Function)
     end
     return cv
 end
+
 
 """
 Warning: not general! works on dict with 2 levels and 
@@ -202,7 +204,6 @@ numerical values at the lower level.
 
     return ret
 end
-
 
 
 function apportion(x::Int, splits::Array)

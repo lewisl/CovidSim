@@ -42,7 +42,7 @@ transition!(popdat, loc, dt_dict)
 
 ##
 
-result_dict, spreadparams, series = run_a_sim(180, 38015, showr0=false, silent=true, spreadcases=[], runcases=[seed_1_6]);
+result_dict, spreadparams, series = run_a_sim(180, 38015, showr0=false, silent=true, runcases=[seed_1_6]);
 
 
 ##

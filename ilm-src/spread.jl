@@ -12,7 +12,9 @@
 #           - set social distance compliance for each person
 #           - define the contact_factors and touch_factors for the case
 #######################################################################          
-
+# mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
+# str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
+# str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
 
 Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword arguments in constructor
     day::Int
@@ -24,7 +26,7 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
-    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps)
+    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps=[])
     function scase(locale, dat, spreadparams, sdcases, ages)   # scase(locale, dat, spreadparams, sdcases)
         s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
     end
@@ -45,18 +47,18 @@ end
 
         # create the Spreadcase in sdcases
         sdcases[name] = Spreadcase(
-            day     = startday,   
-            cfdelta = cf,         
-            tfdelta = tf,         
-            comply  = comply,     
-            cfcase  = shifter(spreadparams.contact_factors, cf...),  
-            tfcase  = shifter(spreadparams.touch_factors, tf...)     
-            )
+                        day     = startday,   
+                        cfdelta = cf,         
+                        tfdelta = tf,         
+                        comply  = comply,     
+                        cfcase  = shifter(spreadparams.contact_factors, cf...),  
+                        tfcase  = shifter(spreadparams.touch_factors, tf...)     
+                        )
 
         # load the s_d_comply column of the population table
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
         filter1 = findall(((locdat.status .== 1) .| (locdat.status .== 3)) .| ((locdat.cond .== 5) .| (locdat.cond .== 6)))
-        if (comply == 1.0) | (comply == 0.0)  # include everyone in filter1
+        if (comply == 1.0)   # include everyone in filter1
             complyfilter = filter1
         else
             complyfilter = sample(filter1, round(Int, comply*length(filter1)), replace=false)
@@ -97,11 +99,11 @@ end
     round(Int,rand(Gamma(shape, scale)))
 end
 
-@inline @inbounds @fastmath function ftouched(agegrp, lookup, touch_factors)::Int
+@inline @inbounds @fastmath function istouched(agegrp, lookup, touch_factors)::Int
     rand(Binomial(1, touch_factors[agegrp][lookup]))    
 end
 
-@inline @inbounds @fastmath function ftouched(agegrp, lookup, acase::Spreadcase)::Int
+@inline @inbounds @fastmath function istouched(agegrp, lookup, acase::Spreadcase)::Int
     rand(Binomial(1, acase.tfcase[agegrp][lookup]))  
 end
 
@@ -110,9 +112,6 @@ end
 """
 How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
-
-The alternative method processes spreadcases for social distancing. If comply percentage
-is not 1.0 or 0.0, the population is split into complying and non-complying.
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
 
@@ -129,7 +128,7 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
         # if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
         #     return  # or continue
         # end
-        spreadercond = locdat.cond[p]  # map 5-8 to 1-4
+        spreadercond = locdat.cond[p]  
         spreaderagegrp = locdat.agegrp[p]
         spreadersickday = locdat.sickday[p]
         spreadersdcomply = locdat.s_d_comply[p]
@@ -160,9 +159,9 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
                 touched =   if contactcomply == :none
-                                ftouched(contactagegrp, contactlookup, touch_factors)
+                                istouched(contactagegrp, contactlookup, touch_factors)
                             else
-                                ftouched(contactagegrp, contactlookup, sdcases[contactcomply])
+                                istouched(contactagegrp, contactlookup, sdcases[contactcomply])
                             end
 
                 # infection outcome
@@ -173,12 +172,11 @@ is not 1.0 or 0.0, the population is split into complying and non-complying.
                         locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                         locdat.status[contact] = infectious
                         locdat.sickday[contact] = 1
-                        # NOT ANY MORE sickday remains zero because person was unexposed; transition! function updates sickday
                     end
-                end
-            end
-        end
-    end
+                end  # if (touched ...)
+            end  # if contactstatus
+        end  # for contact in sample(...)
+    end  # for p in infect_idx
 
     return # n_contacts, n_touched, n_newly_infected
 end

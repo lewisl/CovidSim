@@ -29,7 +29,6 @@ phoenix = 4013
 newyork 36061
 alldict, series = run_a_sim(180, phoenix, silent=true,
             showr0 = false,
-            spreadcases=[],
             runcases=[seed_1_6, seed_6_12]);
 geo = alldict["geo"];
 

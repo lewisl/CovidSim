@@ -62,7 +62,6 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # %%
 alldict, series = run_a_sim(n, seattle.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 
 # %% jupyter={"source_hidden": true}
@@ -93,7 +92,6 @@ str_50 = sd_gen(start=50, comply=.85, cf=(.2,1.1), tf=(.18,.41))
 # %%
 alldict, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[str_50],
        runcases=[seed_1_6]);
 
 # %%
@@ -215,7 +213,6 @@ xlabel!("Days: Jan. 22 to May 23", guidefontsize=10)
 # %%
 alldict, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 
 # %%
@@ -237,7 +234,6 @@ end
 str_45_nyc = sd_gen(start=45, comply=.9, cf=(.2, 1.1), tf=(.18,.40))
 alldict, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[str_45_nyc],
        runcases=[seed_1_6]);
 
 # %%
@@ -280,7 +276,6 @@ rundays = n + adjdays
 # %%
 alldict, series = run_a_sim(rundays, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[str_45_nyc],
        runcases=[seed_1_6]);
 
 # %%

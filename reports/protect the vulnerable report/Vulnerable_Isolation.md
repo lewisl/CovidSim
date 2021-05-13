@@ -62,7 +62,6 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 ```julia
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 ```
 
@@ -99,7 +98,6 @@ Reset the model to defaults.
 ```julia
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 ```
 
@@ -160,7 +158,6 @@ This uses opening back to essentially no social distancing and an R0 between 1.6
 # Reset to defaults
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 ```
 
@@ -223,7 +220,6 @@ The preceding estimate of R0 tracks one cohort across all demographic groups of 
 # reset the model to defaults
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[seed_1_6]);
 ```
 
@@ -336,7 +332,6 @@ end
 # reset the model to defaults
 alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
-       spreadcases=[],
        runcases=[]);
 ```
 

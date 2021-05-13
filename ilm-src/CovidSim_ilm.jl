@@ -9,12 +9,11 @@
     # put in an inflection measure
 
 # TODO for individual level model
-    # get rid of indirection for lowlevel population updates
+    # rewrite r0 simulator
     # add transq to ilm and test
-    # new approach to social distancing spreadcases
     # vaccination with 3 vaccines / 1 or 2 shots
     # extend to one year
-    # change meaningful constants to _nil_, _severe_, _dead_ etc.
+    # change meaningful constants to _nil_, _severe_, _dead_ etc.???
 
 # Done
     # do unquarantine for ilm
@@ -37,7 +36,6 @@ using Printf
 using Plots
 using PlotThemes
 using StatsPlots
-using Debugger
 using Dates
 using YAML
 using TypedTables
@@ -112,8 +110,7 @@ export
     spreadq,
     transq,
     day2df,
-    map2series,
-    sim_stash
+    map2series
 
 # functions for decision trees
 export                  
@@ -177,19 +174,6 @@ export
     agegrps,
     n_agegrps,
     recv_risk,
-    col_status,
-    col_agegrp,
-    col_cond,
-    col_sickday,
-    col_cluster,
-    col_recov_day,
-    col_dead_day,
-    col_vax,
-    col_vax_day,
-    col_test,
-    col_test_day,
-    col_quar,
-    col_quar_day,
     totalcol
 
 
@@ -260,12 +244,12 @@ const mild              = 6
 const sick              = 7
 const severe            = 8
 
-const statuses          = [1,2,3,4]
-const conditions        = [5,6,7,8]
-const all_conds         = [1,2,3,4,5,6,7,8]
+const statuses          = [unexposed,infectious,recovered,dead]
+const conditions        = [nil,mild,sick,severe]
+const all_conds         = [unexposed,infectious,recovered,dead,nil,mild,sick,severe]
 const infectious_cases  = [nil, mild, sick, severe]
 const transition_cases  = [recovered, nil, mild, sick, severe, dead]
-const agegrps           = [1,2,3,4,5]
+const agegrps           = [age0_19,age20_39,age40_59,age60_79,age80_up]
 const n_agegrps         = length(agegrps)
 const condnames         = Dict(0=>"notsick", 1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
                                 5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
@@ -274,32 +258,11 @@ const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
-# columns of population matrix not used with TypedTables, but these are still correct
-const col_status        = 1
-const col_agegrp        = 2
-const col_cond          = 3
-const col_sickday           = 4
-const col_cluster       = 5
-const col_recov_day     = 6
-const col_dead_day      = 7
-const col_vax           = 8
-const col_vax_day       = 9
-const col_test          = 10
-const col_test_day      = 11
-const col_quar          = 12
-const col_quar_day      = 13
-
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
 const totalcol = 6
 
-# struct to hold current status indices
-mutable struct Current_idx
-   data::Array{Int,1}
-   last::Int
-   Current_idx(n) = new(zeros(Int,n),0)
-end
 
 # traveling constants
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group

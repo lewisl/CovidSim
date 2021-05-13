@@ -5,14 +5,6 @@
 #       then run_a_sim(geofilename, n_days, locales; runcases=cases)
 ####################################################################
 
-####################################################################
-# 
-# - define a cases as mycase=Spreadcase(15,cf_array,tf_array,compliance_array_or_float)
-# - pass these cases to run_a_sim in kwarg spreadcases as a list--they'll be run in function spread!
-#        scases = [mycase, case_2, ...]  then run_a_sim(geofilename, n_days, locales; spreadcases=scases)
-# - cases above can be combined with these passing in both runcases and spreadcases
-# 
-####################################################################
 
 ####################################################################
 # seeding cases
@@ -60,24 +52,5 @@ end
 # isolation cases
 ####################################################################
 
-
-
-
-####################################################################
-# spread cases
-####################################################################
-
-        # all in spread.jl
-
-
-
-
-# copy beyond the comment and run in the REPL, use as input
-#
-# mod_45 = sd_gen()  # with defaults
-# mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
-# str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
-# str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
-# zer = sd_gen(start=90, comply=0.0)
 
 

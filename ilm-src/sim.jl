@@ -4,7 +4,7 @@
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
+function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, set_int_type=Int64,
             geofilename="../data/geo2data.csv", 
             dectreefilename="../parameters/dec_tree_all_25.yml",
             spfilename="../parameters/spread_params.yml")
@@ -348,47 +348,10 @@ end
 
 
 
-#############################################################
-#  other convenience functions
-#############################################################
-
-
-# to access a column of a TypedTable using a variable that holds the symbol
-getcol = TypedTables.getproperty
-
-
-function printsp(xs...)
-    for x in xs
-       print(x," ")
-    end
-   println()
-end
-
-sparsify!(x, eps=1e-8) = x[abs.(x) .< eps] .= 0.0;
-
-
-#############################################################
-#  experiments
-#############################################################
-
-
 ####################################################################################
 #   convenience functions for reading and inputting population statistics
 #                in the population data matrices
 ####################################################################################
-
-mutable struct actions
-   tests::Array{Array{Int,1},1}  # [[column index, value]]
-   cmps::Array{Function, 1}     # must have same number of elements as tests
-   todo::Array{Array{Int,1},1}
-   setters::Array{Function, 1}  # must have same number of elements as todo
-end
-
-
-mutable struct filts 
-   tests::Array{Array{Int,1},1}
-   cmps::Array{Function, 1}     # must have same number of elements as tests
-end
 
 
 function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
@@ -409,12 +372,4 @@ function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
     end
 end
 
-
-function incr(a,b)
-    a .+= b
-end
-
-function setval(a,b)
-    a .= b
-end
 
