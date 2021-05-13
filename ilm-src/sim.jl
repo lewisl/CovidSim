@@ -53,7 +53,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, set
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             for case in runcases
-                case(loc, popdat, spreaddict)   
+                case(loc, popdat, spreadparams, sdcases, ages)  
             end
             idxtime += @elapsed begin
                 infect_idx = findall(locdat.status .== infectious)

@@ -40,18 +40,20 @@ end
         name = Symbol(name)
         locdat = dat[locale]
 
-# this hideous aberration is a function barrier to expose to Julia the types of each dict
-function spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, density_factor)
-    contact_factors = spreaddict[:contact_factors]
-    touch_factors = spreaddict[:touch_factors]
+        if comply == 0.0  # magic signal: if comply is zero turn off this case for the selected agegrps
+            cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+            return
+        end
+
         # create the Spreadcase in sdcases
-    shape = spreaddict[:shape]
+        sdcases[name] = Spreadcase(
                         day     = startday,   
                         cfdelta = cf,         
                         tfdelta = tf,         
                         comply  = comply,     
-    spread!(locdat, infect_idx, contactable_idx, spreadcases,
-        contact_factors, touch_factors, riskmx, shape, density_factor
+                        cfcase  = shifter(spreadparams.contact_factors, cf...),  
+                        tfcase  = shifter(spreadparams.touch_factors, tf...)     
+                        )
 
         # load the s_d_comply column of the population table
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
@@ -70,6 +72,9 @@ function spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, d
             locdat.s_d_comply[byage_idx] .= name
         end
     end
+end
+
+
 function cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
     # filter on who is in this case now
     incase_idx = findall(locdat.s_d_comply .== name)
@@ -110,7 +115,6 @@ How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
-    spreadparams, density_factor)
 
     contact_factors = spreadparams.contact_factors
     touch_factors = spreadparams.touch_factors
@@ -171,22 +175,9 @@ previously unexposed people, by agegrp?  For a single locale...
                     end
                 end  # if (touched ...)
             end  # if contactstatus
-@inline function old_spread!(locdat, infect_idx, contactable_idx, spreadcases, spreaddict, 
         end  # for contact in sample(...)
     end  # for p in infect_idx
 
-                spreaddict[:contact_factors], spreaddict[:touch_factors], 
-                spreaddict[:riskmx], spreaddict[:shape], density_factor)  # n_contacts, n_touched, n_newly_infected = 
-                infect_idx, contactable_idx, spreaddict, density_factor)
-function spread_cases(locdat, spreadcases, infect_idx, contactable_idx, spreaddict, density_factor)
-                sim_stash[:cf] = shifter(spreaddict[:contact_factors], case.cf...)
-                sim_stash[:tf] = shifter(spreaddict[:touch_factors], case.tf...)
-                            spreaddict[:riskmx], spreaddict[:shape], density_factor)
-                        pass_cf = spreaddict[:contact_factors]
-                        pass_tf = spreaddict[:touch_factors]
-                    _spread!(locdat, pass_infect_idx, pass_contactable_idx, pass_cf, pass_tf, spreaddict[:riskmx], spreaddict[:shape], density_factor)   #)
-                spreaddict[:contact_factors], spreaddict[:touch_factors], spreaddict[:riskmx], 
-                spreaddict[:shape], density_factor)
     return # n_contacts, n_touched, n_newly_infected
 end
 
