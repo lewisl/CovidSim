@@ -14,6 +14,7 @@
     # vaccination with 3 vaccines / 1 or 2 shots
     # extend to one year
     # change meaningful constants to _nil_, _severe_, _dead_ etc.???
+    # low priority: try using Symbol instead of integers for categories
 
 # Done
     # do unquarantine for ilm

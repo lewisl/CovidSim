@@ -66,6 +66,12 @@ spreadparams = alldict["sp"];  # the spread parameters are loaded as a dict of f
 keys(spreadparams)
 
 # %%
+typeof(spreadparams.shape)
+
+# %%
+typeof(spreadparams.riskmx)
+
+# %%
 contact_factors = spreadparams.contact_factors
 
 # %%
@@ -237,3 +243,6 @@ floor(Int,.23  * length(t))
 for k in eachindex(t.c .== 3)
     println(k, " ", t.i[k])
 end
+
+# %% [markdown]
+#
