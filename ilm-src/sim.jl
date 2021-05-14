@@ -108,10 +108,10 @@ end
         #
         # cumulative data
         #
-        @inbounds for age in agegrps
+        @inbounds for age in instances(agegrp)
             # get the source data: status
             dat_age = dat[agegrp_idx[loc][age]]
-            status_today = countsarr(dat_age.status, unexposed:dead)    # outcomes for thisday
+            status_today = countsarr(dat_age.status, statuses)    # outcomes for thisday
 
             # get the source data: conditions in (nil, mild, sick, severe)
             filt_infectious = findall(dat_age.status .== infectious)
@@ -122,21 +122,21 @@ end
             end
 
             # insert into sink: cum
-            for i in statuses  # 1:4
-                cumdat[thisday, map2series[i][age]] = get(status_today, i, 0)
+            for i in Int.(instances(status))  # 1:4
+                cumdat[thisday, map2series[i][Int(age)]] = get(status_today, i, 0)
             end
 
-            for i in infectious_cases # 5:8
-                cumdat[thisday, map2series[i][age]] = get(sick_today, i, 0)
+            for i in Int.(infectious_cases) # 5:8
+                cumdat[thisday, map2series[i][Int(age)]] = get(sick_today, i, 0)
             end
 
-            for i in all_conds
+            for i in Int.(all_conds)
                 if thisday == 1
-                    newdat[thisday, map2series[i][age]] = get(status_today, i, 0)
+                    newdat[thisday, map2series[i][Int(age)]] = get(status_today, i, 0)
                 else  # on all other days
-                    newdat[thisday, map2series[i][age]] = (
-                        cumdat[thisday, map2series[i][age]] 
-                        - cumdat[thisday - 1, map2series[i][age]]
+                    newdat[thisday, map2series[i][Int(age)]] = (
+                        cumdat[thisday, map2series[i][Int(age)]] 
+                        - cumdat[thisday - 1, map2series[i][Int(age)]]
                         )         
                 end
             end
@@ -154,10 +154,10 @@ end # function
     Requires integer values in a continuous range.
 """
 function countsarr(arr, compare_vals)
-    vals_range = minimum(compare_vals):maximum(compare_vals)
+    vals_range = minimum(Int.(compare_vals)):maximum(Int.(compare_vals))
     ret = zeros(Int, length(vals_range))
     ret = OffsetVector(ret, vals_range)  # enables indexing 5:8, etc.
-    @inbounds for i in arr
+    @inbounds for i in Int.(arr)
         ret[i] += 1
     end
     return ret
@@ -167,8 +167,8 @@ end
 function hist_total_agegrps!(series, locales)
     for loc in locales
         for kind in [:cum, :new]
-            for cond in all_conds
-                series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][agegrps]],dims=2)
+            for cond in Int.(all_conds)
+                series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
             end
         end
     end

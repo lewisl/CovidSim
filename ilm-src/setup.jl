@@ -61,9 +61,9 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
     if cols == "all"
         parts = apportion(pop, age_dist)
         dat = Table(
-            status = fill(intype(unexposed), pop),    
-            agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
-            cond = zeros(intype, pop),
+            status = fill(unexposed, pop),    
+            agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
+            cond = fill(notsick, pop),
             sickday = zeros(intype, pop),   
             recov_day = zeros(intype, pop),  
             dead_day = zeros(intype, pop),   
@@ -79,9 +79,9 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
     elseif cols == "track"
         parts = apportion(pop, age_dist)
         dat = Table(
-            status = fill(intype(unexposed), pop),        
-            agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
-            cond = zeros(intype, pop),  
+            status = fill(unexposed, pop),        
+            agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in instances(agegrps)]), 
+            cond = fill(notsick, pop),  
             sickday = zeros(intype, pop))  
 
     else
@@ -92,7 +92,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 end
 
 
-function hist_dict(locales, n_days; conds=length(conditions), agegrps=n_agegrps)
+function hist_dict(locales, n_days; conds=all_conds, agegrps=n_agegrps)
     dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
         dat[loc] = zeros(T_int[], n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)

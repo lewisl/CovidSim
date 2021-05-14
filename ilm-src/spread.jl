@@ -91,21 +91,25 @@ end
 
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
-    scale = density_factor * contact_factors[agegrp][condnames[cond]]
+
+    # println(contact_factors)
+
+
+    scale = density_factor * contact_factors[Int(agegrp)][string(cond)]
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
-    scale = density_factor * acase.cfcase[agegrp][condnames[cond]]  
+    scale = density_factor * acase.cfcase[Int(agegrp)][string(cond)]  
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function istouched(agegrp, lookup, touch_factors)::Int
-    rand(Binomial(1, touch_factors[agegrp][lookup]))    
+    rand(Binomial(1, touch_factors[Int(agegrp)][lookup]))    
 end
 
 @inline @inbounds @fastmath function istouched(agegrp, lookup, acase::Spreadcase)::Int
-    rand(Binomial(1, acase.tfcase[agegrp][lookup]))  
+    rand(Binomial(1, acase.tfcase[Int(agegrp)][lookup]))  
 end
 
 
@@ -154,7 +158,7 @@ previously unexposed people, by agegrp?  For a single locale...
                      elseif contactstatus == recovered
                         "recovered"  # row 2
                      else
-                        condnames[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
+                        string(contactcond)  # text names of conds 5:8 - 2 -> rows 3:6
                      end
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
@@ -166,7 +170,7 @@ previously unexposed people, by agegrp?  For a single locale...
 
                 # infection outcome
                 if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                    prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
+                    prob = riskmx[spreadersickday, Int(contactagegrp)]            # TODO also vaccinated people will have partially unsusceptible
                     newly_infected = rand(Binomial(1, prob))
                     if newly_infected == 1
                         locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic

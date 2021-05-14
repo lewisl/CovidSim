@@ -225,35 +225,34 @@ const rural = 6
 
 # stats series/dataframe columns
 
-# status
-const unexposed         = 1  
-const infectious        = 2
-const recovered         = 3
-const dead              = 4
+# enum values for condition, status and agegrp to use in popmatrix
+@enum condition begin
+    notsick=0 
+    nil=5 
+    mild 
+    sick 
+    severe
+end
+@enum status begin
+    unexposed=1 
+    infectious 
+    recovered 
+    dead
+end
+@enum agegrp begin
+    age0_19=1 
+    age20_39 
+    age40_59 
+    age60_79 
+    age80_up
+end
+const statuses = collect(instances(status))
+const infectious_cases = [nil, mild, sick, severe]
+const transition_cases = [recovered, nil, mild, sick, severe, dead]
+const all_conds = vcat(infectious_cases, statuses)
+const agegrps = instances(agegrp) # tuple of enums
+const n_agegrps = length(instances(agegrp))
 
-# agegrp 
-const age0_19           = 1 
-const age20_39          = 2 
-const age40_59          = 3 
-const age60_79          = 4 
-const age80_up          = 5 
-
-# condition
-const notsick           = 0
-const nil               = 5
-const mild              = 6
-const sick              = 7
-const severe            = 8
-
-const statuses          = [unexposed,infectious,recovered,dead]
-const conditions        = [nil,mild,sick,severe]
-const all_conds         = [unexposed,infectious,recovered,dead,nil,mild,sick,severe]
-const infectious_cases  = [nil, mild, sick, severe]
-const transition_cases  = [recovered, nil, mild, sick, severe, dead]
-const agegrps           = [age0_19,age20_39,age40_59,age60_79,age80_up]
-const n_agegrps         = length(agegrps)
-const condnames         = Dict(0=>"notsick", 1=>"unexposed", 2=>"infectious", 3=>"recovered", 4=>"dead",
-                                5=>"nil", 6=>"mild", 7=>"sick", 8=>"severe", 9=>"totinfected")
 
 const totinfected       = 9
 const travelers         = 10

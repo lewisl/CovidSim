@@ -26,24 +26,24 @@ Works for a single locale.
 @inline function transition!(locdat, infect_idx, dectree)
 
     for p in infect_idx  # p for person    
-        p_sickday = locdat.sickday[p] 
-        p_cond = locdat.cond[p]
-        p_agegrp = locdat.agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
+        p_sickday = Int(locdat.sickday[p]) 
+        p_cond = Int(locdat.cond[p])
+        p_agegrp = Int(locdat.agegrp[p])  # agegroup of person p = agegrp column of locale data, row p 
         if haskey(dectree[p_agegrp], p_sickday) && haskey(dectree[p_agegrp][p_sickday], p_cond)
             # change the person p's state--a transition
             node = dectree[p_agegrp][p_sickday][p_cond]
             choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
             tocond = node["outcomes"][choice]
-            if tocond == dead  # change status, leave cond and sickday as last state before death or recovery                        
+            if tocond == Int(dead)  # change status, leave cond and sickday as last state before death or recovery                        
                 locdat.status[p] = dead  # change the status
                 locdat.dead_day[p] = day_ctr[:day]
                 locdat.cond[p] = notsick
-            elseif tocond == recovered
+            elseif tocond == Int(recovered)
                 locdat.recov_day[p] = day_ctr[:day]
                 locdat.status[p] = recovered
                 locdat.cond[p] = notsick
             else   # change disease condition
-                locdat.cond[p] = tocond   # change the condition = degree of sickness
+                locdat.cond[p] = condition(tocond)   # change the condition = degree of sickness
                 locdat.sickday[p] += 1  
             end    
         else # just increment sickday: one more day feeling the same kind of sick
