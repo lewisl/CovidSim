@@ -21,8 +21,8 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
     cfdelta::Tuple{Float64,Float64}  
     tfdelta::Tuple{Float64,Float64}  
     comply::Float64             # compliance fraction
-    cfcase::Dict{Int64, Dict{String, Float64}}
-    tfcase::Dict{Int64, Dict{String, Float64}}
+    cfcase::Dict{Int64, Dict{Symbol, Float64}}
+    tfcase::Dict{Int64, Dict{Symbol, Float64}}
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
@@ -91,16 +91,12 @@ end
 
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
-
-    # println(contact_factors)
-
-
-    scale = density_factor * contact_factors[Int(agegrp)][string(cond)]
+    scale = density_factor * contact_factors[Int(agegrp)][condsym[cond]]
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
-    scale = density_factor * acase.cfcase[Int(agegrp)][string(cond)]  
+    scale = density_factor * acase.cfcase[Int(agegrp)][condsym[cond]]  
     round(Int,rand(Gamma(shape, scale)))
 end
 
@@ -154,11 +150,11 @@ previously unexposed people, by agegrp?  For a single locale...
             contactcond = locdat.cond[contact]
             contactcomply = locdat.s_d_comply[contact]
             contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
-                        "unexposed"  # row 1
+                        :unexposed  # row 1
                      elseif contactstatus == recovered
-                        "recovered"  # row 2
+                        :recovered  # row 2
                      else
-                        string(contactcond)  # text names of conds 5:8 - 2 -> rows 3:6
+                        condsym[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
                      end
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered

@@ -19,11 +19,12 @@ function setup(n_days, locales;  # must provide following inputs
 
     # transition decision trees     
         dt_dict = setup_dt(dectreefilename)
+        dectree = dt_dict["dt"]
 
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spreadparams)  
+    return Dict("dat"=>datadict, "dectree"=>dectree, "geo"=>geodata, "sp"=>spreadparams)  
 end
 
 
@@ -52,6 +53,14 @@ function build_data(locales, geodata, n_days)
     return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
+
+function convert_to_enumkeys(dectree)
+
+    for (k_age, v_age) in dectree
+        for (k_sickday, v_sickday) in v_age
+        end
+    end
+end
 
 """
 Pre-allocate and initialize population data for one locale in the simulation.
@@ -142,8 +151,10 @@ function build_spread_params(spfilename)
     spreadparams = (
         # send_risk          = spread_params[:send_risk]::Vector{Float64},
         # recv_risk          = spread_params[:recv_risk]::Vector{Float64},
-        contact_factors    = convert(Dict{Int, Dict{String, Float64}}, spread_params["contact_factors"]),
-        touch_factors      = convert(Dict{Int, Dict{String, Float64}}, spread_params["touch_factors"]),
+        # contact_factors    = convert(Dict{Int, Dict{Symbol, Float64}}, spread_params["contact_factors"]),
+        contact_factors    = Dict(Int(k1) => Dict(Symbol(k2) => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["contact_factors"]),
+        # touch_factors      = convert(Dict{Int, Dict{Symbol, Float64}}, spread_params["touch_factors"]),
+        touch_factors      = Dict(Int(k1) => Dict(Symbol(k2) => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["touch_factors"]),
         shape              = spread_params["shape"],
         riskmx             = send_risk
         )
@@ -169,6 +180,9 @@ end
 
 
 """
+    limdict(dct::Dict, op::Function)
+
+Finds minimum or maxium value of the leaves of a dict.
 Warning: not general! works on dict with 2 levels and 
 numerical values at the lower level.
 """

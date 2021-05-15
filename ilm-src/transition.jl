@@ -26,7 +26,7 @@ Works for a single locale.
 @inline function transition!(locdat, infect_idx, dectree)
 
     for p in infect_idx  # p for person    
-        p_sickday = Int(locdat.sickday[p]) 
+        p_sickday = locdat.sickday[p]
         p_cond = Int(locdat.cond[p])
         p_agegrp = Int(locdat.agegrp[p])  # agegroup of person p = agegrp column of locale data, row p 
         if haskey(dectree[p_agegrp], p_sickday) && haskey(dectree[p_agegrp][p_sickday], p_cond)

@@ -17,7 +17,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, set
     alldict = setup(n_days, locales; geofilename=geofilename, 
                     dectreefilename=dectreefilename, spfilename=spfilename)
 
-        dectree = alldict["dt_dict"]["dt"]  # decision trees for transition
+        dectree = alldict["dectree"]  # decision trees for transition
         popdat = alldict["dat"]["popdat"]   # first key locale
         agegrp_idx = alldict["dat"]["agegrp_idx"]   # first key locale
         cumhistmx = alldict["dat"]["cumhistmx"]   # first key locale

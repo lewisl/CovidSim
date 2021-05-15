@@ -51,7 +51,7 @@ columnnames(ilmat)
 countmap(ilmat.agegrp)
 
 # %%
-sum(ilmat.status)  # everyone begins as unexposed
+sum(Int.(ilmat.status))  # everyone begins as unexposed
 
 # %%
 geodf = alldict["geo"]   # the date for all locales has been read into a dataframe
@@ -60,7 +60,7 @@ geodf = alldict["geo"]   # the date for all locales has been read into a datafra
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-spreadparams = alldict["sp"];  # the spread parameters are loaded as a dict of float arrays
+spreadparams = alldict["sp"]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
 keys(spreadparams)
@@ -84,7 +84,7 @@ touch_factors =  spreadparams.touch_factors
 touch_factors[1]
 
 # %%
-dectree = alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
+dectree = alldict["dectree"] # the decision trees for all age groups are loaded
 
 # %%
 typeof(dectree)
@@ -134,7 +134,10 @@ countmap(popdat.cond)
 countmap(popdat.status)
 
 # %%
-virus_outcome(series, locale)
+virus_outcome(series, locale, base=:pop)
+
+# %%
+series[locale][:cum]
 
 # %% [markdown]
 # # Plotted results
@@ -158,7 +161,7 @@ sd1_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
 
 # %%
-virus_outcome(series, locale)
+virus_outcome(series, locale, base=:pop)
 
 # %%
 cumplot(series, locale)
@@ -183,6 +186,13 @@ result_dict, series = run_a_sim(180, locale, showr0=false, silent=true,
 
 
 # %%
+olderdat = result_dict["dat"]["popdat"][locale]
+
+sd = findall(olderdat.s_d_comply .!= :none)
+
+@Select(agegrp, s_d_comply)(olderdat[sd])
+
+# %%
 cumplot(series, locale)
 
 # %% [markdown]
@@ -194,13 +204,26 @@ sdyoung_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=
 
 # %%
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
-    runcases=[seed_1_6, sd1, sdolder_end]);
+    runcases=[seed_1_6, sd1, sdyoung_end]);
+
+# %%
+mixdat = result_dict["dat"]["popdat"][locale]
+
+sd = findall(mixdat.s_d_comply .!= :none)
+young = findall((mixdat.agegrp .== age0_19) .| (mixdat.agegrp .== age20_39))
+sd_young_idx = intersect(sd, young)
+old = findall((mixdat.agegrp .== age40_59) .| (mixdat.agegrp .== age60_79) .| (mixdat.agegrp .== age80_up))
+
+@Select(agegrp, s_d_comply)(mixdat[old])
+
+# %%
+typeof(mixdat.agegrp)
 
 # %%
 cumplot(series, locale)
 
 # %%
-cumplot(series, locale, [infectious, dead])
+cumplot(series, locale, [:infectious, :dead])
 
 # %%
 
@@ -242,7 +265,7 @@ floor(Int,.23  * length(t))
 # %% tags=[]
 for k in eachindex(t.c .== 3)
     println(k, " ", t.i[k])
-end
+end;
 
 # %% [markdown]
 #

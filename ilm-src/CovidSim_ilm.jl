@@ -148,12 +148,14 @@ export
     rural
 
 # constants for indices to population matrix
-export              
+export     
+    status,         
     unexposed,
     infectious,
     recovered,
     dead,
     notsick,
+    condition,
     nil,
     mild,
     sick,
@@ -161,12 +163,13 @@ export
     totinfected,
     statuses,
     conditions,
-    allconds,
+    all_conds,
     condnames,
     infectious_cases,
     transition_cases,
     map2series,
     series_colnames,
+    agegrp,
     age0_19,
     age20_39,
     age40_59, 
@@ -253,6 +256,23 @@ const all_conds = vcat(infectious_cases, statuses)
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 
+# lookup table for condition
+inst_c = instances(condition)
+syms_c = Symbol.(inst_c)
+const condsym = Dict(zip(inst_c, syms_c))
+const symcond = Dict(zip(syms_c, inst_c))
+
+# lookup table for status
+inst_s = instances(status)
+syms_s = Symbol.(inst_s)
+const statsym = Dict(zip(inst_s, syms_s))
+const symstat = Dict(zip(syms_s, inst_s))
+
+# lookup table for agegrp
+inst_a = instances(agegrp)
+syms_a = Symbol.(inst_a)
+const agesym = Dict(zip(inst_a, syms_a))
+const symage = Dict(zip(syms_a, inst_a))
 
 const totinfected       = 9
 const travelers         = 10
@@ -261,6 +281,8 @@ const isolated          = 11
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
+const condnames  = Dict(:unexposed=>"unexposed", :infectious=>"infectious", :recovered=>"recovered", :dead=>"dead",
+                    :nil=>"nil", :mild=>"mild", :sick=>"sick", :severe=>"severe", 9=>"totinfected")
 const totalcol = 6
 
 
