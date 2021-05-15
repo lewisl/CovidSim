@@ -33,7 +33,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
 locale = 38015
 
 # %%
-alldict = setup(150, [locale])
+alldict = setup(180, [locale])
 
 # %%
 alldict["dat"]
@@ -51,7 +51,7 @@ columnnames(ilmat)
 countmap(ilmat.agegrp)
 
 # %%
-sum(Int.(ilmat.status))  # everyone begins as unexposed
+countmap(ilmat.status)  # everyone begins as unexposed
 
 # %%
 geodf = alldict["geo"]   # the date for all locales has been read into a dataframe
@@ -75,16 +75,27 @@ typeof(spreadparams.riskmx)
 contact_factors = spreadparams.contact_factors
 
 # %%
+typeof(contact_factors)
+
+# %%
 contact_factors[5]
 
 # %%
 touch_factors =  spreadparams.touch_factors
 
 # %%
-touch_factors[1]
+touch_factors[3]
 
 # %%
-dectree = alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
+limdict = CovidSim_ilm.limdict
+limdict(touch_factors, <)
+
+# %%
+# is shifter working?
+shifter(touch_factors, (.18, .3)...)[3]
+
+# %%
+dectree = alldict["dectree"] # the decision trees for all age groups are loaded
 
 # %%
 typeof(dectree)
@@ -152,10 +163,10 @@ cumplot(series, locale)
 # ## Test a social distancing case
 
 # %%
-sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, agegrps=[])    
+sd1 = sd_gen(startday = 45, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, include_ages=[])    
 
 # %%
-sd1_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, agegrps=[])
+sd1_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, include_ages=[])
 
 # %%
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
@@ -167,7 +178,7 @@ virus_outcome(series, locale, base=:pop)
 cumplot(series, locale)
 
 # %%
-cumplot(series, locale, [infectious, dead])
+cumplot(series, locale,[:infectious, :dead])
 
 # %%
 outdat = result_dict["dat"]["popdat"][locale]
@@ -177,11 +188,11 @@ outdat = result_dict["dat"]["popdat"][locale]
 
 # %%
 sdolder = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, 
-    agegrps=[age40_59, age60_79, age80_up])    
+    include_ages=[age40_59, age60_79, age80_up])    
 
 # %%
-sdolder_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
-    agegrps=[age40_59, age60_79, age80_up])    
+sdolder_end = sd_gen(startday = 80, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
+    include_ages=[age40_59, age60_79, age80_up])    
 
 # %%
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
@@ -198,12 +209,15 @@ sd = findall(olderdat.s_d_comply .!= :none)
 # %%
 cumplot(series, locale)
 
+# %%
+cumplot(series, locale, [:infectious, :dead])
+
 # %% [markdown]
 # ## Social Distancing starts with everyone and then the younger folks party
 
 # %%
 sdyoung_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
-    agegrps=[age0_19, age20_39])    
+    include_ages=[age0_19, age20_39])    
 
 # %%
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
@@ -215,9 +229,15 @@ mixdat = result_dict["dat"]["popdat"][locale]
 sd = findall(mixdat.s_d_comply .!= :none)
 young = findall((mixdat.agegrp .== age0_19) .| (mixdat.agegrp .== age20_39))
 sd_young_idx = intersect(sd, young)
-old = findall((mixdat.agegrp .== age40_59) .| (mixdat.agegrp .== age60_79) .| (mixdat.agegrp .== age80_up))
+old = findall((mixdat.agegrp .== age40_59) .| (mixdat.agegrp .== age60_79) .| (mixdat.agegrp .== age80_up));
 
-@Select(agegrp, s_d_comply)(mixdat[old])
+# %%
+youngtab = Table(mixdat[young])
+count(youngtab.s_d_comply .== :none)
+
+# %%
+oldtab = Table(mixdat[old])
+count(oldtab.s_d_comply .!= :none)
 
 # %%
 typeof(mixdat.agegrp)
@@ -226,6 +246,33 @@ typeof(mixdat.agegrp)
 cumplot(series, locale)
 
 # %%
-cumplot(series, locale, [infectious, dead])
+cumplot(series, locale, [:infectious, :dead])
+
+# %%
+@Select(status, agegrp, cond, s_d_comply)(ilmat)
+
+# %% [markdown]
+# alldict
+
+# %%
+alldict
+
+# %%
+ages = alldict["dat"]["agegrp_idx"][38015]
+
+# %%
+include_ages = [age0_19, age20_39]
+
+# %%
+union((ages[i] for i in include_ages)...)
+
+# %%
+ilmat.s_d_comply[collect(1:5:95000)] .= :test
+
+# %%
+incase_idx = findall(ilmat.s_d_comply .== :test)
+
+# %%
+byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
 
 # %%
