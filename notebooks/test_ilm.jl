@@ -217,7 +217,13 @@ young = findall((mixdat.agegrp .== age0_19) .| (mixdat.agegrp .== age20_39))
 sd_young_idx = intersect(sd, young)
 old = findall((mixdat.agegrp .== age40_59) .| (mixdat.agegrp .== age60_79) .| (mixdat.agegrp .== age80_up))
 
-@Select(agegrp, s_d_comply)(mixdat[old])
+# %%
+youngtab = Table(mixdat[young])
+count(youngtab.s_d_comply .== :none)
+
+# %%
+oldtab = Table(mixdat[old])
+count(oldtab.s_d_comply .!= :none)
 
 # %%
 typeof(mixdat.agegrp)
