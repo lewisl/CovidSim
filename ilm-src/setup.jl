@@ -234,8 +234,8 @@ end
 
 
 function precalc_agegrp_filt(dat)  # dat for a single locale
-    agegrp_filt_bit = Dict(agegrp => dat.agegrp .== agegrp for agegrp in agegrps)
-    agegrp_filt_idx = Dict(agegrp => findall(agegrp_filt_bit[agegrp]) for agegrp in agegrps)
+    agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in agegrps)
+    agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
     return agegrp_filt_bit, agegrp_filt_idx
 end
 # agegrp_filt_bit, agegrp_filt_idx = precalc_agegrp_filt(ilmat);

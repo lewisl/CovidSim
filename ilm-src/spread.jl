@@ -26,22 +26,22 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
-    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps=[])
+    tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
     function scase(locale, dat, spreadparams, sdcases, ages)   # scase(locale, dat, spreadparams, sdcases)
-        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
     end
 end
 
 
-@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
     if startday == day_ctr[:day]
-        name = Symbol(name)
+        # name = Symbol(name)
         locdat = dat[locale]
 
-        if comply == 0.0  # magic signal: if comply is zero turn off this case for the selected agegrps
-            cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+        if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
+            cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
             return
         end
 
@@ -59,31 +59,31 @@ end
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
         filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
                 ((locdat.cond .== nil) .| (locdat.cond .== mild)))
-        if (comply == 1.0)   # include everyone in filter1
+        if (comply == 1.0)   # include everyone in filter1 in this case
             complyfilter = filter1
         else
             complyfilter = sample(filter1, round(Int, comply*length(filter1)), replace=false)
         end
         
-        if isempty(agegrps)   # include all agegrps
+        if isempty(include_ages)   # include all include_ages
             locdat.s_d_comply[complyfilter] .= name
         else
-            byage_idx = intersect(complyfilter, union((ages[i] for i in agegrps)...))
+            byage_idx = intersect(complyfilter, union((ages[i] for i in include_ages)...))
             locdat.s_d_comply[byage_idx] .= name
         end
     end
 end
 
 
-function cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+function cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
     # filter on who is in this case now
     incase_idx = findall(locdat.s_d_comply .== name)
 
-    if isempty(agegrps)   # include all agegrps
+    if isempty(include_ages)   # include all ages
         locdat.s_d_comply[incase_idx] .= :none
-        delete!(sdcases, name)  # there is no one left...
-    else  # only turn it off for some agegrps
-        byage_idx = intersect(incase_idx, union((ages[i] for i in agegrps)...))
+        delete!(sdcases, name)  # there is no one left in this case...
+    else  # only turn it off for some ages
+        byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
         locdat.s_d_comply[byage_idx] .= :none
     end    
 
