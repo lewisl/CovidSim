@@ -35,10 +35,8 @@ function seed!(day, cnt, sickday, conds, agegrps, locale, dat)
     # @warn "Seeding is for testing and may result in case counts out of balance"
     if day == day_ctr[:day]
         println("*** seed day $(day_ctr[:day]): $(sum(cnt)) $conds to $locale")
-        for cond in conds
-            @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-            make_sick!(dat[locale]; cnt=cnt, fromage=agegrps, tocond=nil, tosickday=sickday)
-        end
+        # @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
+        make_sick!(dat[locale]; cnt=cnt, fromage=agegrps, tocond=nil, tosickday=sickday)
     end
 end
 
