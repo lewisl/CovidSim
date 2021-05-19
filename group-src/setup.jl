@@ -49,7 +49,7 @@ end
 # method for multiple locales
 function setup_unexposed!(dat, geodata::Array, locales::Array)
     for loc in locales
-        pop = convert(T_int[], geodata[geodata[:, fips] .== loc, popsize][1])
+        pop = convert(Int, geodata[geodata[:, fips] .== loc, popsize][1])
         setup_unexposed!(dat, pop, loc)
     end
 end
@@ -58,7 +58,7 @@ end
 function setup_unexposed!(dat, pop, loc)
     parts = apportion(pop, age_dist)
     for agegrp in agegrps
-        # dat[loc][1, unexposed, agegrp] = floor(T_int[],age_dist[agegrp] * pop)
+        # dat[loc][1, unexposed, agegrp] = floor(Int,age_dist[agegrp] * pop)
         dat[loc][1, unexposed, agegrp] = parts[agegrp]
     end
 end
@@ -78,18 +78,18 @@ end
 
 # one locale at a time
 function data_dict(locales; sickdays=sickdaylim, conds=length(conditions), agegrps=n_agegrps)
-    dat = Dict{Int64, Array{T_int[]}}()
+    dat = Dict{Int64, Array{Int}}()
     for loc in locales
-        dat[loc] = zeros(T_int[], sickdays, conds, agegrps)
+        dat[loc] = zeros(Int, sickdays, conds, agegrps)
     end
     return dat       
 end
 
 
 function hist_dict(locales, n_days; conds=length(conditions), agegrps=n_agegrps)
-    dat = Dict{Int64, Array{T_int[]}}()
+    dat = Dict{Int64, Array{Int}}()
     for loc in locales
-        dat[loc] = zeros(T_int[], conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+        dat[loc] = zeros(Int, conds, agegrps+1, n_days) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end
@@ -177,7 +177,7 @@ struct SimEnv{T<:Integer}      # the members are all mutable so we can change th
     sd_compliance::Array{Float64, 2} # (6,5) social_distancing compliance unexp,recov,nil:severe by age
 
     # constructor with keyword arguments and type compatible fillins--not suitable as defaults, see initialize_sim_env
-    # T_int[] should be one of Int64, Int32 when calling the constructor
+    # Int should be one of Int64, Int32 when calling the constructor
     function SimEnv{T}(; 
                                 geodata=[T(0) "" ], # geodata
                                 spreaders=zeros(T, 0,0,0),   # semicolon for all keyword (named) arguments)
@@ -204,15 +204,15 @@ end
 
 function initialize_sim_env(geodata; contact_factors, touch_factors, send_risk, recv_risk, shape)
 
-    ret = SimEnv{T_int[]}(
+    ret = SimEnv{Int}(
                 geodata=geodata,
-                spreaders=zeros(T_int[], sickdaylim, 4, agegrps),
-                all_accessible=zeros(T_int[], sickdaylim, 6, agegrps),
-                contacts=zeros(T_int[], sickdaylim, 4, agegrps),
-                simple_accessible=zeros(T_int[], 6, agegrps),
-                peeps=zeros(T_int[], 6, agegrps),
-                touched=zeros(T_int[], sickdaylim, 6, agegrps),
-                sickday_contacts=zeros(T_int[], sickdaylim),
+                spreaders=zeros(Int, sickdaylim, 4, agegrps),
+                all_accessible=zeros(Int, sickdaylim, 6, agegrps),
+                contacts=zeros(Int, sickdaylim, 4, agegrps),
+                simple_accessible=zeros(Int, 6, agegrps),
+                peeps=zeros(Int, 6, agegrps),
+                touched=zeros(Int, sickdaylim, 6, agegrps),
+                sickday_contacts=zeros(Int, sickdaylim),
                 riskmx = send_risk_by_recv_risk(send_risk, recv_risk), # zeros(Float64,sickdaylim,5),
                 contact_factors = contact_factors,
                 touch_factors = touch_factors,

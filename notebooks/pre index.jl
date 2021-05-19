@@ -26,7 +26,7 @@ using CovidSim_ilm
 cd(joinpath(homedir(), "Dropbox/Online Coursework/Covid/ilm-src"))
 
 # %%
-tst = CovidSim_ilm.pop_data(100_000, age_dist=age_dist, intype=Int64, cols="track")
+tst = CovidSim_ilm.pop_data(100_000, age_dist=age_dist, cols="track")
 
 # %% jupyter={"outputs_hidden": true} tags=[]
 tst.status[rand(1:100_000,5000)] .= infectious

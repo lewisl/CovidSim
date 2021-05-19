@@ -118,7 +118,7 @@ Bump people from one sickday to sickday + 1 in the same disease condition.
 function bump_up!(to_cond, agegrp, sickday, locale, dat)
     bump = grab(to_cond, agegrp, sickday, locale, dat)
 
-    if sum(bump) > T_int[](0)
+    if sum(bump) > Int(0)
         plus!(bump, to_cond, agegrp, sickday+1, locale, dat)
         minus!(bump, to_cond, agegrp, sickday,   locale, dat)
     end
@@ -210,7 +210,7 @@ function isolate_by!(pct::Float64,cond,agegrp,sickday,locale, opendat, isodat)
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, sickday, locale, opendat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, T_int[](0), T_int[](available))  # limit to max
+    cnt = clamp(scnt, Int(0), Int(available))  # limit to max
     cnt < scnt && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, sickday, locale, opendat, isodat)
 end
@@ -223,7 +223,7 @@ function isolate_by!(num, cond, agegrp, sickday, locale, opendat, isodat)
     else
         available = grab(cond, agegrp, sickday, locale, opendat)  # max
     end
-    cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
+    cnt = clamp.(num, Int(0), Int(available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to isolate more people than were in the category: proceeding with available.")
     _isolate!(cnt, cond, agegrp, sickday, locale, opendat, isodat)
     return nothing
@@ -262,7 +262,7 @@ function unisolate_by!(pct::Float64,cond,agegrp,sickday,locale, opendat, isodat)
     @assert 0.0 <= pct <= 1.0 "pct must be between 0.0 and 1.0"
     available = grab(cond, agegrp, sickday, locale, isodat)  # max
     scnt = binomial_one_sample(available, pct)  # sample
-    cnt = clamp(scnt, T_int[](0), T_int[](available))  # limit to max
+    cnt = clamp(scnt, Int(0), Int(available))  # limit to max
     cnt < scnt && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, sickday, locale, opendat, isodat)
     return nothing  # this one works!
@@ -277,7 +277,7 @@ function unisolate_by!(num, cond, agegrp, sickday, locale, opendat, isodat, mode
     # println("day $(day_ctr[:day]) request to unisolate   ", sum(num))
     # println("day $(day_ctr[:day]) available to unisolate ", sum(available))
 
-    cnt = clamp.(num, T_int[](0), T_int[](available))  # limit to max
+    cnt = clamp.(num, Int(0), Int(available))  # limit to max
     sum(cnt) < sum(num) && (@warn "Attempt to unisolate more people than were in the category: proceeding with available.")
     _unisolate!(cnt, cond, agegrp, sickday, locale,  opendat, isodat, :both)
     return nothing

@@ -44,7 +44,7 @@ function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
     sickday1 =              1
 
     # set function scope for variables modified in loop--> this is the result
-    newinfected = zeros(T_int[], 5) # by agegrp
+    newinfected = zeros(Int, 5) # by agegrp
 
     # how many spreaders  TODO grab their condition.  Separate probs by condition
     # spreaders[:] = grab(infectious_cases, agegrps, sickdays, locale, dat) # sickdaylim x 4 x 5 sickday x cond x agegrp
@@ -53,7 +53,7 @@ function spread!(locale, spreadcases, dat, env, density_factor = 1.0)
     @inbounds begin
         spreaders[:] = grab(infectious_cases, agegrps, sickdays, locale, dat) # sickdaylim x 4 x 5 sickday x cond x agegrp
 
-        if sum(spreaders) == T_int[](0)
+        if sum(spreaders) == Int(0)
             return
         end
 
@@ -125,7 +125,7 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
     =#
 
     if iszero(target_accessible)
-        contacts[:] .= T_int[](0)
+        contacts[:] .= Int(0)
         return contacts
     end
 
@@ -138,10 +138,10 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
             for sickday in 1:sp_sickdays   
                 scale = density_factor * contact_factors[cond, agegrp]
                 spcount = spreaders[sickday, cond, agegrp]
-                if spcount == T_int[](0)
-                    contacts[sickday, cond, agegrp] = T_int[](0)
+                if spcount == Int(0)
+                    contacts[sickday, cond, agegrp] = Int(0)
                 else
-                    x = round.(T_int[], rand(Gamma(env.shape, scale), spcount)) # round per person rather rounding total
+                    x = round.(Int, rand(Gamma(env.shape, scale), spcount)) # round per person rather rounding total
                     contacts[sickday, cond, agegrp] = sum(x)
                 end
             end
@@ -152,7 +152,7 @@ function how_many_contacts!(contacts, spreaders, target_accessible, contact_fact
     oc_ratio = sum(contacts) / sum(target_accessible)
     if oc_ratio > 1.0
         @warn "day: $(day_ctr[:day]) warning: overcontact ratio > 1.0: $oc_ratio"
-        contacts[:] = round.(T_int[], 1.0/oc_ratio .* contacts)
+        contacts[:] = round.(Int, 1.0/oc_ratio .* contacts)
     end
 
     return contacts
@@ -178,16 +178,16 @@ function how_many_touched!(env)
     contacts = reshape(env.sickday_contacts, sickdaylim, 1, 1)  # sickdaylim x 4 x 5: sickday x cond x agegrp; cond in {nil, mild, sick, severe}
 
     touched = env.touched
-    touched[:] .= T_int[](0)
+    touched[:] .= Int(0)
     peeps = env.peeps
-    peeps[:] .= T_int[](0)
+    peeps[:] .= Int(0)
 
     target_accessible = env.simple_accessible  # (6,5) 6 conds: unexp, recovered, nil, mild, sick, severe by agegrps
     target_tf = env.touch_factors  # view(env.touch_factors, map2touch.unexposed, :)  w/o view (6,5)
 
-    totaccessible = convert(T_int[], sum(target_accessible))
+    totaccessible = convert(Int, sum(target_accessible))
 
-    # peeps = zeros(T_int[], size(target_accessible))
+    # peeps = zeros(Int, size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
@@ -232,8 +232,8 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
 
     totaccessible = sum(target_accessible)
     peeps = env.peeps
-    peeps[:] .= T_int[](0)
-    # peeps = zeros(T_int[], size(target_accessible))
+    peeps[:] .= Int(0)
+    # peeps = zeros(Int, size(target_accessible))
 
     # this can happen with a social distancing or quarantine case with 100% compliance
         # or early/late in epidemic when there are no spreaders to make contacts
@@ -260,7 +260,7 @@ function how_many_touched!(touched, contacts, target_accessible, target_conds,
         for cond in target_conds
             @inbounds for a in agegrps     # agegrps 
                 subgroup = contacts[l, map2access[cond], a]   # [l, map2access[cond], a]
-                if subgroup == T_int[](0)
+                if subgroup == Int(0)
                     continue
                 else   # distribute 1 contact subgroup to all cells of touched
                     x = rand(Categorical(t_a_pct), subgroup) # across all the touch target groups
@@ -294,7 +294,7 @@ function how_many_infected(all_unexposed, env)
     # inputs: env.touched, touched_by_sickday_age, env.riskmx
     # primary outputs: newinfected
 
-    newinfected = zeros(T_int[], length(agegrps))  # (5,)
+    newinfected = zeros(Int, length(agegrps))  # (5,)
 
     if iszero(env.touched) # might happen with a social distancing or quarantine case with 100% compliance
         return newinfected
@@ -335,43 +335,43 @@ function r0_sim(;env=env, sa_pct=[1.0,0.0,0.0], density_factor=1.0, dt_dict=Dict
                                send_risk=env.send_risk_by_sickday, recv_risk=env.recv_risk_by_age);
     r0mx = data_dict(1; sickdays=sickdaylim, conds=length(conditions), agegrps=n_agegrps)  # single locale
     locale = 1
-    population = convert(T_int[], 2_000_000)
+    population = convert(Int, 2_000_000)
     setup_unexposed!(r0mx, population, locale)
 
     # setup data
     all_unexposed = grab(unexposed, agegrps, 1, locale, r0mx)  # (5, ) agegrp for sickday 1
-    track_infected = zeros(T_int[], 5)
-    track_contacts = zeros(T_int[], sickdaylim, 4, 5)
-    track_touched = zeros(T_int[], sickdaylim, 6, 5)
+    track_infected = zeros(Int, 5)
+    track_contacts = zeros(Int, sickdaylim, 4, 5)
+    track_touched = zeros(Int, sickdaylim, 6, 5)
 
     r0env.all_accessible[:] = grab([unexposed,recovered, nil, mild, sick, severe], agegrps, sickdays, locale, r0mx)  #   sickdaylim x 6 x 5  sickday x cond by agegrp
     r0env.simple_accessible[:] = sum(r0env.all_accessible, dims=1)[1,:,:] # sum all the sickdays result (6,5)
     if !isempty(compliance)
-        r0env.simple_accessible[:] = round.(T_int[], compliance .* r0env.simple_accessible)
+        r0env.simple_accessible[:] = round.(Int, compliance .* r0env.simple_accessible)
     end
 
     if sa_pct[1] != 1.0
         sa_pct = [sa_pct[1],sa_pct[2],sa_pct[3], fill(sa_pct[3]./4.0, 3)...]
         res = [r0env.simple_accessible[1,:] .* i for i in sa_pct]
-        sanew = zeros(T_int[], 6, 5)
+        sanew = zeros(Int, 6, 5)
         @inbounds for i in 1:6
            sanew[i,:] .= round.(Int,res[i])
         end
-        r0env.simple_accessible[:] = round.(T_int[], sanew)
+        r0env.simple_accessible[:] = round.(Int, sanew)
     end
 
-    age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
-    r0env.spreaders[:] = ones(T_int[], sickdaylim, 4, agegrps)
+    age_relative = round.(Int, age_dist ./ minimum(age_dist))
+    r0env.spreaders[:] = ones(Int, sickdaylim, 4, agegrps)
     @inbounds for i in 1:5
         r0env.spreaders[:,:,i] .= age_relative[i]
     end
     if !isempty(dt_dict)
-        r0env.spreaders[2:sickdaylim, :, :] .= T_int[](0)
-        r0env.spreaders .*= T_int[](20)
+        r0env.spreaders[2:sickdaylim, :, :] .= Int(0)
+        r0env.spreaders .*= Int(20)
         tot_spreaders = sum(r0env.spreaders)
     else
-        r0env.spreaders[1,:,:] .= T_int[](0);
-        tot_spreaders = round.(T_int[], sum(r0env.spreaders) / (sickdaylim - 1))
+        r0env.spreaders[1,:,:] .= Int(0);
+        tot_spreaders = round.(Int, sum(r0env.spreaders) / (sickdaylim - 1))
     end
 
     input!(r0env.spreaders,infectious_cases,agegrps,sickdays,locale,r0mx)

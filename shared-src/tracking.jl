@@ -75,7 +75,7 @@ function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom
             end
 
     for cond in statuses
-        ssym = statsym[cond]
+        ssym = Symbol(cond)
         outcomes[ssym] = series[locale][:cum][n, map2series[ssym][agegrp]] / denom
     end
 

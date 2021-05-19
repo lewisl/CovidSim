@@ -21,8 +21,8 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
     cfdelta::Tuple{Float64,Float64}  
     tfdelta::Tuple{Float64,Float64}  
     comply::Float64             # compliance fraction
-    cfcase::Dict{Int64, Dict{Symbol, Float64}}
-    tfcase::Dict{Int64, Dict{Symbol, Float64}}
+    cfcase::Dict{Enum, Dict{Enum, Float64}}
+    tfcase::Dict{Enum, Dict{Enum, Float64}}
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
@@ -37,7 +37,6 @@ end
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
     if startday == day_ctr[:day]
-        # name = Symbol(name)
         locdat = dat[locale]
 
         if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
@@ -91,21 +90,21 @@ end
 
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
-    scale = density_factor * contact_factors[Int(agegrp)][condsym[cond]]
+    scale = density_factor * contact_factors[agegrp][cond]
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
-    scale = density_factor * acase.cfcase[Int(agegrp)][condsym[cond]]  
+    scale = density_factor * acase.cfcase[agegrp][cond]  
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function istouched(agegrp, lookup, touch_factors)::Int
-    rand(Binomial(1, touch_factors[Int(agegrp)][lookup]))    
+    rand(Binomial(1, touch_factors[agegrp][lookup]))    
 end
 
 @inline @inbounds @fastmath function istouched(agegrp, lookup, acase::Spreadcase)::Int
-    rand(Binomial(1, acase.tfcase[Int(agegrp)][lookup]))  
+    rand(Binomial(1, acase.tfcase[agegrp][lookup]))  
 end
 
 
@@ -125,10 +124,6 @@ previously unexposed people, by agegrp?  For a single locale...
     @inbounds @fastmath for p in infect_idx      # p is the person who is the spreader
 
         # spreader's characteristics
-
-        # if in_quarantine(locdat, p, 0.0)  # person is in quarantine--can't spread
-        #     return  # or continue
-        # end
         spreadercond = locdat.cond[p]  
         spreaderagegrp = locdat.agegrp[p]
         spreadersickday = locdat.sickday[p]
@@ -141,23 +136,19 @@ previously unexposed people, by agegrp?  For a single locale...
                 end
                                 # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
+            
             # contacts's characteristics
-            # if in_quarantine(locdat, contact, 0.0)  # person is in quarantine--can't spread
-            #     return
-            # end
             contactstatus = locdat.status[contact]  
             contactagegrp = locdat.agegrp[contact]
             contactcond = locdat.cond[contact]
             contactcomply = locdat.s_d_comply[contact]
-            contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
-                        :unexposed  # row 1
+            contactlookup = if contactstatus == unexposed   # we are combining either a status or a condition value
+                        unexposed  # row 1
                      elseif contactstatus == recovered
-                        :recovered  # row 2
+                        recovered  # row 2
                      else
-
                         @assert contactcond != notsick "contactcond cannot be notsick"
-
-                        condsym[contactcond]  # symbol names of conds 5:8 - 2 -> rows 3:6
+                        contactcond  
                      end
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
@@ -190,10 +181,10 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, spreadparams, density_facto
     # setup a fake locale or use the current locale in the simulation
     @views if locale == 0 # simulate with fake locale with pop people
         # create population
-        r0pop = pop_data(pop, age_dist=age_dist,intype=Int16,cols="all")
+        r0pop = pop_data(pop, age_dist=age_dist,cols="all")
 
         # create spreaders: ages by age_dist, cond is nil
-        age_relative = round.(T_int[], age_dist ./ minimum(age_dist))
+        age_relative = round.(Int, age_dist ./ minimum(age_dist))
         age_relative .*= scale # update with scale
         cnt_spreaders = sum(age_relative)
         for i in agegrps
@@ -211,7 +202,7 @@ function r0_sim(age_dist, dat, locale::Int, dt_dict, spreadparams, density_facto
         r0pop.status[ignore_idx] .= recovered # can't catch what they already have; won't spread for calc of r0
 
         cnt_accessible = count(r0pop.status .== unexposed)
-        age_relative = round.(T_int[], age_dist ./ minimum(age_dist)) # counts by agegrp
+        age_relative = round.(Int, age_dist ./ minimum(age_dist)) # counts by agegrp
         scale = set_by_level(cnt_accessible)
         age_relative .*= scale # update with scale
         cnt_spreaders = sum(age_relative)

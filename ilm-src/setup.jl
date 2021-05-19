@@ -65,7 +65,7 @@ end
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
-function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
+function pop_data(pop; age_dist=age_dist, cols="all")
 
     if cols == "all"
         parts = apportion(pop, age_dist)
@@ -73,17 +73,17 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
             status = fill(unexposed, pop),    
             agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
             cond = fill(notsick, pop),
-            sickday = zeros(intype, pop),   
-            recov_day = zeros(intype, pop),  
-            dead_day = zeros(intype, pop),   
-            cluster = zeros(intype, pop), 
+            sickday = zeros(Int, pop),   
+            recov_day = zeros(Int, pop),  
+            dead_day = zeros(Int, pop),   
+            cluster = zeros(Int, pop), 
             s_d_comply = fill(:none, pop),  
-            vax = zeros(intype, pop),   
-            vax_day = zeros(intype, pop),  
+            vax = zeros(Int, pop),   
+            vax_day = zeros(Int, pop),  
             test = falses(pop),  
-            test_day = zeros(intype, pop),  
+            test_day = zeros(Int, pop),  
             quar = falses(pop),
-            quar_day = zeros(intype, pop))
+            quar_day = zeros(Int, pop))
 
     elseif cols == "track"
         parts = apportion(pop, age_dist)
@@ -91,7 +91,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
             status = fill(unexposed, pop),        
             agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in instances(agegrps)]), 
             cond = fill(notsick, pop),  
-            sickday = zeros(intype, pop))  
+            sickday = zeros(Int, pop))  
 
     else
         @error "Wrong choice of cols in pop_data: $cols"
@@ -102,9 +102,9 @@ end
 
 
 function hist_dict(locales, n_days; conds=all_conds, agegrps=n_agegrps)
-    dat = Dict{Int64, Array{T_int[]}}()
+    dat = Dict{Int64, Array{Int}}()
     for loc in locales
-        dat[loc] = zeros(T_int[], n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+        dat[loc] = zeros(Int, n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)
     end
     return dat       
 end
@@ -151,10 +151,10 @@ function build_spread_params(spfilename)
     spreadparams = (
         # send_risk          = spread_params[:send_risk]::Vector{Float64},
         # recv_risk          = spread_params[:recv_risk]::Vector{Float64},
-        # contact_factors    = convert(Dict{Int, Dict{Symbol, Float64}}, spread_params["contact_factors"]),
-        contact_factors    = Dict(Int(k1) => Dict(Symbol(k2) => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["contact_factors"]),
-        # touch_factors      = convert(Dict{Int, Dict{Symbol, Float64}}, spread_params["touch_factors"]),
-        touch_factors      = Dict(Int(k1) => Dict(Symbol(k2) => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["touch_factors"]),
+        contact_factors    = Dict(agegrp(Int(k1)) => 
+                                Dict(symcond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["contact_factors"]),
+        touch_factors      = Dict(agegrp(Int(k1)) => 
+                                Dict(symallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["touch_factors"]),
         shape              = spread_params["shape"],
         riskmx             = send_risk
         )
@@ -167,12 +167,15 @@ end
 # dodgy math helper functions
 #####################################################################################
 
-function shifter(x::Array, oldmin, oldmax, newmin, newmax)
+@inline @fastmath function shifter(x::Array, oldmin, oldmax, newmin, newmax)
     newmin .+ (newmax - newmin) / (oldmax - oldmin) .* (x .- oldmin)
 end
 
+@inline @fastmath function shifter(x::Float64, oldmin, oldmax, newmin, newmax)
+    newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
+end
 
-function shifter(x::Array, newmin, newmax)
+@inline function shifter(x::Array, newmin, newmax)
     oldmin = minimum(x)
     oldmax = maximum(x)
     shifter(x, oldmin, oldmax, newmin, newmax)
@@ -186,7 +189,7 @@ Finds minimum or maxium value of the leaves of a dict.
 Warning: not general! works on dict with 2 levels and 
 numerical values at the lower level.
 """
-function limdict(dct::Dict, op::Function)
+function limdict(dct::AbstractDict, op::Function)
     minop = <
     cv = op == minop ? Inf : -Inf
     for v1 in values(dct)
@@ -202,15 +205,16 @@ end
 Warning: not general! works on dict with 2 levels and 
 numerical values at the lower level.
 """
-@inline function shifter(d::Dict, newmin, newmax)
+@inline function shifter(d::AbstractDict, newmin, newmax)
     ret = deepcopy(d)
     oldmin = limdict(d, <)
     oldmax = limdict(d, >)
     
-    @fastmath for k1 in keys(ret)
+    for k1 in keys(ret)
         for k2 in keys(ret[k1])
             x = ret[k1][k2]
-            ret[k1][k2] = newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
+            # ret[k1][k2] = newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
+            ret[k1][k2] = shifter(x, oldmin, oldmax, newmin, newmax)
         end
     end
 

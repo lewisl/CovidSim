@@ -78,13 +78,13 @@ contact_factors = spreadparams.contact_factors
 typeof(contact_factors)
 
 # %%
-contact_factors[5]
+contact_factors[age80_up]
 
 # %%
 touch_factors =  spreadparams.touch_factors
 
 # %%
-touch_factors[3]
+touch_factors[age40_59]
 
 # %%
 limdict = CovidSim_ilm.limdict
@@ -92,7 +92,7 @@ limdict(touch_factors, <)
 
 # %%
 # is shifter working?
-shifter(touch_factors, (.18, .3)...)[3]
+shifter(touch_factors, (.18, .3)...)[age40_59]
 
 # %%
 dectree = alldict["dectree"] # the decision trees for all age groups are loaded
@@ -166,7 +166,7 @@ cumplot(series, locale)
 sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, include_ages=[])    
 
 # %%
-sd1_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, include_ages=[])
+sd1_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, include_ages=[])
 
 # %%
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
@@ -192,7 +192,7 @@ sdolder = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_
     include_ages=[age40_59, age60_79, age80_up])    
 
 # %%
-sdolder_end = sd_gen(startday = 80, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
+sdolder_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
     include_ages=[age40_59, age60_79, age80_up])    
 
 # %%
@@ -217,7 +217,7 @@ cumplot(series, locale, [:infectious, :dead])
 # ## Social Distancing starts with everyone and then the younger folks party
 
 # %%
-sdyoung_end = sd_gen(startday = 100, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
+sdyoung_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, 
     include_ages=[age0_19, age20_39])    
 
 # %%

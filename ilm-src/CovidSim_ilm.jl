@@ -28,6 +28,8 @@ module CovidSim_ilm
 # required
 using DelimitedFiles
 using DataStructures
+using OrderedCollections
+using OrderedCollections: FrozenLittleDict
 using DataFrames
 using CSV
 using Random
@@ -185,9 +187,6 @@ export
 # module global constants (except in Julia things aren't really constant!)
 ###########################################################################
 
-# datatype constants
-const T_int = Ref(Int64)  # this creates a reference type accessed or modified in functions as T_int[]
-
 
 """
 - use incr!(day_ctr, :day) for day of the simulation:  creates and adds 1
@@ -236,12 +235,14 @@ const rural = 6
     sick 
     severe
 end
+
 @enum status begin
     unexposed=1 
     infectious 
     recovered 
     dead
 end
+
 @enum agegrp begin
     age0_19=1 
     age20_39 
@@ -249,6 +250,7 @@ end
     age60_79 
     age80_up
 end
+
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
@@ -256,23 +258,21 @@ const all_conds = vcat(infectious_cases, statuses)
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 
-# lookup table for condition
+# lookup table for condition enum values: don't need lookup for Int or Symbol
+#     just use Symbol(nil) and Int(nil)-->these are faster than any lookup
 inst_c = instances(condition)
-syms_c = Symbol.(inst_c)
-const condsym = Dict(zip(inst_c, syms_c))
-const symcond = Dict(zip(syms_c, inst_c))
+const symcond = freeze(Dict(zip(Symbol.(inst_c), instances(condition))))
 
-# lookup table for status
+# lookup table for status enum values
 inst_s = instances(status)
-syms_s = Symbol.(inst_s)
-const statsym = Dict(zip(inst_s, syms_s))
-const symstat = Dict(zip(syms_s, inst_s))
+const symstat = freeze(Dict(zip(Symbol.(inst_s), inst_s)))
 
 # lookup table for agegrp
 inst_a = instances(agegrp)
-syms_a = Symbol.(inst_a)
-const agesym = Dict(zip(inst_a, syms_a))
-const symage = Dict(zip(syms_a, inst_a))
+const symage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
+
+# lookup table for combined status and condition
+const symallconds = merge(symstat, symcond)
 
 const totinfected       = 9
 const travelers         = 10

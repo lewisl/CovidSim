@@ -7,7 +7,7 @@
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true, set_int_type=Int64,
+function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, silent=true,
             geofilename="../data/geo2data.csv", 
             dtfilename="../parameters/dec_tree_all_25.yml",
             spfilename="../parameters/spread_params.yml")
@@ -16,8 +16,6 @@ function run_a_sim(n_days, locales; runcases=[], spreadcases=[], showr0 = true, 
 =#
 
     empty_all_caches!() # from previous runs
-
-    T_int[] = set_int_type # update the global type of ints with the input value
 
     # access input data and pre-allocate storage
     alldict = setup(n_days; geofilename=geofilename, 
@@ -104,7 +102,7 @@ function do_history!(locales; opendat, cumhist, newhist, starting_unexposed)
     thisday = day_ctr[:day]
     if thisday == 1
         @inbounds for locale in locales
-            zerobase = zeros(T_int[], size(newhist[locale])[1:2])
+            zerobase = zeros(Int, size(newhist[locale])[1:2])
             zerobase[1,agegrps] .+= starting_unexposed[locale]
             zerobase[1,totalcol] = sum(starting_unexposed[locale])
 
@@ -134,7 +132,7 @@ end
 
 # a single locale, either cumulative or new
 function make_series(histmx)  # this function just changes the shape and indexing of the data
-    s = zeros(T_int[], size(histmx,3), prod(size(histmx)[1:2])) # days, conds * (agegrps + 1)
+    s = zeros(Int, size(histmx,3), prod(size(histmx)[1:2])) # days, conds * (agegrps + 1)
     for day in 1:size(histmx, 3)
         @views s[day, :] = reduce(vcat,[histmx[cond, :, day] for cond in 1:size(histmx,1)])'
     end
@@ -149,11 +147,11 @@ function add_totinfected_series!(series, locale)
     end
     # for new
     n = size(series[locale][:new],1)
-    series[locale][:new] = hcat(series[locale][:new], zeros(T_int[], n, 6))
+    series[locale][:new] = hcat(series[locale][:new], zeros(Int, n, 6))
     series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
                                                       abs.(series[locale][:new][:,map2series.unexposed]) ) 
     # for cum
-    series[locale][:cum] = hcat(series[locale][:cum], zeros(T_int[], n, 6))
+    series[locale][:cum] = hcat(series[locale][:cum], zeros(Int, n, 6))
     @views cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
     return
 end
@@ -293,11 +291,11 @@ function histo(x)
     big = ceil(maximum(x))
     bins = Int(big)
     sm = floor(minimum(x))
-    ret = zeros(T_int[], bins)
+    ret = zeros(Int, bins)
     binbounds = collect(1:bins)
     @inbounds for i = 1:bins
         n = count(x -> i-1 < x <= i,x)
-        ret[i] = T_int[](n)
+        ret[i] = Int(n)
     end
     return ret, binbounds
 end
@@ -321,7 +319,7 @@ end
 Returns a single number of successes for a
 sampled outcome of cnt tries with the input pr of success.
 """
-function binomial_one_sample(cnt, pr)::T_int[]
+function binomial_one_sample(cnt, pr)::Int
     return rand.(Binomial.(cnt, pr))
 end
 
