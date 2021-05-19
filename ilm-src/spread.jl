@@ -154,7 +154,10 @@ previously unexposed people, by agegrp?  For a single locale...
                      elseif contactstatus == recovered
                         :recovered  # row 2
                      else
-                        condsym[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
+
+                        @assert contactcond != notsick "contactcond cannot be notsick"
+
+                        condsym[contactcond]  # symbol names of conds 5:8 - 2 -> rows 3:6
                      end
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered

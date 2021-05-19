@@ -52,9 +52,11 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, set
             ages = agegrp_idx[loc]
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
+            
             for case in runcases
                 case(loc, popdat, spreadparams, sdcases, ages)  
             end
+
             idxtime += @elapsed begin
                 infect_idx = findall(locdat.status .== infectious)
                 contactable_idx = findall(locdat.status .!= dead)
@@ -77,7 +79,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, set
 
     #######################
 
-    # simulatio history series for plotting: arrays NOT dataframes
+    # simulation history series for plotting: arrays NOT dataframes
     series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
 
     # sum agegrps to total for all conditions

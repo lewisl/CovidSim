@@ -182,6 +182,7 @@ cumplot(series, locale,[:infectious, :dead])
 
 # %%
 outdat = result_dict["dat"]["popdat"][locale]
+all(outdat.s_d_comply .== :none)
 
 # %% [markdown]
 # ## Social distancing only among those age40_59, age60_79, age80_plus
