@@ -21,27 +21,27 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
     cfdelta::Tuple{Float64,Float64}  
     tfdelta::Tuple{Float64,Float64}  
     comply::Float64             # compliance fraction
-    cfcase::Dict{Int64, Dict{String, Float64}}
-    tfcase::Dict{Int64, Dict{String, Float64}}
+    cfcase::Dict{Int64, Dict{Symbol, Float64}}
+    tfcase::Dict{Int64, Dict{Symbol, Float64}}
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
-    tf::Tuple{Float64, Float64}, name::Union{String, Symbol}, agegrps=[])
+    tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
     function scase(locale, dat, spreadparams, sdcases, ages)   # scase(locale, dat, spreadparams, sdcases)
-        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
     end
 end
 
 
-@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, agegrps, locale, spreadparams, ages)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
     if startday == day_ctr[:day]
-        name = Symbol(name)
+        # name = Symbol(name)
         locdat = dat[locale]
 
-        if comply == 0.0  # magic signal: if comply is zero turn off this case for the selected agegrps
-            cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+        if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
+            cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
             return
         end
 
@@ -59,31 +59,31 @@ end
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
         filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
                 ((locdat.cond .== nil) .| (locdat.cond .== mild)))
-        if (comply == 1.0)   # include everyone in filter1
+        if (comply == 1.0)   # include everyone in filter1 in this case
             complyfilter = filter1
         else
             complyfilter = sample(filter1, round(Int, comply*length(filter1)), replace=false)
         end
         
-        if isempty(agegrps)   # include all agegrps
+        if isempty(include_ages)   # include all include_ages
             locdat.s_d_comply[complyfilter] .= name
         else
-            byage_idx = intersect(complyfilter, union((ages[i] for i in agegrps)...))
+            byage_idx = intersect(complyfilter, union((ages[i] for i in include_ages)...))
             locdat.s_d_comply[byage_idx] .= name
         end
     end
 end
 
 
-function cancel_sd_case!(locdat, sdcases, name, agegrps, ages)
+function cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
     # filter on who is in this case now
     incase_idx = findall(locdat.s_d_comply .== name)
 
-    if isempty(agegrps)   # include all agegrps
+    if isempty(include_ages)   # include all ages
         locdat.s_d_comply[incase_idx] .= :none
-        delete!(sdcases, name)  # there is no one left...
-    else  # only turn it off for some agegrps
-        byage_idx = intersect(incase_idx, union((ages[i] for i in agegrps)...))
+        delete!(sdcases, name)  # there is no one left in this case...
+    else  # only turn it off for some ages
+        byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
         locdat.s_d_comply[byage_idx] .= :none
     end    
 
@@ -91,21 +91,21 @@ end
 
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
-    scale = density_factor * contact_factors[agegrp][condnames[cond]]
+    scale = density_factor * contact_factors[Int(agegrp)][condsym[cond]]
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
-    scale = density_factor * acase.cfcase[agegrp][condnames[cond]]  
+    scale = density_factor * acase.cfcase[Int(agegrp)][condsym[cond]]  
     round(Int,rand(Gamma(shape, scale)))
 end
 
 @inline @inbounds @fastmath function istouched(agegrp, lookup, touch_factors)::Int
-    rand(Binomial(1, touch_factors[agegrp][lookup]))    
+    rand(Binomial(1, touch_factors[Int(agegrp)][lookup]))    
 end
 
 @inline @inbounds @fastmath function istouched(agegrp, lookup, acase::Spreadcase)::Int
-    rand(Binomial(1, acase.tfcase[agegrp][lookup]))  
+    rand(Binomial(1, acase.tfcase[Int(agegrp)][lookup]))  
 end
 
 
@@ -150,11 +150,14 @@ previously unexposed people, by agegrp?  For a single locale...
             contactcond = locdat.cond[contact]
             contactcomply = locdat.s_d_comply[contact]
             contactlookup = if contactstatus == unexposed   # set lookup row in touch_factors
-                        "unexposed"  # row 1
+                        :unexposed  # row 1
                      elseif contactstatus == recovered
-                        "recovered"  # row 2
+                        :recovered  # row 2
                      else
-                        condnames[contactcond]  # text names of conds 5:8 - 2 -> rows 3:6
+
+                        @assert contactcond != notsick "contactcond cannot be notsick"
+
+                        condsym[contactcond]  # symbol names of conds 5:8 - 2 -> rows 3:6
                      end
 
             if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
@@ -166,7 +169,7 @@ previously unexposed people, by agegrp?  For a single locale...
 
                 # infection outcome
                 if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                    prob = riskmx[spreadersickday, contactagegrp]            # TODO also vaccinated people will have partially unsusceptible
+                    prob = riskmx[spreadersickday, Int(contactagegrp)]            # TODO also vaccinated people will have partially unsusceptible
                     newly_infected = rand(Binomial(1, prob))
                     if newly_infected == 1
                         locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic

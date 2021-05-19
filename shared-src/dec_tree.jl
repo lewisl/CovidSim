@@ -10,8 +10,10 @@ function setup_dt(dtfilename)
     # next: change 2nd level keys from 2 item array{Int} [9, 5] to Tuple{Int, Int} (9,5)
     trees = Dict(i => Dict(Tuple(k)=>trees[i][k] for k in keys(trees[i])) for i in keys(trees))
 
+    agegrp_nums = Int.(agegrps) # convert enum to Int values
+
     # next: change the type of next node item from array{Int} [25, 8] to Tuple{Int, Int} (25, 8)
-    for agegrp in agegrps
+    for agegrp in agegrp_nums
         for (k,v) in trees[agegrp]
            for item in v
                 item["next"] = Tuple(item["next"])
@@ -25,7 +27,7 @@ function setup_dt(dtfilename)
     # then we are done with the input branches: we don't use them during simulation
 
     newdict = Dict()
-    for agegrp in agegrps
+    for agegrp in agegrp_nums
         newdict[agegrp] = Dict()
         for node in keys(trees[agegrp])  # node is (sickday, fromcond)
             sickday       = node[1]
@@ -41,17 +43,17 @@ function setup_dt(dtfilename)
             end
         end
     end
-    newdict = Dict(i=>sort(newdict[i], rev=true) for i in agegrps) 
+    newdict = Dict(i=>sort(newdict[i], rev=true) for i in agegrp_nums) 
 
     sickdays_by_age = Dict{Int,Array{Int,1}}()  # empty
     fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
-    for agegrp in agegrps
+    for agegrp in agegrp_nums
         sickdays_by_age[agegrp] = [k[1] for k in collect(keys(trees[agegrp]))]
         fromconds_by_age[agegrp] = [k[2] for k in collect(keys(trees[agegrp]))]
     end
 
     decpoints = Dict{Int,Array{Int, 1}}()
-    for i in agegrps
+    for i in agegrp_nums
         decpoints[i] = unique([k[1] for k in keys(trees[i])])
     end
 

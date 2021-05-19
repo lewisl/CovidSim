@@ -19,11 +19,12 @@ function setup(n_days, locales;  # must provide following inputs
 
     # transition decision trees     
         dt_dict = setup_dt(dectreefilename)
+        dectree = dt_dict["dt"]
 
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dt_dict"=>dt_dict, "geo"=>geodata, "sp"=>spreadparams)  
+    return Dict("dat"=>datadict, "dectree"=>dectree, "geo"=>geodata, "sp"=>spreadparams)  
 end
 
 
@@ -53,6 +54,14 @@ function build_data(locales, geodata, n_days)
 end
 
 
+function convert_to_enumkeys(dectree)
+
+    for (k_age, v_age) in dectree
+        for (k_sickday, v_sickday) in v_age
+        end
+    end
+end
+
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
@@ -61,9 +70,9 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
     if cols == "all"
         parts = apportion(pop, age_dist)
         dat = Table(
-            status = fill(intype(unexposed), pop),    
-            agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
-            cond = zeros(intype, pop),
+            status = fill(unexposed, pop),    
+            agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
+            cond = fill(notsick, pop),
             sickday = zeros(intype, pop),   
             recov_day = zeros(intype, pop),  
             dead_day = zeros(intype, pop),   
@@ -79,9 +88,9 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
     elseif cols == "track"
         parts = apportion(pop, age_dist)
         dat = Table(
-            status = fill(intype(unexposed), pop),        
-            agegrp = reduce(vcat,[fill(i, parts[i]) for i in agegrps]),
-            cond = zeros(intype, pop),  
+            status = fill(unexposed, pop),        
+            agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in instances(agegrps)]), 
+            cond = fill(notsick, pop),  
             sickday = zeros(intype, pop))  
 
     else
@@ -92,7 +101,7 @@ function pop_data(pop; age_dist=age_dist, intype=T_int[], cols="all")
 end
 
 
-function hist_dict(locales, n_days; conds=length(conditions), agegrps=n_agegrps)
+function hist_dict(locales, n_days; conds=all_conds, agegrps=n_agegrps)
     dat = Dict{Int64, Array{T_int[]}}()
     for loc in locales
         dat[loc] = zeros(T_int[], n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)
@@ -142,8 +151,10 @@ function build_spread_params(spfilename)
     spreadparams = (
         # send_risk          = spread_params[:send_risk]::Vector{Float64},
         # recv_risk          = spread_params[:recv_risk]::Vector{Float64},
-        contact_factors    = convert(Dict{Int, Dict{String, Float64}}, spread_params["contact_factors"]),
-        touch_factors      = convert(Dict{Int, Dict{String, Float64}}, spread_params["touch_factors"]),
+        # contact_factors    = convert(Dict{Int, Dict{Symbol, Float64}}, spread_params["contact_factors"]),
+        contact_factors    = Dict(Int(k1) => Dict(Symbol(k2) => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["contact_factors"]),
+        # touch_factors      = convert(Dict{Int, Dict{Symbol, Float64}}, spread_params["touch_factors"]),
+        touch_factors      = Dict(Int(k1) => Dict(Symbol(k2) => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["touch_factors"]),
         shape              = spread_params["shape"],
         riskmx             = send_risk
         )
@@ -169,6 +180,9 @@ end
 
 
 """
+    limdict(dct::Dict, op::Function)
+
+Finds minimum or maxium value of the leaves of a dict.
 Warning: not general! works on dict with 2 levels and 
 numerical values at the lower level.
 """
@@ -220,8 +234,8 @@ end
 
 
 function precalc_agegrp_filt(dat)  # dat for a single locale
-    agegrp_filt_bit = Dict(agegrp => dat.agegrp .== agegrp for agegrp in agegrps)
-    agegrp_filt_idx = Dict(agegrp => findall(agegrp_filt_bit[agegrp]) for agegrp in agegrps)
+    agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in agegrps)
+    agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
     return agegrp_filt_bit, agegrp_filt_idx
 end
 # agegrp_filt_bit, agegrp_filt_idx = precalc_agegrp_filt(ilmat);

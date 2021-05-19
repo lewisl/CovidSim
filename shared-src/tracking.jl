@@ -59,8 +59,9 @@ end
 function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
 
     n = size(series[locale][:cum],1)
-    outcomes = Dict{String, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
-
+    outcomes = Dict{Symbol, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
+    agegrp = Int(agegrp)
+    
     # each denominator for data summary
     total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]] + series[locale][:cum][1, map2series.infectious[agegrp]]
     total_infected = series[locale][:cum][end, map2series.totinfected[agegrp]]
@@ -74,7 +75,8 @@ function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom
             end
 
     for cond in statuses
-        outcomes[condnames[cond]] = series[locale][:cum][n, map2series[cond][agegrp]] / denom
+        ssym = statsym[cond]
+        outcomes[ssym] = series[locale][:cum][n, map2series[ssym][agegrp]] / denom
     end
 
     return outcomes
@@ -95,7 +97,7 @@ end
 ###########################################################################################
 
 
-function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]; 
+function cumplot(series, locale, plcols=[:unexposed, :infectious, :recovered, :dead]; 
     days="all", geo=[], thm=:wong2)
 
     pyplot()
@@ -116,12 +118,12 @@ function cumplot(series, locale, plcols=[unexposed, infectious, recovered, dead]
     people = if !isempty(geo)
                 geo[geo[:,fips] .== locale, popsize][1]
              else # this will off by a tiny bit because of rounding
-                series[locale][:cum][1, map2series[unexposed][totalcol]] + series[locale][:cum][1,map2series[infectious][totalcol]]
+                series[locale][:cum][1, map2series[:unexposed][totalcol]] + series[locale][:cum][1,map2series[:infectious][totalcol]]
              end   
     cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died = series[locale][:cum][end, map2series[dead][totalcol]]
+    died = series[locale][:cum][end, map2series[:dead][totalcol]]
     # infected = series[locale][:cum][1,map2series[unexposed][totalcol]] - series[locale][:cum][end,map2series[unexposed][totalcol]]
-    infected = people - series[locale][:cum][end,map2series[unexposed][totalcol]]
+    infected = people - series[locale][:cum][end,map2series[:unexposed][totalcol]]
     recovered = series[locale][:cum][end, map2series.recovered[totalcol]]
     unexp = people - infected
 
