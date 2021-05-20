@@ -114,6 +114,7 @@ How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
+    n_newly_infected = 0
 
     contact_factors = spreadparams.contact_factors
     touch_factors = spreadparams.touch_factors
@@ -166,72 +167,115 @@ previously unexposed people, by agegrp?  For a single locale...
                         locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                         locdat.status[contact] = infectious
                         locdat.sickday[contact] = 1
+                        n_newly_infected += 1
                     end
                 end  # if (touched ...)
             end  # if contactstatus
         end  # for contact in sample(...)
     end  # for p in infect_idx
 
-    return # n_contacts, n_touched, n_newly_infected
+    return n_newly_infected # n_contacts, n_touched, n_newly_infected
 end
 
 
-function r0_sim(age_dist, dat, locale::Int, dt_dict, spreadparams, density_factor, pop=1_000_000; scale=10)
+"""
+    r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, density_factor=1.0, scale=5)
+    r0_sim(locdat; age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, sdcases=sdcases, density_factor=1.0, scale=5)
 
-    # setup a fake locale or use the current locale in the simulation
-    @views if locale == 0 # simulate with fake locale with pop people
-        # create population
-        r0pop = pop_data(pop, age_dist=age_dist,cols="all")
+Simulates r0 or rt. The first method creates a population and tracks how many infections
+are caused by first generation spreaders and NOT spreaders who were infected by the
+first generation. The simulates r0
 
-        # create spreaders: ages by age_dist, cond is nil
-        age_relative = round.(Int, age_dist ./ minimum(age_dist))
-        age_relative .*= scale # update with scale
-        cnt_spreaders = sum(age_relative)
-        for i in agegrps
-            idx = findfirst(x->x==i, r0pop.agegrp)
-            for j = 1:age_relative[i]
-                r0pop.status[idx] = infectious
-                r0pop.cond[idx] = nil
-                r0pop.sickday[idx] = 1
-                idx += 1
-            end
+The second method simulates r at time t given the characteristics of the simulation
+you are running. This shows how r, reproduction rate, is affected by public health
+measures and the characteristics of the population over time. This simulates r(t).
+"""
+function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, density_factor=1.0, scale=5)
+    # create simulation population
+    r0pop = pop_data(pop)
+
+    # seed spreaders in each age group proportional to age distribution
+    cnt_accessible = count(r0pop.status .!= dead)
+    cnt_by_agedist = round.(Int, age_dist ./ minimum(age_dist))
+    scale = set_by_level(cnt_accessible)
+    cnt_by_agedist .*= scale # update with scale
+
+    cnt_spreaders = sum(age_relative)  # COMPARE TO GEN1_INFECTED
+
+    for i in agegrps
+        idx = findall(r0pop.agegrp .== i) 
+
+        for j = 1:cnt_by_agedist[Int(i)]
+            r0pop.status[idx] = infectious
+            r0pop.cond[idx] = nil
+            r0pop.sickday[idx] = 1
+            idx += 1
         end
-    else  # simulate r0 at the current state of locale being simulated
-        r0pop = deepcopy(dat[locale])
-        ignore_idx = optfindall(==(infectious), r0pop.status, 0.5)
-        r0pop.status[ignore_idx] .= recovered # can't catch what they already have; won't spread for calc of r0
-
-        cnt_accessible = count(r0pop.status .== unexposed)
-        age_relative = round.(Int, age_dist ./ minimum(age_dist)) # counts by agegrp
-        scale = set_by_level(cnt_accessible)
-        age_relative .*= scale # update with scale
-        cnt_spreaders = sum(age_relative)
-
-        for i in agegrps
-            idx = findall((r0pop.agegrp .== i) .& (r0pop.status .== unexposed))
-            for j = 1:age_relative[i]
-                p = idx[j]
-                r0pop.status[p] = infectious
-                r0pop.cond[p] = nil
-                r0pop.sickday[p] = 1
-            end
-        end        
     end
 
-    ret = [0,0,0,0] # n_spreaders, n_contacts, n_touched, n_newly_infected 
-    for i = 1:sickdaylim                                          
-        ret[:] .+= spread!(r0pop, 0, [], spreadparams, density_factor)  
+    # set infect_idx based on seeding: never update so we measure only 1st gen. spreaders
+    gen1_infect_idx = findall(r0pop.status .== infectious)
+    gen1_infected = length(gen1_infect_idx)
 
-        transition!(r0pop, 0, dt_dict) 
+    sdcases = []   # TODO MAYBE this should be an input based on current context of simulation
+    r0_infected = 0
+
+    for i = 1:sickdaylim        
+        contactable_idx = findall(r0pop.status .!= dead)
+        n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, spreadparams, density_factor)  
+        infect_idx = findall(r0pop.status .== infectious)
+        r0_infected += n_newly_infected
+        transition!(r0pop, infect_idx, dectree) 
+        gen1_infect_idx = filter(x -> r0pop.status[x] == infectious, gen1_infect_idx)
+    end
+
+    r0 =  r0_infected / gen1_infected   # n_newly_infected / cnt_spreaders
+    return r0
+
+end
+
+
+function r0_sim(locdat; age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, sdcases=sdcases, density_factor=1.0, scale=5)
+    # create simulation population
+    r0pop = deepcopy(locdat)
+
+    ignore_idx = optfindall(==(infectious), r0pop.status, 0.5)
+    # the following only works because we treat recovered as if they are immune
+    r0pop.status[ignore_idx] .= recovered # can't catch what they already have; won't spread for calc of r0
+
+    cnt_accessible = count(r0pop.status .!= dead)
+    age_relative = round.(Int, age_dist ./ minimum(age_dist)) # counts by agegrp
+    scale = set_by_level(cnt_accessible)
+    age_relative .*= scale # update with scale
+    cnt_spreaders = sum(age_relative)
+
+    for i in agegrps  # set the spreaders for the r0 simulation
+        idx = findall((r0pop.agegrp .== i) .& (r0pop.status .== unexposed))
+        for j = 1:age_relative[Int(i)]
+            p = idx[j]
+            r0pop.status[p] = infectious
+            r0pop.cond[p] = nil
+            r0pop.sickday[p] = 1
+        end
+    end     
+
+    r0_infected = 0 
+    for i = 1:sickdaylim      
+        infect_idx = findall((r0pop.status .== infectious) .& (r0pop.sickday .> 0))
+        contactable_idx = findall(r0pop.status .!= dead)
+        # spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)                                    
+        r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)  
+
+        transition!(r0pop, infect_idx, dectree) 
 
         # eliminate the new spreaders so we only track the original spreaders
         newsick_idx = findall(r0pop.sickday .== 1)
 
-        r0pop.status[newsick_idx] .= unexposed
-        r0pop.sickday[newsick_idx] .= 0
+        # r0pop.status[newsick_idx] .= unexposed
+        r0pop.status[newsick_idx] .= recovered # only works because infectious and recovered are treated as immune
     end
 
-    r0 =  ret[4] / cnt_spreaders   # n_newly_infected / cnt_spreaders
+    r0 =  r0_infected / cnt_spreaders   # n_newly_infected / cnt_spreaders
     return r0
 end
 

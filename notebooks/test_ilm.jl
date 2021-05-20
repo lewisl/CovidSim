@@ -130,7 +130,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6]);
+result_dict, series = run_a_sim(180, locale, showr0=true, silent=true, runcases=[seed_1_6]);
 
 # %%
 result_dict

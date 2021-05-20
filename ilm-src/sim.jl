@@ -65,7 +65,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(age_dist, popdat, loc, dectree, spreadparams, density_factor)
+                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, sdcases=sdcases)
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
