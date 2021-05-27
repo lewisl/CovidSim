@@ -130,7 +130,7 @@ end
                 cumdat[thisday, map2series[i][Int(age)]] = get(sick_today, i, 0)
             end
 
-            for i in Int.(all_conds)
+            for i in Int.(allconds)
                 if thisday == 1
                     newdat[thisday, map2series[i][Int(age)]] = get(status_today, i, 0)
                 else  # on all other days
@@ -167,7 +167,7 @@ end
 function hist_total_agegrps!(series, locales)
     for loc in locales
         for kind in [:cum, :new]
-            for cond in Int.(all_conds)
+            for cond in Int.(allconds)
                 series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
             end
         end

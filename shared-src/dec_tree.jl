@@ -86,85 +86,64 @@ function display_tree(tree)
     end   # for agegrp     
 end
 
-# TODO This won't work any more: need a new way to test dectrees
-function walktree(dt, top)
-    done = []
-    todo = [[top]]
-    while !isempty(todo)
-        currentpath = popfirst!(todo)
-        endnode = currentpath[end]
-        for br in dt[endnode]["branches"]
-            # if br.next[1] == 0
-            if br["next"][1] == 0
-                push!(done, vcat(currentpath, [br["next"]]))  # append without modifying currentpath
-            else
-                push!(todo, vcat(currentpath, [br["next"]]))   
+
+# works for a single agegrp: 
+function walksequence(dt)
+    # find the top nodes
+    dt = sort(dt)
+    breakdays = collect(keys(dt))
+    k1 = first(breakdays)
+    todo = [] # array of node sequences 
+    done = [] # ditto
+    for fromcond in keys(dt[k1])
+        for fromcond in keys(dt[k1])
+            for i in 1:length(dt[k1][fromcond]["outcomes"])
+                outcome = dt[k1][fromcond]["outcomes"][i]
+                prob = dt[k1][fromcond]["probs"][i]
+                push!(todo, [(sickday=k1, fromcond=fromcond, tocond=outcome, prob=prob)])
             end
         end
     end
+
+    while !isempty(todo)
+        seq = popfirst!(todo)
+        lastnode = seq[end]
+        breakday, fromcond, tocond = lastnode
+        nxtidx = findfirst(isequal(breakday), breakdays) + 1
+        for brk in breakdays[nxtidx:end]
+            if tocond in keys(dt[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
+                for i in 1:length(dt[brk][tocond]["outcomes"])
+                    outcome = dt[brk][tocond]["outcomes"][i]
+                    prob = dt[brk][tocond]["probs"][i]
+                    if (outcome == Int(dead)) | (outcome == Int(recovered))
+                        push!(done, vcat(seq, [(sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)]))
+                    else
+                        push!(todo, vcat(seq, [(sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)]))
+                    end
+                end
+                break # we found the tocond as a matching fromcond
+            end
+        end
+    end
+
     return done
 end
 
 
-function sanity_test_all(trees)
-    tbl = zeros(length(trees),4)
-    for (i, tree) in trees
-        paths = walktree(tree, (5,5))
-        res = sanity_test(paths, tree)
-        tbl[i, :] .= [i, res.total, res.recovered, res.dead]
+function verifyprobs(seqs)
+    ret = Dict(dead=>0.0, recovered=>0.0)
+    allpr = 0.0
+
+    for seq in seqs
+        pr = mapreduce(x->getindex(x,:prob), *, seq)
+        outcome = last(seq).tocond
+        ret[status(outcome)] += pr
+        allpr += pr
     end
-    return tbl
+    return ret, allpr
 end
 
-function sanity_test_all(dtfname::String)
-    trees, decpoints = setup_dt(dtfname)
-    sanity_test_all(trees)
-end
 
-# TODO: check that probs of all branches at a node add to one
-# TODO: this won't work any more
-
-function sanity_test(paths, tree)
-    probs = []
-    outcomes = []
-    deadpr = 0.0
-    recoveredpr = 0.0
-    for path in paths
-        prs = get_the_probs(path, tree)
-        res = prs[1]
-        prs = prs[2]
-        push!(probs,(res, prod(prs)))
-    end
-    for item in probs
-        if item[1] == "recovered"
-            recoveredpr += item[2]
-        else
-            deadpr += item[2]
-        end
-    end
-    return (recovered=recoveredpr, dead=deadpr, total=recoveredpr+deadpr, probs=probs)
-end
-
-function get_the_probs(path, tree)
-    probs = []
-    for cnt in 1:length(path)-1
-        it1, it2 = path[cnt], path[cnt+1]
-        node = tree[it1]
-        for br in node["branches"]
-            if br["next"] == it2
-                push!(probs, br["pr"])
-            end
-        end
-    end
-    if path[end] == (0,0)
-        probs = ["recovered", probs]
-    elseif path[end] == (0,5)
-        probs = ["dead", probs]
-    else
-        error("didn't work")
-    end
-    return probs
-end
 
 
 # new trees look like this to replace the tuple as a node identifier with nested dictionaries

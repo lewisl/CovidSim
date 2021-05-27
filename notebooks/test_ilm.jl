@@ -21,6 +21,7 @@ using StatsBase
 using TypedTables
 using BenchmarkTools
 using Distributions
+using YAML
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
@@ -98,13 +99,16 @@ shifter(touch_factors, (.18, .3)...)[age40_59]
 dectree = alldict["dectree"] # the decision trees for all age groups are loaded
 
 # %%
+YAML.write(dectree)
+
+# %%
 typeof(dectree)
 
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
 
 # %%
-dectree[5][25]
+dectree[5]
 
 # %%
 typeof(dectree[5][25][7]["outcomes"])

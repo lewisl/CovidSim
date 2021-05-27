@@ -6,7 +6,7 @@
 #       extension: .jl
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.1
+#       jupytext_version: 1.11.2
 #   kernelspec:
 #     display_name: Julia 1.6.0
 #     language: julia
@@ -30,11 +30,6 @@ using YAML
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
 
-# %%
-ilmat = readdlm("../data/ilmtestdata.csv", ',',Int, header=true)[1]
-ilmat = repeat(ilmat, 10_000)
-refresh = copy(ilmat)
-
 # %% [markdown]
 # ### Current YAML Approach as of 4/28/2021
 
@@ -47,11 +42,11 @@ dectree_dict = setup_dt(dectreefilename)
 # %%
 dectree = dectree_dict["dt"]
 
-# %% jupyter={"outputs_hidden": true} tags=[]
-display_tree(dectree)
-
 # %%
-YAML.write(dectree)
+pprint(sort(dectree[5]))
+
+# %% tags=[] jupyter={"outputs_hidden": true}
+display_tree(dectree)
 
 # %% [markdown]
 # ## Experiments with YAML 
@@ -71,7 +66,22 @@ newtree[5][9]
 # %%
 newtree[5][9][5]
 
+# %% [markdown]
+# ## Test and Re-write sanity check for transition phases
+
 # %%
-retree = YAML.load_file(newdectree_fname)
+dt = sort(dectree[5])
+
+# %% tags=[]
+CovidSim_ilm.walksequence
+
+# %%
+for i = 1:5
+    done = CovidSim_ilm.walksequence(dectree[i])
+    probs,allpr = CovidSim_ilm.verifyprobs(done)
+    println("for agegroup ", i)
+    println(probs)
+    println(allpr)
+end
 
 # %%

@@ -101,7 +101,7 @@ function pop_data(pop; age_dist=age_dist, cols="all")
 end
 
 
-function hist_dict(locales, n_days; conds=all_conds, agegrps=n_agegrps)
+function hist_dict(locales, n_days; conds=allconds, agegrps=n_agegrps)
     dat = Dict{Int64, Array{Int}}()
     for loc in locales
         dat[loc] = zeros(Int, n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)

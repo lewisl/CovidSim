@@ -1,8 +1,8 @@
 5:                                  # agegrp
   25:                               # sickday
     7:                              # fromcond
-      probs: [0.682,0.318]
-      outcomes: [3, 4]
+      probs: [0.682,0.318]          # probability of corresponding outcome
+      outcomes: [3, 4]              # to condition or status
     8:
       probs: [0.676, 0.324]
       outcomes: [3, 4]
@@ -59,7 +59,7 @@
   9:
     5:
       probs: [0.62, 0.38]
-      outcomes: [3, 7,]     
+      outcomes: [3, 7]     
     6:
       probs: [1.0]
       outcomes: [6]

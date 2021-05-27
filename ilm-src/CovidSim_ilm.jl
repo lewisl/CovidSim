@@ -1,6 +1,4 @@
 # TODO
-    # get rid of all uses of integer literals for sickday, agegrps, conditions
-        # in dectrees, for instance
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -8,16 +6,26 @@
     # fix all the travel functions to latest APIs
     # put in an inflection measure
 
-# TODO for individual level model
-    # rewrite r0 simulator
     # add transq to ilm and test
     # vaccination with 3 vaccines / 1 or 2 shots
     # extend to one year
-    # change meaningful constants to _nil_, _severe_, _dead_ etc.???
-    # low priority: try using Symbol instead of integers for categories
+    # clean up reports and notebooks to work with latest ilm model: get rid of some...
+    # should we change dectree keys to be enums?
+    # sanity check for new approach to decision points: change to it as the input instead of
+        # tree input--since the model already ignores tree nodes
+    # should quarantine be special or is it extreme social distancing--with no contacts?
+        #= 
+        tricky because we only using contacts for outgoing contacts by spreaders.
+        we would need to reject contacts by the recipient ALSO--not that hard
+        this would help with viral load modeling
+        =#
+    # implement "rings" to set boundaries on contacts and create spreader events and high-risk communities
+        #=
+        this changes spread logic a lot
+        =#
+    # decouple spread process from current specifics for "contact", "touch" and "infect"
 
 # Done
-    # do unquarantine for ilm
 
 
 
@@ -165,7 +173,7 @@ export
     totinfected,
     statuses,
     conditions,
-    all_conds,
+    allconds,
     condnames,
     infectious_cases,
     transition_cases,
@@ -254,7 +262,7 @@ end
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
-const all_conds = vcat(infectious_cases, statuses)
+const allconds = vcat(infectious_cases, statuses)
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 
