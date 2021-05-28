@@ -1,4 +1,6 @@
 # TODO
+    # split apart the group and ilm models since I just broke decision trees for the group.  there is
+          # very little shared code now
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %

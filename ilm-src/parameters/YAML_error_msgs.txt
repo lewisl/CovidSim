@@ -1,0 +1,84 @@
+MethodError: no method matching __compose_sequence_node(::Nothing, ::YAML.Composer, ::YAML.SequenceNode)
+Closest candidates are:
+  __compose_sequence_node(::YAML.SequenceEndEvent, ::Any, ::Any) at /Users/lewislevin/.julia/packages/YAML/8OsHw/src/composer.jl:118
+  __compose_sequence_node(::YAML.Event, ::Any, ::Any) at /Users/lewislevin/.julia/packages/YAML/8OsHw/src/composer.jl:119
+
+Stacktrace:
+  [1] _compose_sequence_node(start_event::YAML.SequenceStartEvent, composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:139
+  [2] compose_sequence_node(composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:148
+  [3] handle_event(event::YAML.SequenceStartEvent, composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:80
+  [4] compose_node(composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:94
+  [5] __compose_mapping_node(event::YAML.ScalarEvent, composer::YAML.Composer, node::YAML.MappingNode)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:155
+  [6] _compose_mapping_node(start_event::YAML.MappingStartEvent, composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:175
+  [7] compose_mapping_node(composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:184
+  [8] handle_event(event::YAML.MappingStartEvent, composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:86
+  [9] compose_node(composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:94
+ [10] __compose_mapping_node(event::YAML.ScalarEvent, composer::YAML.Composer, node::YAML.MappingNode)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:155
+ [11] _compose_mapping_node(start_event::YAML.MappingStartEvent, composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:175
+ [12] compose_mapping_node(composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:184
+ [13] handle_event(event::YAML.MappingStartEvent, composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:86
+ [14] compose_node(composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:94
+ [15] __compose_mapping_node(event::YAML.ScalarEvent, composer::YAML.Composer, node::YAML.MappingNode)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:155
+ [16] _compose_mapping_node(start_event::YAML.MappingStartEvent, composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:175
+ [17] compose_mapping_node(composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:184
+ [18] handle_event(event::YAML.MappingStartEvent, composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:86
+ [19] compose_node(composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:94
+ [20] __compose_mapping_node(event::YAML.ScalarEvent, composer::YAML.Composer, node::YAML.MappingNode)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:155
+ [21] _compose_mapping_node(start_event::YAML.MappingStartEvent, composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:175
+ [22] compose_mapping_node(composer::YAML.Composer, anchor::Nothing)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:184
+ [23] handle_event(event::YAML.MappingStartEvent, composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:86
+ [24] compose_node(composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:94
+ [25] compose_document(composer::YAML.Composer)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:50
+ [26] compose(events::YAML.EventStream)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/composer.jl:38
+ [27] load(ts::YAML.TokenStream, constructor::YAML.Constructor)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/YAML.jl:38
+ [28] load(ts::YAML.TokenStream, more_constructors::Nothing, multi_constructors::Dict{Any, Any}; dicttype::Type{Dict{Any, Any}}, constructorType::typeof(YAML.SafeConstructor))
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/YAML.jl:44
+ [29] load
+    @ ~/.julia/packages/YAML/8OsHw/src/YAML.jl:44 [inlined]
+ [30] #load#10
+    @ ~/.julia/packages/YAML/8OsHw/src/YAML.jl:47 [inlined]
+ [31] load (repeats 3 times)
+    @ ~/.julia/packages/YAML/8OsHw/src/YAML.jl:47 [inlined]
+ [32] #16
+    @ ~/.julia/packages/YAML/8OsHw/src/YAML.jl:96 [inlined]
+ [33] open(::YAML.var"#16#17"{Base.Iterators.Pairs{Union{}, Union{}, Tuple{}, NamedTuple{(), Tuple{}}}, Tuple{}}, ::String, ::Vararg{String, N} where N; kwargs::Base.Iterators.Pairs{Union{}, Union{}, Tuple{}, NamedTuple{(), Tuple{}}})
+    @ Base ./io.jl:330
+ [34] open
+    @ ./io.jl:328 [inlined]
+ [35] #load_file#15
+    @ ~/.julia/packages/YAML/8OsHw/src/YAML.jl:94 [inlined]
+ [36] load_file(::String)
+    @ YAML ~/.julia/packages/YAML/8OsHw/src/YAML.jl:94
+ [37] top-level scope
+    @ In[25]:1
+ [38] eval
+    @ ./boot.jl:360 [inlined]
+ [39] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:1094
