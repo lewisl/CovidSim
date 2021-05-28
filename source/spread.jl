@@ -88,26 +88,55 @@ function cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
 
 end
 
+###################################################################
+# basic functions for the default definition of spread
+###################################################################
 
-@inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
-    scale = density_factor * contact_factors[agegrp][cond]
-    round(Int,rand(Gamma(shape, scale)))
+
+"""
+    numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int
+    numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
+
+Returns the number of contacts that someone spreading the disease will make on a day. The second
+method modifies the outcome for the spreading case (social distancing) applicable to a specific
+spreader.
+"""
+@inline function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
+    @inbounds @fastmath scale = density_factor * contact_factors[agegrp][cond]
+    @fastmath round(Int,rand(Gamma(shape, scale)))
 end
 
-@inline @inbounds @fastmath function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
-    scale = density_factor * acase.cfcase[agegrp][cond]  
-    round(Int,rand(Gamma(shape, scale)))
-end
-
-@inline @inbounds @fastmath function istouched(agegrp, lookup, touch_factors)::Int
-    rand(Binomial(1, touch_factors[agegrp][lookup]))    
-end
-
-@inline @inbounds @fastmath function istouched(agegrp, lookup, acase::Spreadcase)::Int
-    rand(Binomial(1, acase.tfcase[agegrp][lookup]))  
+@inline function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
+    @inbounds @fastmath scale = density_factor * acase.cfcase[agegrp][cond]  
+    @fastmath round(Int,rand(Gamma(shape, scale)))
 end
 
 
+"""
+    function istouched(agegrp, lookup, touch_factors)::Bool
+    function istouched(agegrp, lookup, acase::Spreadcase)::Bool
+
+Returns true if the contact made was significant to the recipient or false if not.
+The second method modifies the outcome for the spreading case of the recipient.
+"""
+@inline function istouched(agegrp, lookup, touch_factors)::Bool
+    return @inbounds @fastmath rand(Binomial(1, touch_factors[agegrp][lookup])) == 1
+end
+
+@inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
+    return @inbounds @fastmath rand(Binomial(1, acase.tfcase[agegrp][lookup])) == 1
+end
+
+
+"""
+    function isinfected(riskmx, spreadersickday, contactagegrp)::Bool
+
+Returns true if the spreader infected the contact. 
+"""
+@inline function isinfected(riskmx, spreadersickday, contactagegrp)::Bool
+    @inbounds @fastmath prob = riskmx[spreadersickday, Int(contactagegrp)]            # TODO also vaccinated people will have partially unsusceptible
+    return @inbounds @fastmath rand(Binomial(1, prob)) == 1
+end
 
 """
 How far do the infectious people spread the virus to
@@ -160,10 +189,8 @@ previously unexposed people, by agegrp?  For a single locale...
                             end
 
                 # infection outcome
-                if (touched == 1) && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                    prob = riskmx[spreadersickday, Int(contactagegrp)]            # TODO also vaccinated people will have partially unsusceptible
-                    newly_infected = rand(Binomial(1, prob))
-                    if newly_infected == 1
+                if touched && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
+                    if isinfected(riskmx, spreadersickday, contactagegrp)
                         locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                         locdat.status[contact] = infectious
                         locdat.sickday[contact] = 1
