@@ -2,22 +2,36 @@
 
 This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of the COVID outbreak of 2019-2020 with some new twists, written in the Julia programming language. [Look at some preliminary results...](https://github.com/lewisl/CovidSim/blob/master/reports/report%201/report%201.ipynb)
 
-There are now both a group model, in the group-src folder, and an individual level model, in the ilm-src folder.
+There are now both a group model, in the repository Covidgroupsim, and this individual level model here in this repository Covidilmsim.
 
-The group model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The groups are:
+The group model tracks groups of people in 8 categories by day in a given locale (city or region). Each locale has its own data structure for tracking people.  Multiple locales can be simulated in a single run. The individual model tracks individuals in a locale. For each individual a status and condition are tracked, as well as other traits and outcomes. 
+
+The individual level model ("ilm" from now on) tracks each individual in a locale with an individual's specific traits and outcomes. Because a simulation doesn't know the individual people we use the same age groups, disease status conditions, and sickdays as in the group model. But, the ilm enables more complex policy scenarios to be simulated with more understandable logic. But, the ilm runs slower than the group model because each individual must be queried and updated.
+
+The rest of this readme describes the individual level model.
+
+The statuses are:
 
 - Unexposed
 - Infectious (summary of the 4 disease conditions)
 - Recovered
 - Dead
+- and nonsick--to correspond to conditions of degrees of illness.
+
+The conditions are:
+
 - Nil (infected and asymptomatic)
 - Mild
 - Sick
 - Severe
 
-The groups are further divided by age groups (0-20, 20-40, 40-60, 60-80, 80+) and "sickday," which refers to the number of days an infected person has had the disease. It is very easy to reduce or extend the maximum sickday and to run a simulation for any duration.
+The agegroups are:
 
-The individual level model ("ilm" from now on) tracks each individual in a locale with an individual's specific traits and outcomes. Because a simulation doesn't know the individual people we use the same age groups, disease status conditions, and sickdays as in the group model. But, the ilm enables more complex policy scenarios to be simulated with more understandable logic. But, the ilm runs slower than the group model because each individual must be queried and updated.
+- age0_19
+- age20_39 
+- age40_59 
+- age60_79 
+- age80_up
 
 The basic processes of the simulation are:
 - Spread
@@ -81,5 +95,4 @@ There are several different approaches to epidemiological models that have been 
 [1] "Prediction and analysis of Coronavirus Disease 2019," Lin Jia, Kewen Li， Yu Jiang, Xin Guo, and Ting zhao, https://arxiv.org/abs/2003.05447
 
 [2] "Correcting under-reported COVID-19 case numbers: estimating the true scale of the pandemic," Kathleen M. Jagodnik, Forest Ray, Federico M. Giorgi, and Alexander Lachmann, medRxiv pre-print, https://www.medrxiv.org/content/10.1101/2020.03.14.20036178v2
-
 

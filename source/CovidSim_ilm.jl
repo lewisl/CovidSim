@@ -1,6 +1,4 @@
 # TODO
-    # split apart the group and ilm models since I just broke decision trees for the group.  there is
-          # very little shared code now
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -9,12 +7,12 @@
     # put in an inflection measure
 
     # add transq to ilm and test
+    # recovery should not guarantee future immmunity
     # vaccination with 3 vaccines / 1 or 2 shots
     # extend to one year
     # clean up reports and notebooks to work with latest ilm model: get rid of some...
-    # should we change dectree keys to be enums?
-    # sanity check for new approach to decision points: change to it as the input instead of
-        # tree input--since the model already ignores tree nodes
+    # should we change dectree keys to be enums? postpone...
+    # tree input--since the model already ignores tree nodes
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
         tricky because we only using contacts for outgoing contacts by spreaders.
@@ -26,8 +24,6 @@
         this changes spread logic a lot
         =#
     # decouple spread process from current specifics for "contact", "touch" and "infect"
-
-# Done
 
 
 
