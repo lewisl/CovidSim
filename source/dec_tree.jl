@@ -109,7 +109,7 @@ function walksequence(dt)
 
     # build sequences from top to terminal states: recovered or dead
     while !isempty(todo)
-        seq = popfirst!(todo)  # TODO: should this be a copy(...)?
+        seq = popfirst!(todo)  
         lastnode = seq[end]
         breakday, fromcond, tocond = lastnode
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
@@ -119,9 +119,9 @@ function walksequence(dt)
                     outcome = dt[brk][tocond]["outcomes"][i]
                     prob = dt[brk][tocond]["probs"][i]
                     if (outcome == Int(dead)) | (outcome == Int(recovered))  # terminal node reached--no more nodes to add
-                        push!(done, vcat(seq, [(sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)]))
+                        push!(done, vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)))
                     else  # not at a terminal outcome: still more nodes to add
-                        push!(todo, vcat(seq, [(sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)]))
+                        push!(todo, vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)))
                     end
                 end
                 break # we found the tocond as a matching fromcond

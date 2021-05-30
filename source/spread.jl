@@ -54,7 +54,7 @@ end
                         tfcase  = shifter(spreadparams.touch_factors, tf...)     
                         )
 
-        # load the s_d_comply column of the population table
+        # load the sdcomply column of the population table
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
         filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
                 ((locdat.cond .== nil) .| (locdat.cond .== mild)))
@@ -65,10 +65,10 @@ end
         end
         
         if isempty(include_ages)   # include all include_ages
-            locdat.s_d_comply[complyfilter] .= name
+            locdat.sdcomply[complyfilter] .= name
         else
             byage_idx = intersect(complyfilter, union((ages[i] for i in include_ages)...))
-            locdat.s_d_comply[byage_idx] .= name
+            locdat.sdcomply[byage_idx] .= name
         end
     end
 end
@@ -76,14 +76,14 @@ end
 
 function cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
     # filter on who is in this case now
-    incase_idx = findall(locdat.s_d_comply .== name)
+    incase_idx = findall(locdat.sdcomply .== name)
 
     if isempty(include_ages)   # include all ages
-        locdat.s_d_comply[incase_idx] .= :none
+        locdat.sdcomply[incase_idx] .= :none
         delete!(sdcases, name)  # there is no one left in this case...
     else  # only turn it off for some ages
         byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
-        locdat.s_d_comply[byage_idx] .= :none
+        locdat.sdcomply[byage_idx] .= :none
     end    
 
 end
@@ -143,57 +143,56 @@ How far do the infectious people spread the virus to
 previously unexposed people, by agegrp?  For a single locale...
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
+
     n_newly_infected = 0
 
+    # retrieve params
     contact_factors = spreadparams.contact_factors
-    touch_factors = spreadparams.touch_factors
-    riskmx = spreadparams.riskmx
-    shape = spreadparams.shape
+    touch_factors   = spreadparams.touch_factors
+    riskmx          = spreadparams.riskmx
+    shape           = spreadparams.shape
+
+    # column aliases as vector v_
+    v_cond     = locdat.cond
+    v_status   = locdat.status
+    v_agegrp   = locdat.agegrp
+    v_sickday  = locdat.sickday
+    v_sdcomply = locdat.sdcomply
 
     # assign contacts, do touches, do new infections
-    @inbounds @fastmath for p in infect_idx      # p is the person who is the spreader
+    @inbounds @fastmath for spr in infect_idx      # p is the person who is the spreader
 
-        # spreader's characteristics
-        spreadercond = locdat.cond[p]  
-        spreaderagegrp = locdat.agegrp[p]
-        spreadersickday = locdat.sickday[p]
-        spreadersdcomply = locdat.s_d_comply[p]
-
-        nc =    if spreadersdcomply == :none
-                    numcontacts(density_factor, shape, spreaderagegrp, spreadercond, contact_factors)  # this method is faster
+        nc =    if v_sdcomply[spr] == :none
+                    numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_factors)  # this method is faster
                 else
-                    numcontacts(density_factor, shape, spreaderagegrp, spreadercond, sdcases[spreadersdcomply])
+                    numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], sdcases[v_sdcomply[spr]])
                 end
-                                # TODO we could keep track of contacts for contact tracing
+        
+        # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
             
-            # contacts's characteristics
-            contactstatus = locdat.status[contact]  
-            contactagegrp = locdat.agegrp[contact]
-            contactcond = locdat.cond[contact]
-            contactcomply = locdat.s_d_comply[contact]
-            contactlookup = if contactstatus == unexposed   # we are combining either a status or a condition value
-                        unexposed  # row 1
-                     elseif contactstatus == recovered
-                        recovered  # row 2
-                     else
-                        @assert contactcond != notsick "contactcond cannot be notsick"
-                        contactcond  
-                     end
-
-            if contactstatus == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                touched =   if contactcomply == :none
-                                istouched(contactagegrp, contactlookup, touch_factors)  # this method is faster
+            contactlookup = if v_status[contact] == unexposed   # we are combining either a status or a condition value
+                                unexposed  # row 1
+                            elseif v_status[contact] == recovered
+                                recovered  # row 2
                             else
-                                istouched(contactagegrp, contactlookup, sdcases[contactcomply])
+                                @assert v_cond[contact] != notsick "contactcond cannot be notsick"
+                                v_cond[contact]  
+                            end
+            
+            if v_status[contact] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
+                touched =   if v_sdcomply[contact] == :none
+                                istouched(v_agegrp[contact], contactlookup, touch_factors)  # this method is faster
+                            else
+                                istouched(v_agegrp[contact], contactlookup, sdcases[v_sdcomply[contact]])
                             end
 
                 # infection outcome
-                if touched && (contactstatus == unexposed)    # TODO some recovered people will become susceptible again
-                    if isinfected(riskmx, spreadersickday, contactagegrp)
-                        locdat.cond[contact] = nil # nil === asymptomatic or pre-symptomatic
-                        locdat.status[contact] = infectious
-                        locdat.sickday[contact] = 1
+                if touched && (v_status[contact] == unexposed)    # TODO some recovered people will become susceptible again
+                    if isinfected(riskmx, v_sickday[spr], v_agegrp[contact])
+                        v_cond[contact] = nil # nil === asymptomatic or pre-symptomatic
+                        v_status[contact] = infectious
+                        v_sickday[contact] = 1
                         n_newly_infected += 1
                     end
                 end  # if (touched ...)
@@ -279,10 +278,10 @@ function r0_sim(locdat; age_dist=age_dist, dectree=dectree, spreadparams=spreadp
     for i in agegrps  # set the spreaders for the r0 simulation
         idx = findall((r0pop.agegrp .== i) .& (r0pop.status .== unexposed))
         for j = 1:age_relative[Int(i)]
-            p = idx[j]
-            r0pop.status[p] = infectious
-            r0pop.cond[p] = nil
-            r0pop.sickday[p] = 1
+            spr = idx[j]
+            r0pop.status[spr] = infectious
+            r0pop.cond[spr] = nil
+            r0pop.sickday[spr] = 1
         end
     end     
 

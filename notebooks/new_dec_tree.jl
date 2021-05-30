@@ -28,7 +28,7 @@ using JSON2
 using YAML
 
 # %%
-cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
+cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 
 # %% [markdown]
 # ### Current YAML Approach as of 4/28/2021

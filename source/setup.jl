@@ -71,13 +71,13 @@ function pop_data(pop; age_dist=age_dist, cols="all")
         parts = apportion(pop, age_dist)
         dat = Table(
             status = fill(unexposed, pop),    
-            agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
+            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
             cond = fill(notsick, pop),
             sickday = zeros(Int, pop),   
             recov_day = zeros(Int, pop),  
             dead_day = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
-            s_d_comply = fill(:none, pop),  
+            sdcomply = fill(:none, pop),  
             vax = zeros(Int, pop),   
             vax_day = zeros(Int, pop),  
             test = falses(pop),  

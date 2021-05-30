@@ -32,7 +32,7 @@ touch_factors:
   2:
     {unexposed: 0.63, recovered: 0.63, nil: 0.63, mild: 0.62, sick: 0.35, severe: 0.18}
   3:
-    {unexposed: 0.61, recovered: 0.61, nil: 0.61, mild: 0.58, sick: 0.3, severe: 0.18}
+    {unexposed: 0.61, recovered: 0.61, nil: 0.61, mild: 0.58, sick: 0.30, severe: 0.18}
   4:
     {unexposed: 0.41, recovered: 0.41, nil: 0.41, mild: 0.41, sick: 0.18, severe: 0.18}
   5:

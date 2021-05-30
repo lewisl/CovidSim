@@ -99,9 +99,6 @@ shifter(touch_factors, (.18, .3)...)[age40_59]
 dectree = alldict["dectree"] # the decision trees for all age groups are loaded
 
 # %%
-YAML.write(dectree)
-
-# %%
 typeof(dectree)
 
 # %% [markdown]
@@ -132,9 +129,6 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %% [markdown]
 # # Run a simulation
-
-# %%
-?spread!
 
 # %%
 result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6]);
@@ -189,7 +183,7 @@ cumplot(series, locale,[:infectious, :dead])
 
 # %%
 outdat = result_dict["dat"]["popdat"][locale]
-all(outdat.s_d_comply .== :none)
+all(outdat.sdcomply .== :none)
 
 # %% [markdown]
 # ## Social distancing only among those age40_59, age60_79, age80_plus
@@ -210,9 +204,9 @@ result_dict, series = run_a_sim(180, locale, showr0=false, silent=true,
 # %%
 olderdat = result_dict["dat"]["popdat"][locale]
 
-sd = findall(olderdat.s_d_comply .!= :none)
+sd = findall(olderdat.sdcomply .!= :none)
 
-@Select(agegrp, s_d_comply)(olderdat[sd])
+@Select(agegrp, sdcomply)(olderdat[sd])
 
 # %%
 cumplot(series, locale)
@@ -234,18 +228,18 @@ result_dict, series = run_a_sim(180, locale, showr0=false, silent=true,
 # %%
 mixdat = result_dict["dat"]["popdat"][locale]
 
-sd = findall(mixdat.s_d_comply .!= :none)
+sd = findall(mixdat.sdcomply .!= :none)
 young = findall((mixdat.agegrp .== age0_19) .| (mixdat.agegrp .== age20_39))
 sd_young_idx = intersect(sd, young)
 old = findall((mixdat.agegrp .== age40_59) .| (mixdat.agegrp .== age60_79) .| (mixdat.agegrp .== age80_up));
 
 # %%
 youngtab = Table(mixdat[young])
-count(youngtab.s_d_comply .== :none)
+count(youngtab.sdcomply .== :none)
 
 # %%
 oldtab = Table(mixdat[old])
-count(oldtab.s_d_comply .!= :none)
+count(oldtab.sdcomply .!= :none)
 
 # %%
 typeof(mixdat.agegrp)
@@ -257,7 +251,7 @@ mixdat = result_dict["dat"]["popdat"][locale]
 cumplot(series, locale, [:infectious, :dead])
 
 # %%
-@Select(status, agegrp, cond, s_d_comply)(ilmat)
+@Select(status, agegrp, cond, sdcomply)(ilmat)
 
 # %% [markdown]
 # alldict
@@ -275,10 +269,10 @@ include_ages = [age0_19, age20_39]
 union((ages[i] for i in include_ages)...)
 
 # %%
-ilmat.s_d_comply[collect(1:5:95000)] .= :test
+ilmat.sdcomply[collect(1:5:95000)] .= :test
 
 # %%
-incase_idx = findall(ilmat.s_d_comply .== :test)
+incase_idx = findall(ilmat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
