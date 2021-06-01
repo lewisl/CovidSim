@@ -133,8 +133,9 @@ end
 
 Returns true if the spreader infected the contact. 
 """
-@inline function isinfected(riskmx, spreadersickday, contactagegrp)::Bool
-    @inbounds @fastmath prob = riskmx[spreadersickday, Int(contactagegrp)]            # TODO also vaccinated people will have partially unsusceptible
+@inline function isinfected(spreadparams, spreadersickday, contactagegrp)::Bool
+    @inbounds @fastmath prob = (spreadparams.send_risk[spreadersickday] * 
+                        spreadparams.recv_risk[Int(contactagegrp)])            # TODO also vaccinated people will have partially unsusceptible
     return @inbounds @fastmath rand(Binomial(1, prob)) == 1
 end
 
@@ -149,10 +150,9 @@ previously unexposed people, by agegrp?  For a single locale...
     # retrieve params
     contact_factors = spreadparams.contact_factors
     touch_factors   = spreadparams.touch_factors
-    riskmx          = spreadparams.riskmx
     shape           = spreadparams.shape
 
-    # column aliases as vector v_
+    # column aliases as vector v_...
     v_cond     = locdat.cond
     v_status   = locdat.status
     v_agegrp   = locdat.agegrp
@@ -160,7 +160,7 @@ previously unexposed people, by agegrp?  For a single locale...
     v_sdcomply = locdat.sdcomply
 
     # assign contacts, do touches, do new infections
-    @inbounds @fastmath for spr in infect_idx      # p is the person who is the spreader
+    @inbounds @fastmath for spr in infect_idx      # spr is the person who is the spreader
 
         nc =    if v_sdcomply[spr] == :none
                     numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_factors)  # this method is faster
@@ -188,8 +188,8 @@ previously unexposed people, by agegrp?  For a single locale...
                             end
 
                 # infection outcome
-                if touched && (v_status[contact] == unexposed)    # TODO some recovered people will become susceptible again
-                    if isinfected(riskmx, v_sickday[spr], v_agegrp[contact])
+                if touched         # TODO some recovered people will become susceptible again
+                    if isinfected(spreadparams, v_sickday[spr], v_agegrp[contact])
                         v_cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                         v_status[contact] = infectious
                         v_sickday[contact] = 1

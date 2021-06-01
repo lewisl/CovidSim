@@ -132,31 +132,31 @@ end
 
 function build_spread_params(spfilename)
 
-    spread_params = YAML.load_file(spfilename)
+    spread_inputs = YAML.load_file(spfilename)
 
     required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors", "shape"]
     has_all = true
     missing = []
     for p in required_params
-        if !haskey(spread_params, p)
+        if !haskey(spread_inputs, p)
             push!(missing, p)
             has_all = false
         end
     end
     @assert has_all "required keys: $missing not in $(spfilename)"
 
-    send_risk = send_risk_by_recv_risk(spread_params["send_risk"], spread_params["recv_risk"])
+    send_risk = send_risk_by_recv_risk(spread_inputs["send_risk"], spread_inputs["recv_risk"])
 
     # named tuple doesn't result in type instability of Dict that requires "function barrier" to fix
     spreadparams = (
-        # send_risk          = spread_params[:send_risk]::Vector{Float64},
-        # recv_risk          = spread_params[:recv_risk]::Vector{Float64},
+        send_risk          = spread_inputs["send_risk"]::Vector{Float64},
+        recv_risk          = spread_inputs["recv_risk"]::Vector{Float64},
         contact_factors    = Dict(agegrp(Int(k1)) => 
-                                Dict(symcond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["contact_factors"]),
+                                Dict(symcond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["contact_factors"]),
         touch_factors      = Dict(agegrp(Int(k1)) => 
-                                Dict(symallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_params["touch_factors"]),
-        shape              = spread_params["shape"],
-        riskmx             = send_risk
+                                Dict(symallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["touch_factors"]),
+        shape              = spread_inputs["shape"],
+        # riskmx             = send_risk
         )
     
     return spreadparams

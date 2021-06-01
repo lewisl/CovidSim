@@ -29,11 +29,11 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 # %% [markdown]
 # # Test setup and population matrix
 
-# %%
+# %% tags=[]
 # set locale
 locale = 38015
 
-# %%
+# %% tags=[]
 alldict = setup(180, [locale])
 
 # %%
@@ -68,9 +68,6 @@ keys(spreadparams)
 
 # %%
 typeof(spreadparams.shape)
-
-# %%
-typeof(spreadparams.riskmx)
 
 # %%
 contact_factors = spreadparams.contact_factors

@@ -24,31 +24,39 @@ they move to recovered or dead.
 Works for a single locale.
 """
 @inline function transition!(locdat, infect_idx, dectree)
+    # aliases for trait columns
+    v_sickday = locdat.sickday
+    v_cond = locdat.cond
+    v_agegrp = locdat.agegrp
+    v_status = locdat.status
+    v_dead_day = locdat.dead_day
+    v_sickday = locdat.sickday
+    v_recov_day = locdat.recov_day
 
     for p in infect_idx  # p for person    
-        p_sickday = locdat.sickday[p]
-        p_cond = Int(locdat.cond[p])
-        p_agegrp = Int(locdat.agegrp[p])  # agegroup of person p = agegrp column of locale data, row p 
+        p_sickday = v_sickday[p]
+        p_cond = Int(v_cond[p])
+        p_agegrp = Int(v_agegrp[p])  # agegroup of person p = agegrp column of locale data, row p 
         if haskey(dectree[p_agegrp], p_sickday) && haskey(dectree[p_agegrp][p_sickday], p_cond)
             # change the person p's state--a transition
             node = dectree[p_agegrp][p_sickday][p_cond]
             choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
             tocond = node["outcomes"][choice]
             if tocond == Int(dead)  # change status, leave cond and sickday as last state before death or recovery                        
-                locdat.status[p] = dead  # change the status
-                locdat.dead_day[p] = day_ctr[:day]
-                locdat.cond[p] = notsick
+                v_status[p] = dead  # change the status
+                v_dead_day[p] = day_ctr[:day]
+                v_cond[p] = notsick
             elseif tocond == Int(recovered)
-                locdat.recov_day[p] = day_ctr[:day]
-                locdat.status[p] = recovered
-                locdat.cond[p] = notsick
+                v_recov_day[p] = day_ctr[:day]
+                v_status[p] = recovered
+                v_cond[p] = notsick
             else   # change disease condition
-                locdat.cond[p] = condition(tocond)   # change the condition = degree of sickness
-                locdat.sickday[p] += 1  
+                v_cond[p] = condition(tocond)   # change the condition = degree of sickness
+                v_sickday[p] += 1  
             end    
         else # just increment sickday: one more day feeling the same kind of sick
             # @assert p_tup.sickday < sickdaylim "Person made it to last day and was not removed:\n     $p_tup\n"
-            locdat.sickday[p] += 1
+            v_sickday[p] += 1
         end  # if haskey ... else
     end  # for p
 
