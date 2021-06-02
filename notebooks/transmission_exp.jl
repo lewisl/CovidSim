@@ -52,18 +52,21 @@ spread_inputs = YAML.load_file(spfilename)
 spr_day = 6; recv_age = 4
 
 # %%
-riskmx = spreadparams[:riskmx]
-
-# %%
 recvrisk = spread_inputs["recv_risk"]
 
 # %%
 sendrisk = spread_inputs["send_risk"]
 
 # %%
-@btime $riskmx[$spr_day, $recv_age]
+@btime $sendrisk[$spr_day] * $recvrisk[$recv_age]
 
 # %%
-@btime $sendrisk[$spr_day] * $recvrisk[$recv_age]
+Statcond = Union{status, condition}
+
+# %%
+foo = Array{Statcond, 1}
+
+# %%
+foo = [nil, dead]
 
 # %%

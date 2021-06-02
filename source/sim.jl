@@ -6,7 +6,7 @@
 
 function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, 
             geofilename="../data/geo2data.csv", 
-            dectreefilename="../parameters/dec_tree_all_25.yml",
+            dectreefilename="../parameters/new.yml",
             spfilename="../parameters/spread_params.yml")
 
     empty_all_caches!() # from previous runs

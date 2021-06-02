@@ -5,59 +5,50 @@
 #############################################################
 
 
+#=
+{                                           # the enclosing dict
+    { 1:                                    # each agegrp             
+        { 5:                                # transition day for an agegrp                      
+            { 5:                            # current condition on this transition day          
+                { probs: [0.4, 0.5, 0.1]    # probs and outcomes for the next transition    
+                    outcomes: [5, 6, 7]  
+                }         
+            }
+        }    
+    } 
+}    
+=#
+
 function setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
-    # next: change 2nd level keys from 2 item array{Int} [9, 5] to Tuple{Int, Int} (9,5)
-    trees = Dict(i => Dict(Tuple(k)=>trees[i][k] for k in keys(trees[i])) for i in keys(trees))
 
-    agegrp_nums = Int.(agegrps) # convert enum to Int values
+    newdict = (
+    Dict(agegrp(k1) =>         
+        Dict(k2 =>             
+            Dict(condition(k3) => 
+                Dict(Symbol(k4) => v4 for (k4, v4) in v3) 
+                                            for (k3, v3) in v2)
+                                                for (k2, v2) in v1)
+                                                    for (k1,v1) in trees)
+          )
 
-    # next: change the type of next node item from array{Int} [25, 8] to Tuple{Int, Int} (25, 8)
-    for agegrp in agegrp_nums
-        for (k,v) in trees[agegrp]
-           for item in v
-                item["next"] = Tuple(item["next"])
+
+
+    # Convert values in :outcomes to Enum condition or status
+    for (k1,v1) in newdict
+        for (k2,v2) in v1
+            for (k3,v3) in v2
+                for (k4, v4) in v3
+                    if k4 == :outcomes
+                        outs = [i > Int(dead) ? condition(i) : status(i)  for i in v4]
+                        newdict[k1][k2][k3][k4] = outs
+                    end
+                end
             end
         end
     end
 
-
-    # pre-calculate the array of probabilities for all branches at a node
-    # pre-calculate the array of outcome conditions ("tocond") for all branches at a node
-    # then we are done with the input branches: we don't use them during simulation
-
-    newdict = Dict()
-    for agegrp in agegrp_nums
-        newdict[agegrp] = Dict()
-        for node in keys(trees[agegrp])  # node is (sickday, fromcond)
-            sickday       = node[1]
-            fromcond  = node[2]
-                probs = [branch["pr"] for branch in trees[agegrp][node]]
-                outcomes = [branch["tocond"] for branch in trees[agegrp][node]]
-                # branches = [branch for branch in trees[agegrp][node]]
-            if haskey(newdict[agegrp], sickday)
-                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes,) # "branches"=>branches
-            else
-                newdict[agegrp][sickday]=Dict()
-                newdict[agegrp][sickday][fromcond] = Dict("probs"=>probs, "outcomes"=>outcomes,) # "branches"=>branches
-            end
-        end
-    end
-    newdict = Dict(i=>sort(newdict[i], rev=true) for i in agegrp_nums) 
-
-    sickdays_by_age = Dict{Int,Array{Int,1}}()  # empty
-    fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
-    for agegrp in agegrp_nums
-        sickdays_by_age[agegrp] = [k[1] for k in collect(keys(trees[agegrp]))]
-        fromconds_by_age[agegrp] = [k[2] for k in collect(keys(trees[agegrp]))]
-    end
-
-    decpoints = Dict{Int,Array{Int, 1}}()
-    for i in agegrp_nums
-        decpoints[i] = unique([k[1] for k in keys(trees[i])])
-    end
-
-    return Dict("dt"=>newdict, "decpoints"=>decpoints, "sickdays"=>sickdays_by_age, "fromconds"=>fromconds_by_age)
+    return newdict
 end
 
 
@@ -72,10 +63,10 @@ function display_tree(tree)
                 condtree = sickdaytree[fromcond]
                 println("        fromcond: ", fromcond, " =>")
                 print("            probs: => ")
-                println(condtree["probs"])
+                println(condtree[:probs])
                 #
                 print("            outcomes: => ")
-                println(condtree["outcomes"])
+                println(condtree[:outcomes])
                 #
                 # println("            branches: =>")
                 # for branch in keys(condtree["branches"])
@@ -87,38 +78,56 @@ function display_tree(tree)
 end
 
 
-# works for a single agegrp: 
-function walksequence(dt)
+function sanitycheck(dectree)
+    for i in agegrps
+        seqs = CovidSim_ilm.walksequence(dectree[i])
+        probs, allpr = CovidSim_ilm.verifyprobs(seqs)
+        println("for agegroup ", i)
+        for p in pairs(probs)
+            println("    ",p)
+        end
+        println("    Prob total: ",allpr)
+    end
+end
+
+
+"""
+Find all sequences of conditions by transition date and current condition through to new conditions
+for a single agegrp.
+"""
+function walksequence(dt_by_age)
     # find the top nodes
-    dt = sort(dt)
-    breakdays = collect(keys(dt))
+    dt_by_age = sort(dt_by_age)
+    breakdays = collect(keys(dt_by_age))
     k1 = first(breakdays)
     todo = [] # array of node sequences 
     done = [] # ditto
+
     # gather the outcomes at the first breakday for the starting conditions
     # no transition has happened yet: these are initial conditions
-    for fromcond in keys(dt[k1]) 
-        for fromcond in keys(dt[k1])
-            for i in 1:length(dt[k1][fromcond]["outcomes"])
-                outcome = dt[k1][fromcond]["outcomes"][i]
-                prob = dt[k1][fromcond]["probs"][i]
-                push!(todo, [(sickday=k1, fromcond=fromcond, tocond=outcome, prob=prob)])
-            end
+    for fromcond in keys(dt_by_age[k1])
+        for i in 1:length(dt_by_age[k1][fromcond][:outcomes])
+            outcome = dt_by_age[k1][fromcond][:outcomes][i]
+            prob = dt_by_age[k1][fromcond][:probs][i]
+            push!(todo, [(sickday=k1, fromcond=fromcond, tocond=outcome, prob=prob)])
         end
     end
+
 
     # build sequences from top to terminal states: recovered or dead
     while !isempty(todo)
         seq = popfirst!(todo)  
         lastnode = seq[end]
+        # @show lastnode
         breakday, fromcond, tocond = lastnode
+        # tocond = condition(tocond)
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in breakdays[nxtidx:end]
-            if tocond in keys(dt[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
-                for i in 1:length(dt[brk][tocond]["outcomes"])
-                    outcome = dt[brk][tocond]["outcomes"][i]
-                    prob = dt[brk][tocond]["probs"][i]
-                    if (outcome == Int(dead)) | (outcome == Int(recovered))  # terminal node reached--no more nodes to add
+            if tocond in keys(dt_by_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
+                for i in 1:length(dt_by_age[brk][tocond][:outcomes])
+                    outcome = dt_by_age[brk][tocond][:outcomes][i]
+                    prob = dt_by_age[brk][tocond][:probs][i]
+                    if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                         push!(done, vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)))
                     else  # not at a terminal outcome: still more nodes to add
                         push!(todo, vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob)))
@@ -140,7 +149,7 @@ function verifyprobs(seqs)
     for seq in seqs
         pr = mapreduce(x->getindex(x,:prob), *, seq)
         outcome = last(seq).tocond
-        ret[status(outcome)] += pr
+        ret[outcome] += pr
         allpr += pr
     end
     return ret, allpr

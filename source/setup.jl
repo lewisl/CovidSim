@@ -5,7 +5,7 @@
 
 function setup(n_days, locales;  # must provide following inputs
     geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/dec_tree_all_25.yml",
+    dectreefilename="../parameters/new.yml",
     spfilename="../parameters/spread_params.yml")
 
     # geodata
@@ -18,8 +18,7 @@ function setup(n_days, locales;  # must provide following inputs
         spreadparams = build_spread_params(spfilename)
 
     # transition decision trees     
-        dt_dict = setup_dt(dectreefilename)
-        dectree = dt_dict["dt"]
+        dectree = setup_dt(dectreefilename)
 
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()

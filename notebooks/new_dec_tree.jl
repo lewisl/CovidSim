@@ -24,64 +24,55 @@ using StatsBase
 using DelimitedFiles
 using Distributions
 using PrettyPrint
-using JSON2
+using JSON
 using YAML
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 
 # %% [markdown]
-# ### Current YAML Approach as of 4/28/2021
+# ## Use an input format closer to the intended output format
 
 # %%
-dectreefilename="../parameters/dec_tree_all_25.yml"
+newdtfname = "../parameters/new.yml"
 
 # %%
-dectree_dict = setup_dt(dectreefilename)
+newdt = YAML.load_file(newdtfname)
 
 # %%
-dectree = dectree_dict["dt"]
+newdt[1]
 
 # %%
-pprint(sort(dectree[5]))
+newdt[1][5]
+
+# %%
+trees = setup_dt(newdtfname)
 
 # %% tags=[]
-display_tree(dectree)
+display_tree(trees)
+
+# %%
+trees[age80_up]
+
+# %%
+trees[age80_up][5]
+
+# %%
+trees[age80_up][5][nil]
 
 # %% [markdown]
-# ## Experiments with YAML 
+# #### does it check out?
+
+# %% tags=[]
+seqs = CovidSim_ilm.walksequence(trees[age80_up])
 
 # %%
-newdectree_fname="../parameters/new.yml"
-
-# %%
-newtree = YAML.load_file(newdectree_fname)
-
-# %%
-newtree[5]
-
-# %%
-newtree[5][9]
-
-# %%
-newtree[5][9][5]
+CovidSim_ilm.verifyprobs(seqs)
 
 # %% [markdown]
 # ## Test and Re-write sanity check for transition phases
 
 # %%
-dt = sort(dectree[5])
-
-# %% tags=[]
-CovidSim_ilm.walksequence
-
-# %%
-for i = 1:5
-    done = CovidSim_ilm.walksequence(dectree[i])
-    probs,allpr = CovidSim_ilm.verifyprobs(done)
-    println("for agegroup ", i)
-    println(probs)
-    println(allpr)
-end
+CovidSim_ilm.sanitycheck(trees)
 
 # %%

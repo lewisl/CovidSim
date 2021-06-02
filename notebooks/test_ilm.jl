@@ -102,10 +102,10 @@ typeof(dectree)
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
 
 # %%
-dectree[5]
+dectree[age80_up]
 
 # %%
-typeof(dectree[5][25][7]["outcomes"])
+typeof(dectree[age80_up][25][sick][:outcomes])
 
 # %%
 function get_node(dectree, agegrp, sickday, fromcond)
@@ -113,10 +113,10 @@ function get_node(dectree, agegrp, sickday, fromcond)
 end
 
 # %%
-@time node = get_node(dectree, 5, 25, 7)
+@time node = get_node(dectree, age80_up, 25, sick)
 
 # %%
-@btime get_node(dectree, 5, 25, 7)["probs"]
+@btime get_node(dectree, age80_up, 25, sick)[:probs]
 
 # %% [markdown]
 # # Create a seed case
@@ -273,5 +273,3 @@ incase_idx = findall(ilmat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
-
-# %%
