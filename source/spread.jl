@@ -160,32 +160,25 @@ previously unexposed people, by agegrp?  For a single locale...
     v_sdcomply = locdat.sdcomply
 
     # assign contacts, do touches, do new infections
-    @inbounds @fastmath for spr in infect_idx      # spr is the person who is the spreader
+    @inbounds for spr in infect_idx      # spr is the person who is the spreader
 
-        nc =    if v_sdcomply[spr] == :none
-                    numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_factors)  # this method is faster
-                else
-                    numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], sdcases[v_sdcomply[spr]])
-                end
+        nc = if v_sdcomply[spr] == :none
+                numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_factors)  # this method is faster
+             else
+                numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], sdcases[v_sdcomply[spr]])
+             end
         
         # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
-            
-            contactlookup = if v_status[contact] == unexposed   # we are combining either a status or a condition value
-                                unexposed  # row 1
-                            elseif v_status[contact] == recovered
-                                recovered  # row 2
-                            else
-                                @assert v_cond[contact] != notsick "contactcond cannot be notsick"
-                                v_cond[contact]  
-                            end
-            
+                      # combine a status or a condition value        
+            contactlookup = v_status[contact] == infectious ?  v_cond[contact] : v_status[contact]  # unexposed or recovered
+                            
             if v_status[contact] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                touched =   if v_sdcomply[contact] == :none
-                                istouched(v_agegrp[contact], contactlookup, touch_factors)  # this method is faster
-                            else
-                                istouched(v_agegrp[contact], contactlookup, sdcases[v_sdcomply[contact]])
-                            end
+                touched = if v_sdcomply[contact] == :none
+                              istouched(v_agegrp[contact], contactlookup, touch_factors)  # this method is faster
+                          else
+                              istouched(v_agegrp[contact], contactlookup, sdcases[v_sdcomply[contact]])
+                          end
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again

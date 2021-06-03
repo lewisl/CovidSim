@@ -11,8 +11,6 @@
     # vaccination with 3 vaccines / 1 or 2 shots
     # extend to one year
     # clean up reports and notebooks to work with latest ilm model: get rid of some...
-    # should we change dectree keys to be enums? postpone...
-    # tree input--since the model already ignores tree nodes
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
         tricky because we only using contacts for outgoing contacts by spreaders.
@@ -186,7 +184,11 @@ export
     agegrps,
     n_agegrps,
     recv_risk,
-    totalcol
+    totalcol,
+    symtocond,
+    symtostat,
+    symtoage,
+    symtoallconds
 
 
 ###########################################################################
@@ -264,18 +266,53 @@ const allconds = vcat(infectious_cases, statuses)
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 
-# lookup table for condition enum values: don't need lookup for Int or Symbol
-#     just use Symbol(nil) and Int(nil)-->these are faster than any lookup
+#= 
+lookup tables for enum values: 
+- don't need lookup for Int or Symbol: just use Symbol(nil) and Int(nil)-->these are faster than any lookup
+- for symbol use symcond[:nil] => nil::condition = 5
+- for string use symcond[Symbol("nil")] => nil::condition = 5
+=#
 inst_c = instances(condition)
-const symcond = freeze(Dict(zip(Symbol.(inst_c), instances(condition))))
+
+
+"""
+    symtocond[cond::Symbol]
+Dict used as lookup table to convert symbol or string to enum value for a condition.
+
+Examples:
+- for symbol use symtocond[:nil] => nil::condition = 5
+- for string use symtocond[Symbol("nil")] => nil::condition = 5
+    
+"""
+const symtocond = freeze(Dict(zip(Symbol.(inst_c), inst_c)))
 
 # lookup table for status enum values
 inst_s = instances(status)
-const symstat = freeze(Dict(zip(Symbol.(inst_s), inst_s)))
+
+"""
+    symtostat[stat::Symbol]
+Dict used as lookup table to convert symbol or string to enum value for a status.
+
+Examples:
+- for symbol use symtostat[:infectious] => infectious::status = 2
+- for string use symtostat[Symbol("infectious")] => infectious::status = 2
+    
+"""
+const symtostat = freeze(Dict(zip(Symbol.(inst_s), inst_s)))
 
 # lookup table for agegrp
 inst_a = instances(agegrp)
-const symage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
+
+"""
+    symtoage[age::Symbol]
+Dict used as lookup table to convert symbol or string to enum value for an age.
+
+Examples:
+- for symbol use symtoage[:age0_19] => agegrp::age0_19 = 1
+- for string use symtoage[Symbol("age0_19")] => agegrp::age0_19 = 1
+    
+"""
+const symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
 
 # lookup table for combined status and condition
 const symallconds = merge(symstat, symcond)

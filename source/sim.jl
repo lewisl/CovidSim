@@ -42,7 +42,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
         inc!(day_ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", day_ctr[:day])
 
-        for loc in locales     # @inbounds
+        for loc in locales     
 
             silent || println("Simulation starting for location $loc")
             
@@ -52,8 +52,8 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             
             for case in runcases
-                case(loc, popdat, spreadparams, sdcases, ages)  
-            end
+                case(loc, popdat, spreadparams, sdcases, ages)  # TODO extend ages to be any filter for 
+            end                                                 # who participates in a given case
 
             idxtime += @elapsed begin
                 infect_idx = findall(locdat.status .== infectious)

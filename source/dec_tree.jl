@@ -30,9 +30,7 @@ function setup_dt(dtfilename)
                                             for (k3, v3) in v2)
                                                 for (k2, v2) in v1)
                                                     for (k1,v1) in trees)
-          )
-
-
+    )
 
     # Convert values in :outcomes to Enum condition or status
     for (k1,v1) in newdict
@@ -79,10 +77,10 @@ end
 
 
 function sanitycheck(dectree)
-    for i in agegrps
-        seqs = CovidSim_ilm.walksequence(dectree[i])
+    for age in agegrps
+        seqs = CovidSim_ilm.walksequence(dectree[age])
         probs, allpr = CovidSim_ilm.verifyprobs(seqs)
-        println("for agegroup ", i)
+        println("for agegroup ", age)
         for p in pairs(probs)
             println("    ",p)
         end
@@ -118,9 +116,7 @@ function walksequence(dt_by_age)
     while !isempty(todo)
         seq = popfirst!(todo)  
         lastnode = seq[end]
-        # @show lastnode
         breakday, fromcond, tocond = lastnode
-        # tocond = condition(tocond)
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in breakdays[nxtidx:end]
             if tocond in keys(dt_by_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond

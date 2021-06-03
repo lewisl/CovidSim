@@ -1,10 +1,10 @@
 1:                                  # agegrp::agegrp
-  5:                                # transition day::Int
-    5:                              # current condition::condition
-      probs: [0.4, 0.5, 0.1]        # probabilities::Float64
-      outcomes: [5, 6, 7]           # outcomes:: Union{condition, status}
-  9:
-    5:
+  5:                                  # transition day::Int
+    5:                                  # current condition::condition
+      probs: [0.4, 0.5, 0.1]              # probabilities::Float64
+      outcomes: [5, 6, 7]                 # outcomes:: Union{condition, status}
+  9:                                 # another transition day
+    5:                                 # first of 3 current conditions
       probs: [0.9, 0.1]
       outcomes: [3, 7]
     6:

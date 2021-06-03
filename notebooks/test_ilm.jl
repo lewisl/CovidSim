@@ -31,7 +31,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 
 # %% tags=[]
 # set locale
-locale = 38015
+locale = 39035
 
 # %% tags=[]
 alldict = setup(180, [locale])
@@ -43,7 +43,7 @@ alldict["dat"]
 ilmat = alldict["dat"]["popdat"][locale]
 
 # %%
-ages = alldict["dat"]["agegrp_idx"][38015]
+ages = alldict["dat"]["agegrp_idx"][locale]
 
 # %%
 columnnames(ilmat)
@@ -111,9 +111,6 @@ typeof(dectree[age80_up][25][sick][:outcomes])
 function get_node(dectree, agegrp, sickday, fromcond)
     dectree[agegrp][sickday][fromcond]
 end
-
-# %%
-@time node = get_node(dectree, age80_up, 25, sick)
 
 # %%
 @btime get_node(dectree, age80_up, 25, sick)[:probs]
@@ -257,7 +254,7 @@ cumplot(series, locale, [:infectious, :dead])
 alldict
 
 # %%
-ages = alldict["dat"]["agegrp_idx"][38015]
+ages = alldict["dat"]["agegrp_idx"][locale]
 
 # %%
 include_ages = [age0_19, age20_39]
@@ -273,3 +270,5 @@ incase_idx = findall(ilmat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
+
+# %%

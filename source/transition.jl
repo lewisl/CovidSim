@@ -59,7 +59,6 @@ Works for a single locale.
             v_sickday[p] += 1
         end  # if haskey ... else
     end  # for p
-
 end
 
 
