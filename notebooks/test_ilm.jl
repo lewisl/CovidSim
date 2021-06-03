@@ -31,7 +31,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 
 # %% tags=[]
 # set locale
-locale = 39035
+locale = 38015
 
 # %% tags=[]
 alldict = setup(180, [locale])

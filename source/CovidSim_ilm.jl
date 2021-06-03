@@ -315,7 +315,7 @@ Examples:
 const symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
 
 # lookup table for combined status and condition
-const symallconds = merge(symstat, symcond)
+const symtoallconds = merge(symtostat, symtocond)
 
 const totinfected       = 9
 const travelers         = 10

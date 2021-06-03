@@ -23,9 +23,9 @@ function setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
 
     newdict = (
-    Dict(agegrp(k1) =>         
+    Dict(symtoage[Symbol(k1)] =>         
         Dict(k2 =>             
-            Dict(condition(k3) => 
+            Dict(symtocond[Symbol(k3)] => 
                 Dict(Symbol(k4) => v4 for (k4, v4) in v3) 
                                             for (k3, v3) in v2)
                                                 for (k2, v2) in v1)
@@ -38,7 +38,7 @@ function setup_dt(dtfilename)
             for (k3,v3) in v2
                 for (k4, v4) in v3
                     if k4 == :outcomes
-                        outs = [i > Int(dead) ? condition(i) : status(i)  for i in v4]
+                        outs = [symtoallconds[Symbol(out)]  for out in v4]
                         newdict[k1][k2][k3][k4] = outs
                     end
                 end

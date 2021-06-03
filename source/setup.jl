@@ -151,9 +151,9 @@ function build_spread_params(spfilename)
         send_risk          = spread_inputs["send_risk"]::Vector{Float64},
         recv_risk          = spread_inputs["recv_risk"]::Vector{Float64},
         contact_factors    = Dict(agegrp(Int(k1)) => 
-                                Dict(symcond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["contact_factors"]),
+                                Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["contact_factors"]),
         touch_factors      = Dict(agegrp(Int(k1)) => 
-                                Dict(symallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["touch_factors"]),
+                                Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["touch_factors"]),
         shape              = spread_inputs["shape"],
         # riskmx             = send_risk
         )
