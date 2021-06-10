@@ -64,7 +64,7 @@ trees[age80_up][5][nil]
 # #### does it check out?
 
 # %% tags=[]
-seqs = CovidSim_ilm.walksequence(trees[age80_up])
+seqs = CovidSim_ilm.getseqs(trees[age80_up])
 
 # %%
 CovidSim_ilm.verifyprobs(seqs)

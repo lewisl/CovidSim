@@ -24,7 +24,8 @@ they move to recovered or dead.
 Works for a single locale.
 """
 @inline function transition!(locdat, infect_idx, dectree)
-    # aliases for trait columns
+    
+    # aliases for person attribute columns
     v_sickday = locdat.sickday
     v_cond = locdat.cond
     v_agegrp = locdat.agegrp
@@ -40,7 +41,7 @@ Works for a single locale.
         if haskey(dectree[p_agegrp], p_sickday) && haskey(dectree[p_agegrp][p_sickday], p_cond)
             # change the person p's state--a transition
             node = dectree[p_agegrp][p_sickday][p_cond]
-            choice = categorical_sim(node[:probs]) # rand(Categorical(node["probs"])) # which branch...?
+            choice = categorical_sim(node[:probs]) # which outcome...?
             tocond = node[:outcomes][choice]
             if tocond == dead  # change status, leave cond and sickday as last state before death or recovery                        
                 v_status[p] = dead  # change the status

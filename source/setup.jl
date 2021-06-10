@@ -69,6 +69,7 @@ function pop_data(pop; age_dist=age_dist, cols="all")
     if cols == "all"
         parts = apportion(pop, age_dist)
         dat = Table(
+            pid = collect(1:pop),  # ordinal persistent id for persons in matrix
             status = fill(unexposed, pop),    
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
             cond = fill(notsick, pop),

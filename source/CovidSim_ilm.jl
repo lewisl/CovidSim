@@ -122,11 +122,9 @@ export
 # functions for decision trees
 export                  
     setup_dt,
-    read_dectree_file,
-    create_node_dict,
     display_tree,
-    sanity_test,
-    get_the_probs
+    sanitycheck,
+    getseqs
 
 # functions for accessing data from Johns Hopkins
 export                 
@@ -233,8 +231,6 @@ const small = 4
 const smaller = 5
 const rural = 6
 
-# stats series/dataframe columns
-
 # enum values for condition, status and agegrp to use in popmatrix
 @enum condition begin
     notsick=0 
@@ -262,7 +258,7 @@ end
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
-const allconds = vcat(infectious_cases, statuses)
+const allconds = vcat(infectious_cases, statuses) # note excludes notsick::condition=0
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 
@@ -317,10 +313,12 @@ const symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regula
 # lookup table for combined status and condition
 const symtoallconds = merge(symtostat, symtocond)
 
+# other columns used only in series dataframes
 const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
+# stats series/dataframe columns
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)

@@ -15,13 +15,13 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
     alldict = setup(n_days, locales; geofilename=geofilename, 
                     dectreefilename=dectreefilename, spfilename=spfilename)
 
-        dectree = alldict["dectree"]  # decision trees for transition
-        popdat = alldict["dat"]["popdat"]   # first key locale
-        agegrp_idx = alldict["dat"]["agegrp_idx"]   # first key locale
-        cumhistmx = alldict["dat"]["cumhistmx"]   # first key locale
-        newhistmx = alldict["dat"]["newhistmx"]   # first key locale
-        geodf = alldict["geo"]
-        spreadparams = alldict["sp"]
+                    dectree = alldict["dectree"]  # decision trees for transition
+                    popdat = alldict["dat"]["popdat"]   # first key locale
+                    agegrp_idx = alldict["dat"]["agegrp_idx"]   # first key locale
+                    cumhistmx = alldict["dat"]["cumhistmx"]   # first key locale
+                    newhistmx = alldict["dat"]["newhistmx"]   # first key locale
+                    geodf = alldict["geo"]
+                    spreadparams = alldict["sp"]
 
     # start the day counter at zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -47,7 +47,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
             silent || println("Simulation starting for location $loc")
             
             locdat = popdat[loc]
-            ages = agegrp_idx[loc]
+            ages = agegrp_idx[loc]  # indices by agegrp
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
             
@@ -59,9 +59,9 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
                 infect_idx = findall(locdat.status .== infectious)
                 contactable_idx = findall(locdat.status .!= dead)
             end
-            sprtime += @elapsed  spread!(locdat, infect_idx, contactable_idx, sdcases, 
-                spreadparams, density_factor)  # sptime += @elapsed 
-            trtime += @elapsed  transition!(locdat, infect_idx, dectree)                       # trtime += @elapsed 
+
+            sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)   
+            trtime += @elapsed transition!(locdat, infect_idx, dectree)                        
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -109,34 +109,36 @@ end
         # cumulative data
         #
         @inbounds for age in instances(agegrp)
+            int_age = Int(age)
             # get the source data: status
             dat_age = dat[agegrp_idx[loc][age]]
-            status_today = countsarr(dat_age.status, statuses)    # outcomes for thisday
+            status_today = countsarr(dat_age.status, statuses)    # cumulative position for thisday
 
             # get the source data: conditions in (nil, mild, sick, severe)
             filt_infectious = findall(dat_age.status .== infectious)
-            if size(filt_infectious, 1) > 0
+            if length(filt_infectious) > 0
                 sick_today = countsarr(dat_age.cond[filt_infectious], infectious_cases)  # ditto
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
 
             # insert into sink: cum
-            for i in Int.(instances(status))  # 1:4
-                cumdat[thisday, map2series[i][Int(age)]] = get(status_today, i, 0)
+            for i in Int.(inst_s)  # 1:4
+                cumdat[thisday, map2series[i][int_age]] = get(status_today, i, 0)
             end
 
             for i in Int.(infectious_cases) # 5:8
-                cumdat[thisday, map2series[i][Int(age)]] = get(sick_today, i, 0)
+                cumdat[thisday, map2series[i][int_age]] = get(sick_today, i, 0)
             end
 
+            # insert into sink: new
             for i in Int.(allconds)
                 if thisday == 1
-                    newdat[thisday, map2series[i][Int(age)]] = get(status_today, i, 0)
+                    newdat[thisday, map2series[i][int_age]] = get(status_today, i, 0)
                 else  # on all other days
-                    newdat[thisday, map2series[i][Int(age)]] = (
-                        cumdat[thisday, map2series[i][Int(age)]] 
-                        - cumdat[thisday - 1, map2series[i][Int(age)]]
+                    newdat[thisday, map2series[i][int_age]] = (
+                        cumdat[thisday, map2series[i][int_age]] 
+                        - cumdat[thisday - 1, map2series[i][int_age]]
                         )         
                 end
             end
@@ -148,10 +150,13 @@ end # function
 
 
 """
-    Count how many times each value of input array is found in an array
-    of comparison values.
-    Slightly faster than StatsBase: counts (2x) or countmap (4x).
-    Requires integer values in a continuous range.
+    countsarr(arr, compare_vals)
+
+Count how many times each value of input array, arr, is found in an array
+of comparison values, compare_vals.
+Faster than StatsBase: counts (2x) or countmap (10x).
+
+**Limitation:** compare_vals must be integer values in a continuous range.
 """
 function countsarr(arr, compare_vals)
     vals_range = minimum(Int.(compare_vals)):maximum(Int.(compare_vals))
@@ -163,6 +168,21 @@ function countsarr(arr, compare_vals)
     return ret
 end
 
+
+function countmapper(arr, compare_vals)
+    # ret = zeros(Int, length(compare_vals))
+    # compare_dict = Dict(compare_vals[i] => i for i in 1:length(compare_vals))
+    ret = Dict{eltype(arr), Int}()
+    for k in compare_vals
+        ret[k] = 0
+    end
+
+    for i in 1:length(arr)
+        # ret[compare_dict[i]] += 1
+        ret[arr[i]] += 1
+    end
+    return ret
+end
 
 function hist_total_agegrps!(series, locales)
     for loc in locales

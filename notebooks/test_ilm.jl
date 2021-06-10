@@ -30,11 +30,12 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 # # Test setup and population matrix
 
 # %% tags=[]
-# set locale
+# set locale and number of days
 locale = 38015
+ndays = 360
 
 # %% tags=[]
-alldict = setup(180, [locale])
+alldict = setup(ndays, [locale])
 
 # %%
 alldict["dat"]
@@ -125,7 +126,7 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6]);
+result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, runcases=[seed_1_6]);
 
 # %%
 result_dict
@@ -164,7 +165,7 @@ sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, 
 sd1_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, include_ages=[])
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
+result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
 
 # %%
 virus_outcome(series, locale, base=:pop)
@@ -191,7 +192,7 @@ sdolder_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:
     include_ages=[age40_59, age60_79, age80_up])    
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
+result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, 
     runcases=[seed_1_6, sdolder, sdolder_end]);
 
 
@@ -216,7 +217,7 @@ sdyoung_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:
     include_ages=[age0_19, age20_39])    
 
 # %%
-result_dict, series = run_a_sim(180, locale, showr0=false, silent=true, 
+result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, 
     runcases=[seed_1_6, sd1, sdyoung_end]);
 
 # %%
@@ -270,5 +271,7 @@ incase_idx = findall(ilmat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
+
+# %%
 
 # %%

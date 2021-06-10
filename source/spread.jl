@@ -136,12 +136,14 @@ Returns true if the spreader infected the contact.
 @inline function isinfected(spreadparams, spreadersickday, contactagegrp)::Bool
     @inbounds @fastmath prob = (spreadparams.send_risk[spreadersickday] * 
                         spreadparams.recv_risk[Int(contactagegrp)])            # TODO also vaccinated people will have partially unsusceptible
-    return @inbounds @fastmath rand(Binomial(1, prob)) == 1
+    return @fastmath rand(Binomial(1, prob)) == 1
 end
 
 """
-How far do the infectious people spread the virus to
-previously unexposed people, by agegrp?  For a single locale...
+    spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
+
+Infectious people spread the virus to susceptible people for a single locale. Changes attribute
+columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
 

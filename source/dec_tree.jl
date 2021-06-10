@@ -78,8 +78,8 @@ end
 
 function sanitycheck(dectree)
     for age in agegrps
-        seqs = CovidSim_ilm.walksequence(dectree[age])
-        probs, allpr = CovidSim_ilm.verifyprobs(seqs)
+        seqs = getseqs(dectree[age])
+        probs, allpr = verifyprobs(seqs)
         println("for agegroup ", age)
         for p in pairs(probs)
             println("    ",p)
@@ -93,7 +93,7 @@ end
 Find all sequences of conditions by transition date and current condition through to new conditions
 for a single agegrp.
 """
-function walksequence(dt_by_age)
+function getseqs(dt_by_age)
     # find the top nodes
     dt_by_age = sort(dt_by_age)
     breakdays = collect(keys(dt_by_age))
