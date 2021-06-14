@@ -5,7 +5,7 @@
 
 function setup(n_days, locales;  # must provide following inputs
     geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/new.yml",
+    dectreefilename="../parameters/transition.yml",
     spfilename="../parameters/spread_params.yml")
 
     # geodata
@@ -151,9 +151,9 @@ function build_spread_params(spfilename)
     spreadparams = (
         send_risk          = spread_inputs["send_risk"]::Vector{Float64},
         recv_risk          = spread_inputs["recv_risk"]::Vector{Float64},
-        contact_factors    = Dict(agegrp(Int(k1)) => 
+        contact_factors    = Dict(symtoage[Symbol(k1)] => 
                                 Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["contact_factors"]),
-        touch_factors      = Dict(agegrp(Int(k1)) => 
+        touch_factors      = Dict(symtoage[Symbol(k1)] => 
                                 Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["touch_factors"]),
         shape              = spread_inputs["shape"],
         # riskmx             = send_risk

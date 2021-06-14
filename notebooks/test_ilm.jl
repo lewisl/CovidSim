@@ -32,7 +32,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 # %% tags=[]
 # set locale and number of days
 locale = 38015
-ndays = 360
+ndays = 180
 
 # %% tags=[]
 alldict = setup(ndays, [locale])
@@ -98,6 +98,9 @@ dectree = alldict["dectree"] # the decision trees for all age groups are loaded
 
 # %%
 typeof(dectree)
+
+# %% tags=[]
+display_tree(dectree)
 
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}

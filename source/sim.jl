@@ -6,7 +6,7 @@
 
 function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, 
             geofilename="../data/geo2data.csv", 
-            dectreefilename="../parameters/new.yml",
+            dectreefilename="../parameters/transition.yml",
             spfilename="../parameters/spread_params.yml")
 
     empty_all_caches!() # from previous runs
@@ -60,6 +60,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
                 contactable_idx = findall(locdat.status .!= dead)
             end
 
+            # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)   
             trtime += @elapsed transition!(locdat, infect_idx, dectree)                        
 

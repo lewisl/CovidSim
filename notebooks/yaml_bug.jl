@@ -21,7 +21,7 @@ using PrettyPrint
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid/ilm-src"))
 
 # %%
-newdectree_fname="../parameters/new.yml"
+newdectree_fname="../parameters/transition.yml"
 
 # %%
 newtree = YAML.load_file(newdectree_fname)

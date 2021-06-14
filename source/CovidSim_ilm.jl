@@ -66,21 +66,27 @@ export
     setup,              
     run_a_sim,
     day_ctr,
-    seed!,
-    transition!,
-    spread!,
-    how_many_contacts!,
-    how_many_touched,
-    how_many_infected,
     isolate!,
     unisolate!,
     grab,
     input!,
     plus!,
     minus!,
-    sumit,
     r0_sim,
     set_by_level
+
+# functions for spreading
+export
+    spread!,
+    seed!,
+    numcontacts,
+    istouched,
+    isinfected
+
+# functions for transition
+export
+    transition!,
+    dotransition!
 
 # functions for cases
 export
@@ -268,9 +274,10 @@ lookup tables for enum values:
 - for symbol use symcond[:nil] => nil::condition = 5
 - for string use symcond[Symbol("nil")] => nil::condition = 5
 =#
+
+
+
 inst_c = instances(condition)
-
-
 """
     symtocond[cond::Symbol]
 Dict used as lookup table to convert symbol or string to enum value for a condition.
@@ -284,7 +291,6 @@ const symtocond = freeze(Dict(zip(Symbol.(inst_c), inst_c)))
 
 # lookup table for status enum values
 inst_s = instances(status)
-
 """
     symtostat[stat::Symbol]
 Dict used as lookup table to convert symbol or string to enum value for a status.

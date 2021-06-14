@@ -34,7 +34,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 # ## Use an input format closer to the intended output format
 
 # %%
-newdtfname = "../parameters/new.yml"
+newdtfname = "../parameters/transition.yml"
 
 # %%
 newdt = YAML.load_file(newdtfname)

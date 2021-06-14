@@ -17,6 +17,7 @@
 # str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
 
 Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword arguments in constructor
+    name::Symbol
     day::Int
     cfdelta::Tuple{Float64,Float64}  
     tfdelta::Tuple{Float64,Float64}  
@@ -46,6 +47,7 @@ end
 
         # create the Spreadcase in sdcases
         sdcases[name] = Spreadcase(
+                        name    = name,   # TODO  if we never use this get rid of it
                         day     = startday,   
                         cfdelta = cf,         
                         tfdelta = tf,         
@@ -95,17 +97,21 @@ end
 
 """
     numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int
-    numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
 
-Returns the number of contacts that someone spreading the disease will make on a day. The second
-method modifies the outcome for the spreading case (social distancing) applicable to a specific
-spreader.
+Returns the number of contacts that someone spreading the disease will make on a day. This
+method uses the default contact_factors for the current spreader.
 """
 @inline function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
     @inbounds @fastmath scale = density_factor * contact_factors[agegrp][cond]
     @fastmath round(Int,rand(Gamma(shape, scale)))
 end
 
+"""
+    numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
+
+Returns the number of contacts that someone spreading the disease will make on a day. This 
+method uses the spreadcase applicable to the current spreader.
+"""
 @inline function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
     @inbounds @fastmath scale = density_factor * acase.cfcase[agegrp][cond]  
     @fastmath round(Int,rand(Gamma(shape, scale)))
@@ -114,15 +120,21 @@ end
 
 """
     function istouched(agegrp, lookup, touch_factors)::Bool
-    function istouched(agegrp, lookup, acase::Spreadcase)::Bool
 
 Returns true if the contact made was significant to the recipient or false if not.
-The second method modifies the outcome for the spreading case of the recipient.
+This method uses the default touch_factors for the current recipient.
 """
 @inline function istouched(agegrp, lookup, touch_factors)::Bool
     return @inbounds @fastmath rand(Binomial(1, touch_factors[agegrp][lookup])) == 1
 end
 
+
+"""
+    function istouched(agegrp, lookup, acase::Spreadcase)::Bool
+
+Returns true if the contact made was significant to the recipient or false if not.
+This method uses the spreadcase for the recipient.
+"""
 @inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
     return @inbounds @fastmath rand(Binomial(1, acase.tfcase[agegrp][lookup])) == 1
 end
@@ -138,6 +150,7 @@ Returns true if the spreader infected the contact.
                         spreadparams.recv_risk[Int(contactagegrp)])            # TODO also vaccinated people will have partially unsusceptible
     return @fastmath rand(Binomial(1, prob)) == 1
 end
+
 
 """
     spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
@@ -163,12 +176,8 @@ columns in the population table. Runs social distancing cases.
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
-
-        nc = if v_sdcomply[spr] == :none
-                numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_factors)  # this method is faster
-             else
-                numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], sdcases[v_sdcomply[spr]])
-             end
+        contact_param = v_sdcomply[spr] == :none ? contact_factors : sdcases[v_sdcomply[spr]]
+        nc = numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_param)  
         
         # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
@@ -176,11 +185,8 @@ columns in the population table. Runs social distancing cases.
             contactlookup = v_status[contact] == infectious ?  v_cond[contact] : v_status[contact]  # unexposed or recovered
                             
             if v_status[contact] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                touched = if v_sdcomply[contact] == :none
-                              istouched(v_agegrp[contact], contactlookup, touch_factors)  # this method is faster
-                          else
-                              istouched(v_agegrp[contact], contactlookup, sdcases[v_sdcomply[contact]])
-                          end
+                touch_param = v_sdcomply[contact] == :none ? touch_factors : sdcases[v_sdcomply[contact]]
+                touched = istouched(v_agegrp[contact], contactlookup, touch_param)  
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again
